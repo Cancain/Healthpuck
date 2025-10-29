@@ -1,15 +1,15 @@
 {
   "files": {
-    "main.css": "/Healthpack/static/css/main.baa78976.css",
-    "main.js": "/Healthpack/static/js/main.e15fc1d8.js",
-    "static/js/453.f0787982.chunk.js": "/Healthpack/static/js/453.f0787982.chunk.js",
-    "index.html": "/Healthpack/index.html",
-    "main.baa78976.css.map": "/Healthpack/static/css/main.baa78976.css.map",
-    "main.e15fc1d8.js.map": "/Healthpack/static/js/main.e15fc1d8.js.map",
-    "453.f0787982.chunk.js.map": "/Healthpack/static/js/453.f0787982.chunk.js.map"
+    "main.css": "/Healthpuck/static/css/main.baa78976.css",
+    "main.js": "/Healthpuck/static/js/main.ccd918e0.js",
+    "static/js/453.f0787982.chunk.js": "/Healthpuck/static/js/453.f0787982.chunk.js",
+    "index.html": "/Healthpuck/index.html",
+    "main.baa78976.css.map": "/Healthpuck/static/css/main.baa78976.css.map",
+    "main.ccd918e0.js.map": "/Healthpuck/static/js/main.ccd918e0.js.map",
+    "453.f0787982.chunk.js.map": "/Healthpuck/static/js/453.f0787982.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.baa78976.css",
-    "static/js/main.e15fc1d8.js"
+    "static/js/main.ccd918e0.js"
   ]
 }
