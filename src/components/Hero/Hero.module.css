@@ -1,0 +1,48 @@
+.hero {
+  width: 100%;
+  max-width: 100%;
+  min-height: 60vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 4rem 2rem;
+  box-sizing: border-box;
+}
+
+.heroContent {
+  max-width: 1200px;
+  width: 100%;
+  text-align: center;
+}
+
+.heroTitle {
+  font-size: 3rem;
+  font-weight: 700;
+  margin: 0 0 1rem 0;
+  line-height: 1.2;
+}
+
+.heroSubtitle {
+  font-size: 1.5rem;
+  margin: 0;
+  opacity: 0.9;
+  font-weight: 300;
+}
+
+@media (max-width: 768px) {
+  .hero {
+    min-height: 50vh;
+    padding: 2rem 1rem;
+  }
+
+  .heroTitle {
+    font-size: 2rem;
+  }
+
+  .heroSubtitle {
+    font-size: 1.25rem;
+  }
+}
+

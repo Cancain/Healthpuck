@@ -10,3 +10,10 @@ build
 .env.development.local
 .env.test.local
 .env.production.local
+
+# Backend
+backend/.env
+backend/database.db
+backend/database.db-journal
+backend/dist
+backend/src/db/migrations
