@@ -4,3 +4,5 @@ dist
 coverage
 public
 **/*.css
+backend/src/routes/auth.ts
+backend/src/middleware/auth.ts

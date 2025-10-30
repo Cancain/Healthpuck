@@ -1,0 +1,55 @@
+.container {
+  max-width: 420px;
+  margin: 2rem auto;
+  padding: 1.5rem;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+}
+
+.title {
+  margin: 0 0 1rem 0;
+  font-size: 1.5rem;
+}
+
+.success {
+  background: #e7f8ee;
+  color: #1a7f43;
+  border: 1px solid #b9eccf;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.error {
+  background: #fdecea;
+  color: #b42318;
+  border: 1px solid #f5c2c0;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.form {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.field label {
+  font-weight: 500;
+}
+
+.field input {
+  padding: 0.625rem 0.75rem;
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+}
+
+.actions {
+  margin-top: 0.5rem;
+}

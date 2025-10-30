@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 
 import Button from "../Button/Button";
 import styles from "./Header.module.css";
+import { useAuth } from "../../auth/AuthContext";
 
 interface HeaderProps {
   onLoginClick?: () => void;
@@ -11,6 +12,7 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({ onLoginClick, onGetStartedClick }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const { user, logout } = useAuth();
 
   const handleMenuToggle = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -24,6 +26,11 @@ const Header: React.FC<HeaderProps> = ({ onLoginClick, onGetStartedClick }) => {
   const handleGetStartedClick = () => {
     setIsMenuOpen(false);
     onGetStartedClick?.();
+  };
+
+  const handleLogoutClick = async () => {
+    setIsMenuOpen(false);
+    await logout();
   };
 
   useEffect(() => {
@@ -51,12 +58,25 @@ const Header: React.FC<HeaderProps> = ({ onLoginClick, onGetStartedClick }) => {
         </div>
         <nav className={styles.navigation} ref={menuRef}>
           <div className={styles.desktopButtons}>
-            <Button variant="secondary" onClick={onLoginClick}>
-              Logga in
-            </Button>
-            <Button variant="primary" onClick={onGetStartedClick}>
-              Skaffa nu!
-            </Button>
+            {user ? (
+              <>
+                <Button variant="secondary" onClick={handleLogoutClick}>
+                  Logga ut
+                </Button>
+                <Button variant="primary" onClick={onGetStartedClick}>
+                  Skaffa nu!
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="secondary" onClick={onLoginClick}>
+                  Logga in
+                </Button>
+                <Button variant="primary" onClick={onGetStartedClick}>
+                  Skaffa nu!
+                </Button>
+              </>
+            )}
           </div>
           <button
             className={styles.hamburger}
@@ -70,12 +90,25 @@ const Header: React.FC<HeaderProps> = ({ onLoginClick, onGetStartedClick }) => {
           </button>
           {isMenuOpen && (
             <div className={styles.dropdown}>
-              <Button variant="secondary" onClick={handleLoginClick}>
-                Logga in
-              </Button>
-              <Button variant="primary" onClick={handleGetStartedClick}>
-                Skaffa nu!
-              </Button>
+              {user ? (
+                <>
+                  <Button variant="secondary" onClick={handleLogoutClick}>
+                    Logga ut
+                  </Button>
+                  <Button variant="primary" onClick={handleGetStartedClick}>
+                    Skaffa nu!
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button variant="secondary" onClick={handleLoginClick}>
+                    Logga in
+                  </Button>
+                  <Button variant="primary" onClick={handleGetStartedClick}>
+                    Skaffa nu!
+                  </Button>
+                </>
+              )}
             </div>
           )}
         </nav>
