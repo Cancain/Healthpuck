@@ -1,4 +1,5 @@
-import { migrate } from "drizzle-orm/better-sqlite3/migrator";
+import { migrate } from "drizzle-orm/bun-sqlite/migrator";
+
 import { db } from "./index";
 
 async function runMigrations() {

@@ -1,10 +1,21 @@
 import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import dotenvSafe from "dotenv-safe";
+import fs from "fs";
+import path from "path";
+
 import { initializeDatabase } from "./db";
 import userRoutes from "./routes/users";
 
-dotenv.config();
+// Prefer dotenv-safe when an example file exists to validate required env vars.
+// Fallback to plain dotenv if the example file is not present.
+const examplePath = path.resolve(process.cwd(), ".env.example");
+if (fs.existsSync(examplePath)) {
+  dotenvSafe.config();
+} else {
+  dotenv.config();
+}
 
 const app = express();
 const PORT = process.env.PORT || 3001;

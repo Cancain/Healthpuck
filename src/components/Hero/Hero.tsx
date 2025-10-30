@@ -1,4 +1,3 @@
-import React from "react";
 import styles from "./Hero.module.css";
 
 const Hero: React.FC = () => {
@@ -6,9 +5,7 @@ const Hero: React.FC = () => {
     <section className={styles.hero}>
       <div className={styles.heroContent}>
         <h2 className={styles.heroTitle}>Välkommen till Healthpuck</h2>
-        <p className={styles.heroSubtitle}>
-          Din hälsopartner för ett bättre liv
-        </p>
+        <p className={styles.heroSubtitle}>Din hälsopartner för ett bättre liv</p>
       </div>
     </section>
   );
