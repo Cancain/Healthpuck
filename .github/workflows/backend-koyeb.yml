@@ -58,7 +58,7 @@ jobs:
           TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
         run: |
           if [ -n "${DATABASE_URL}" ] && [ -n "${TURSO_AUTH_TOKEN}" ]; then
-            node dist/db/migrate.js
+            bunx drizzle-kit push
           else
             echo "Skipping DB migrations: DATABASE_URL or TURSO_AUTH_TOKEN not set."
           fi
