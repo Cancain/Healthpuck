@@ -6,6 +6,7 @@ on:
     paths:
       - "backend/**"
       - ".github/workflows/backend-koyeb.yml"
+  workflow_dispatch: {}
 
 jobs:
   deploy:
@@ -30,28 +31,37 @@ jobs:
           context: ./backend
           file: ./backend/Dockerfile
           push: true
-          tags: ghcr.io/${{ github.repository }}-backend:latest
+          tags: ghcr.io/cancain/healthpuck-backend:latest
 
       - name: Use Node 20
         uses: actions/setup-node@v4
         with:
           node-version: "20"
 
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: "1.3.1"
+
       - name: Install backend deps (for migrate)
         working-directory: backend
-        run: npm ci
+        run: bun install --ci
 
       - name: Build backend (for migrate script)
         working-directory: backend
-        run: npm run build
+        run: bun run build
 
       - name: Run Drizzle migrations (Turso)
-        if: ${{ secrets.DATABASE_URL != '' && secrets.TURSO_AUTH_TOKEN != '' }}
         working-directory: backend
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
-        run: node dist/db/migrate.js
+        run: |
+          if [ -n "${DATABASE_URL}" ] && [ -n "${TURSO_AUTH_TOKEN}" ]; then
+            node dist/db/migrate.js
+          else
+            echo "Skipping DB migrations: DATABASE_URL or TURSO_AUTH_TOKEN not set."
+          fi
 
       - name: Deploy to Koyeb
         env:
@@ -71,7 +81,7 @@ jobs:
               "type": "container",
               "image": {
                 "source": {
-                  "registry": { "image": "ghcr.io/${{ github.repository }}-backend:latest" }
+                  "registry": { "image": "ghcr.io/cancain/healthpuck-backend:latest" }
                 }
               },
               "ports": [{ "port": 3001, "protocol": "HTTP" }],

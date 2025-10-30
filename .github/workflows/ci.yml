@@ -44,9 +44,13 @@ jobs:
         run: bun run build
 
       - name: Run DB migrations (Drizzle -> Turso)
-        if: ${{ secrets.DATABASE_URL != '' && secrets.TURSO_AUTH_TOKEN != '' }}
         working-directory: backend
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
-        run: bunx drizzle-kit push
+        run: |
+          if [ -n "${DATABASE_URL}" ] && [ -n "${TURSO_AUTH_TOKEN}" ]; then
+            bunx drizzle-kit push
+          else
+            echo "Skipping DB migrations: DATABASE_URL or TURSO_AUTH_TOKEN not set."
+          fi
