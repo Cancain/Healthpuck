@@ -1,72 +1,99 @@
 # Healthpack Backend
 
-Express.js backend API with SQLite database using Drizzle ORM.
+Express.js API using Drizzle ORM with libSQL (Turso-compatible). Bun for runtime and tooling.
 
-## Setup
+## Quick start (local dev)
 
-1. Install dependencies:
+1. Start a local libSQL server
+
 ```bash
-npm install
+turso dev
+# Note the URL it prints, e.g. http://127.0.0.1:8080
 ```
 
-2. Create a `.env` file (copy from `.env.example` if needed):
-```
-PORT=3001
-DATABASE_PATH=./database.db
-NODE_ENV=development
+2. Create `backend/.env`
+
+```env
+APP_ENV=development
+DATABASE_URL=http://127.0.0.1:8080
+CORS_ORIGIN=http://localhost:3000
+JWT_SECRET=<run `openssl rand -base64 32` and paste>
+JWT_EXPIRES_IN=7d
 ```
 
-3. Run migrations:
+3. Install deps (repo root already uses Bun)
+
 ```bash
-npm run db:migrate
+bun install
+cd backend && bun install
 ```
 
-## Scripts
+4. Run migrations and start the API
 
-- `npm run dev` - Start development server with hot reload
-- `npm run build` - Build TypeScript to JavaScript
-- `npm start` - Start production server
-- `npm run db:generate` - Generate database migrations
-- `npm run db:migrate` - Run database migrations
-- `npm run db:studio` - Open Drizzle Studio (database GUI)
+```bash
+cd backend
+bun run db:migrate
+bun run dev
+# → http://localhost:3001
+```
 
-## API Endpoints
+Frontend should use `credentials: "include"` for auth calls.
 
-### Health Check
-- `GET /health` - Server health check
+## Environment variables
 
-### Users
-- `POST /api/users` - Register a new user
-  - Body: `{ email: string, name: string, password: string }`
-  - Returns: Created user (password excluded)
-  
-- `GET /api/users/:id` - Get user by ID
-  - Returns: User object (password excluded)
+Required (dev & prod):
 
-## Database
+- `APP_ENV` = development | production
+- `DATABASE_URL` = libsql URL (local dev: http://127.0.0.1:8080; Turso: libsql://<db>.turso.io)
+- `CORS_ORIGIN` = exact frontend origin (e.g., http://localhost:3000 or your GitHub Pages domain)
+- `JWT_SECRET` = random string used to sign session cookies
+- `JWT_EXPIRES_IN` = e.g., 7d
 
-The database is SQLite and will be created automatically in the backend directory as `database.db`.
+Notes:
 
-### Schema
+- In production, cookies are set with `SameSite=None; Secure=true`.
+- In development, cookies use `SameSite=Lax; Secure=false`.
 
-**users** table:
-- `id` - Integer primary key (auto-increment)
-- `email` - Text (unique, not null)
-- `name` - Text (not null)
-- `password` - Text (hashed with Argon2, not null)
-- `createdAt` - Timestamp
-- `updatedAt` - Timestamp
+## Scripts (backend)
 
-## Adding New Tables
+- `bun run dev` – start dev server (hot reload)
+- `bun run build` – compile TS → dist
+- `bun start` – run compiled server (`node dist/index.js`)
+- `bun run db:migrate` – run migrations (auto-loads `backend/.env`)
+- `bun run db:generate` – generate migrations (via drizzle-kit)
 
-1. Add schema to `src/db/schema.ts`
-2. Generate migration: `npm run db:generate`
-3. Run migration: `npm run db:migrate`
+## Deploying
 
-## Development
+### Turso (managed libSQL)
 
-The server runs on `http://localhost:3001` by default.
+1. Create a DB and a token. Save:
+   - `DATABASE_URL=libsql://<your-db>.turso.io`
+   - `TURSO_AUTH_TOKEN=<token>`
+2. Run migrations from CI or locally:
 
-Make sure CORS is configured properly if calling from the frontend on a different port.
+```bash
+DATABASE_URL=... TURSO_AUTH_TOKEN=... bun run db:migrate
+```
 
+### Heroku (API)
 
+1. Set Config Vars:
+   - `APP_ENV=production`
+   - `DATABASE_URL` (Turso URL)
+   - `TURSO_AUTH_TOKEN`
+   - `JWT_SECRET`, `JWT_EXPIRES_IN`
+   - `CORS_ORIGIN` (your frontend domain)
+2. Ensure Procfile exists (it does): `web: node dist/index.js`
+3. Build on deploy (Heroku will run `bun run build` or your buildpack’s build).
+
+### CI (GitHub Actions)
+
+- The workflow includes a step to run Drizzle migrations if `DATABASE_URL` and `TURSO_AUTH_TOKEN` secrets are present.
+
+## API Endpoints (summary)
+
+- `GET /health` – health check
+- `POST /api/users` – register user `{ email, name, password }`
+- `POST /api/auth/login` – sets httpOnly cookie `hp_token`
+- `GET /api/auth/me` – returns current user if authenticated
+- `POST /api/auth/logout` – clears cookie

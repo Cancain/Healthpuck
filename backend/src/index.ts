@@ -28,7 +28,6 @@ const allowedOrigins = CORS_ORIGIN.split(",")
 
 initializeDatabase();
 
-// Ensure exact ACAO when credentials are used; avoid wildcard in any case
 app.use((req, res, next) => {
   const origin = req.headers.origin as string | undefined;
   if (origin && allowedOrigins.includes(origin)) {

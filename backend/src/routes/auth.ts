@@ -43,10 +43,11 @@ router.post("/login", async (req: Request, res: Response) => {
 
     const token = signJwt({ sub: String(user.id), email: user.email });
 
+    const isProd = (process.env.APP_ENV ?? process.env.NODE_ENV) === "production";
     res.cookie("hp_token", token, {
       httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
+      sameSite: isProd ? "none" : "lax",
+      secure: isProd,
       maxAge: 7 * 24 * 60 * 60 * 1000,
       path: "/",
     });
@@ -92,10 +93,11 @@ router.get("/me", async (req: Request, res: Response) => {
 
 router.post("/logout", (req: Request, res: Response) => {
   try {
+    const isProd = (process.env.APP_ENV ?? process.env.NODE_ENV) === "production";
     res.cookie("hp_token", "", {
       httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
+      sameSite: isProd ? "none" : "lax",
+      secure: isProd,
       maxAge: 0,
       expires: new Date(0),
       path: "/",

@@ -1,30 +1,16 @@
-import { Database } from "bun:sqlite";
-import { drizzle, type BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
-import * as path from "path";
+import { createClient } from "@libsql/client";
+import { drizzle } from "drizzle-orm/libsql";
 
 import * as schema from "./schema";
 
-const databasePath = process.env.DATABASE_PATH || "./database.db";
-const dbPath = path.isAbsolute(databasePath)
-  ? databasePath
-  : path.join(__dirname, "..", "..", databasePath);
+const url = process.env.DATABASE_URL as string;
+const authToken = process.env.TURSO_AUTH_TOKEN as string | undefined;
 
-const sqlite = new Database(dbPath);
-sqlite.run("PRAGMA foreign_keys = ON");
-
-export const db: BunSQLiteDatabase<typeof schema> = drizzle(sqlite, { schema });
+const client = createClient({ url, authToken });
+export const db = drizzle(client, { schema });
 
 export const initializeDatabase = () => {
-  sqlite.run(`
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      email TEXT NOT NULL UNIQUE,
-      name TEXT NOT NULL,
-      password TEXT NOT NULL,
-      created_at INTEGER NOT NULL,
-      updated_at INTEGER NOT NULL
-    );
-  `);
+  // LibSQL/Turso: schema is managed via migrations; no local DDL here.
 };
 
 export default db;
