@@ -58,7 +58,7 @@ jobs:
           TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
         run: |
           if [ -n "${DATABASE_URL}" ] && [ -n "${TURSO_AUTH_TOKEN}" ]; then
-            bunx drizzle-kit push
+            bun run db:migrate
           else
             echo "Skipping DB migrations: DATABASE_URL or TURSO_AUTH_TOKEN not set."
           fi
