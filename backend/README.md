@@ -75,20 +75,23 @@ Notes:
 DATABASE_URL=... TURSO_AUTH_TOKEN=... bun run db:migrate
 ```
 
-### Heroku (API)
+### Koyeb (API)
 
-1. Set Config Vars:
+1. One-time: create a Service (HTTP port 3001). Copy the Service ID.
+2. Set env in Koyeb (or let CI patch them):
    - `APP_ENV=production`
    - `DATABASE_URL` (Turso URL)
    - `TURSO_AUTH_TOKEN`
    - `JWT_SECRET`, `JWT_EXPIRES_IN`
    - `CORS_ORIGIN` (your frontend domain)
-2. Ensure Procfile exists (it does): `web: node dist/index.js`
-3. Build on deploy (Heroku will run `bun run build` or your buildpack’s build).
+3. CI builds/pushes GHCR image and updates the service via API.
 
 ### CI (GitHub Actions)
 
-- The workflow includes a step to run Drizzle migrations if `DATABASE_URL` and `TURSO_AUTH_TOKEN` secrets are present.
+- `.github/workflows/backend-koyeb.yml` builds/pushes image, runs migrations, and deploys to Koyeb.
+- Repo secrets required:
+  - `KOYEB_API_TOKEN`, `KOYEB_SERVICE_ID`
+  - `DATABASE_URL`, `TURSO_AUTH_TOKEN`, `JWT_SECRET`
 
 ## API Endpoints (summary)
 
