@@ -44,6 +44,7 @@ jobs:
           touch docs/.nojekyll
 
           # Commit and push (skip hooks since these are build artifacts)
+          git add docs/.nojekyll
           git add docs
           if git diff --staged --quiet; then
             echo "No changes to deploy"
