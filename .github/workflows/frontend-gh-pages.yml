@@ -3,12 +3,6 @@ name: Deploy frontend to GitHub Pages
 on:
   push:
     branches: [main]
-    paths:
-      - "src/**"
-      - "public/**"
-      - "package.json"
-      - "tsconfig.json"
-      - ".github/workflows/frontend-gh-pages.yml"
   workflow_dispatch: {}
 
 jobs:
