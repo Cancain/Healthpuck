@@ -11,6 +11,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
 
       - name: Use Node 20
         uses: actions/setup-node@v4
@@ -26,9 +29,22 @@ jobs:
           REACT_APP_API_URL: ${{ secrets.REACT_APP_API_URL }}
         run: npm run build
 
-      - name: Deploy to gh-pages
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./build
-          publish_branch: gh-pages
+      - name: Deploy to main/docs
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Remove existing docs directory if it exists
+          rm -rf docs
+
+          # Copy build to docs
+          cp -r build docs
+
+          # Commit and push (skip hooks since these are build artifacts)
+          git add docs
+          if git diff --staged --quiet; then
+            echo "No changes to deploy"
+          else
+            git commit --no-verify -m "Deploy to docs [skip ci]"
+            git push origin main
+          fi
