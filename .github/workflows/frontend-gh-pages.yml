@@ -40,6 +40,9 @@ jobs:
           # Copy build to docs
           cp -r build docs
 
+          # Create .nojekyll file to disable Jekyll processing
+          touch docs/.nojekyll
+
           # Commit and push (skip hooks since these are build artifacts)
           git add docs
           if git diff --staged --quiet; then
