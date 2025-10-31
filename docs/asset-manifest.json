@@ -1,0 +1,15 @@
+{
+  "files": {
+    "main.css": "/Healthpuck/static/css/main.345f8452.css",
+    "main.js": "/Healthpuck/static/js/main.a54141cb.js",
+    "static/js/453.f0787982.chunk.js": "/Healthpuck/static/js/453.f0787982.chunk.js",
+    "index.html": "/Healthpuck/index.html",
+    "main.345f8452.css.map": "/Healthpuck/static/css/main.345f8452.css.map",
+    "main.a54141cb.js.map": "/Healthpuck/static/js/main.a54141cb.js.map",
+    "453.f0787982.chunk.js.map": "/Healthpuck/static/js/453.f0787982.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.345f8452.css",
+    "static/js/main.a54141cb.js"
+  ]
+}
