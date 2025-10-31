@@ -63,9 +63,6 @@ const Header: React.FC<HeaderProps> = ({ onLoginClick, onGetStartedClick }) => {
                 <Button variant="secondary" onClick={handleLogoutClick}>
                   Logga ut
                 </Button>
-                <Button variant="primary" onClick={onGetStartedClick}>
-                  Skaffa nu!
-                </Button>
               </>
             ) : (
               <>
