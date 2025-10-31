@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 import Button from "../../components/Button/Button";
 import styles from "./Register.module.css";
+import { useAuth } from "../../auth/AuthContext";
 
 const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:3001";
 
@@ -10,6 +11,7 @@ const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
+  const { refresh } = useAuth();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -39,12 +41,15 @@ const RegisterPage: React.FC = () => {
       const res = await fetch(`${API_BASE}/api/users`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ name, email, password }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || "Något gick fel");
       }
+      // Ensure auth context sees the new session before navigating
+      await refresh();
       setSuccess(true);
       setTimeout(() => navigate("/"), 1500);
     } catch (err) {

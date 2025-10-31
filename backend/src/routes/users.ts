@@ -1,11 +1,22 @@
 import { Router, Request, Response } from "express";
 import { eq } from "drizzle-orm";
+import jwt from "jsonwebtoken";
 
 import { db } from "../db";
 import { users } from "../db/schema";
 import { hashPassword } from "../utils/hash";
 
 const router = Router();
+
+const JWT_SECRET = process.env.JWT_SECRET || "";
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "7d";
+
+function signJwt(payload: any) {
+  if (!JWT_SECRET) {
+    throw new Error("JWT_SECRET is not set");
+  }
+  return (jwt.sign as any)(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN } as any);
+}
 
 router.post("/", async (req: Request, res: Response) => {
   try {
@@ -46,6 +57,18 @@ router.post("/", async (req: Request, res: Response) => {
       .returning();
 
     const { password: _, ...userResponse } = newUser[0];
+
+    // Create JWT token and set cookie to automatically log in the user
+    const token = signJwt({ sub: String(newUser[0].id), email: newUser[0].email });
+
+    const isProd = (process.env.APP_ENV ?? process.env.NODE_ENV) === "production";
+    res.cookie("hp_token", token, {
+      httpOnly: true,
+      sameSite: isProd ? "none" : "lax",
+      secure: isProd,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: "/",
+    });
 
     res.status(201).json({
       message: "User created successfully",
