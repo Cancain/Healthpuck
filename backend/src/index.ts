@@ -1,5 +1,5 @@
 import express, { Request, Response, NextFunction } from "express";
-// import cors from "cors";
+import cors from "cors";
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 import dotenvSafe from "dotenv-safe";
@@ -26,22 +26,28 @@ const allowedOrigins = CORS_ORIGIN.split(",")
   .map((o) => o.trim())
   .filter(Boolean);
 
+console.log("CORS allowed origins:", allowedOrigins);
+
 initializeDatabase();
 
-app.use((req, res, next) => {
-  const origin = req.headers.origin as string | undefined;
-  if (origin && allowedOrigins.includes(origin)) {
-    res.header("Access-Control-Allow-Origin", origin);
-    res.header("Vary", "Origin");
-    res.header("Access-Control-Allow-Credentials", "true");
-    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-    res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
-    if (req.method === "OPTIONS") {
-      return res.sendStatus(204);
-    }
-  }
-  next();
-});
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin) {
+        return callback(null, false);
+      }
+      if (allowedOrigins.includes(origin)) {
+        callback(null, origin);
+      } else {
+        console.warn(`CORS: Rejected origin "${origin}". Allowed origins:`, allowedOrigins);
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  }),
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
