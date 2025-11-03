@@ -16,6 +16,7 @@ const RegisterPage: React.FC = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [role, setRole] = useState<"patient" | "caregiver">("caregiver");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -42,7 +43,7 @@ const RegisterPage: React.FC = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({ name, email, password, role }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -124,6 +125,20 @@ const RegisterPage: React.FC = () => {
             disabled={submitting || success}
             minLength={8}
           />
+        </div>
+
+        <div className={styles.field}>
+          <label htmlFor="role">Jag registrerar mig som</label>
+          <select
+            id="role"
+            value={role}
+            onChange={(e) => setRole(e.target.value as "patient" | "caregiver")}
+            required
+            disabled={submitting || success}
+          >
+            <option value="caregiver">Omsorgsgivare</option>
+            <option value="patient">Patient</option>
+          </select>
         </div>
 
         <div className={styles.actions}>

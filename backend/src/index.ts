@@ -9,6 +9,8 @@ import path from "path";
 import { initializeDatabase } from "./db";
 import userRoutes from "./routes/users";
 import authRoutes from "./routes/auth";
+import patientRoutes from "./routes/patients";
+import medicationRoutes from "./routes/medications";
 
 // Prefer dotenv-safe when an example file exists to validate required env vars.
 // Fallback to plain dotenv if the example file is not present.
@@ -58,6 +60,8 @@ app.get("/health", (req: Request, res: Response) => {
 
 app.use("/api/users", userRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/patients", patientRoutes);
+app.use("/api/medications", medicationRoutes);
 
 app.use((req: Request, res: Response) => {
   res.status(404).json({ error: "Route not found" });
