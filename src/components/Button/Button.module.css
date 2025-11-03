@@ -19,20 +19,20 @@
 }
 
 .primary {
-  background-color: #007bff;
-  color: white;
+  background-color: #000080;
+  color: #ffffff;
 }
 
 .primary:hover {
-  background-color: #0056b3;
+  background-color: #336699;
 }
 
 .secondary {
-  background-color: #f0f0f0;
-  color: #333;
+  background-color: #ffffff;
+  color: #336699;
+  border: 1px solid #336699;
 }
 
 .secondary:hover {
-  background-color: #e0e0e0;
+  background-color: #c0e8f7;
 }
-

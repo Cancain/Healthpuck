@@ -5,7 +5,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #c0e8f7;
   color: white;
   padding: 4rem 2rem;
   box-sizing: border-box;
@@ -22,13 +22,14 @@
   font-weight: 700;
   margin: 0 0 1rem 0;
   line-height: 1.2;
+  color: #ffffff;
 }
 
 .heroSubtitle {
   font-size: 1.5rem;
   margin: 0;
-  opacity: 0.9;
-  font-weight: 300;
+  font-weight: 400;
+  color: #336699;
 }
 
 @media (max-width: 768px) {
@@ -45,4 +46,3 @@
     font-size: 1.25rem;
   }
 }
-

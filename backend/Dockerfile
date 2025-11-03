@@ -9,7 +9,7 @@ RUN bun install --ci
 # Copy source and build
 COPY . ./
 RUN bun run build
-
+# build with npm/yarn
 # ---- runtime stage ----
 FROM node:20-alpine AS runtime
 WORKDIR /app
