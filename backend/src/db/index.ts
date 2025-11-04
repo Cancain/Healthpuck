@@ -1,6 +1,7 @@
 import { createClient } from "@libsql/client";
 import { drizzle } from "drizzle-orm/libsql";
 import { migrate } from "drizzle-orm/libsql/migrator";
+import { sql } from "drizzle-orm";
 import path from "path";
 
 import * as schema from "./schema";
@@ -26,8 +27,53 @@ export const initializeDatabase = async () => {
     const migrationFiles = fs.readdirSync(migrationsFolder, { recursive: true });
     console.log(`Found migration files:`, migrationFiles);
 
+    // Check what migrations Drizzle thinks have been applied
+    try {
+      const appliedMigrations = await db.all(
+        sql`SELECT id, hash, created_at FROM __drizzle_migrations ORDER BY created_at`,
+      );
+      console.log("Previously applied migrations:", appliedMigrations);
+    } catch (err) {
+      console.log("No migration tracking table found yet (first run)");
+    }
+
     await migrate(db, { migrationsFolder });
     console.log("Database migrations completed successfully!");
+
+    // Verify critical tables exist
+    const requiredTables = [
+      "users",
+      "patients",
+      "patient_users",
+      "medications",
+      "medication_intakes",
+    ];
+    const missingTables: string[] = [];
+
+    for (const tableName of requiredTables) {
+      try {
+        const result = await db.all(
+          sql`SELECT name FROM sqlite_master WHERE type='table' AND name=${tableName}`,
+        );
+        if (result.length === 0) {
+          missingTables.push(tableName);
+        } else {
+          console.log(`✓ Table '${tableName}' exists`);
+        }
+      } catch (err) {
+        console.error(`Error checking table ${tableName}:`, err);
+        missingTables.push(tableName);
+      }
+    }
+
+    if (missingTables.length > 0) {
+      throw new Error(
+        `Migrations reported success but required tables are missing: ${missingTables.join(", ")}. ` +
+          `This indicates migrations were not actually executed. Please check the __drizzle_migrations table.`,
+      );
+    }
+
+    console.log("✓ All required tables verified!");
   } catch (error) {
     console.error("Database migration failed:", error);
     if (error instanceof Error) {
