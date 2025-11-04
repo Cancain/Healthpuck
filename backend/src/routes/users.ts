@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 
 import { db } from "../db";
-import { users, patients, patientUsers } from "../db/schema";
+import { users } from "../db/schema";
 import { hashPassword } from "../utils/hash";
 
 const router = Router();
@@ -20,7 +20,7 @@ function signJwt(payload: any) {
 
 router.post("/", async (req: Request, res: Response) => {
   try {
-    const { email, name, password, role } = req.body;
+    const { email, name, password } = req.body;
 
     if (!email || !name || !password) {
       return res.status(400).json({
@@ -38,8 +38,6 @@ router.post("/", async (req: Request, res: Response) => {
         error: "Password must be at least 8 characters long",
       });
     }
-
-    const userRole = role === "patient" ? "patient" : "caregiver";
 
     const existingUser = await db.select().from(users).where(eq(users.email, email)).limit(1);
 
@@ -59,24 +57,6 @@ router.post("/", async (req: Request, res: Response) => {
       .returning();
 
     const { password: _, ...userResponse } = newUser[0];
-
-    if (userRole === "patient") {
-      const newPatient = await db
-        .insert(patients)
-        .values({
-          name,
-          email,
-          createdBy: newUser[0].id,
-        })
-        .returning();
-
-      await db.insert(patientUsers).values({
-        patientId: newPatient[0].id,
-        userId: newUser[0].id,
-        role: "patient",
-        acceptedAt: new Date(),
-      });
-    }
 
     // Create JWT token and set cookie to automatically log in the user
     const token = signJwt({ sub: String(newUser[0].id), email: newUser[0].email });

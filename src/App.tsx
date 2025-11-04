@@ -6,6 +6,7 @@ import styles from "./App.module.css";
 import RegisterPage from "./pages/Register/Register";
 import LoginPage from "./pages/Login/Login";
 import DashboardPage from "./pages/Dashboard";
+import SettingsPage from "./pages/Settings/Settings";
 import { AuthProvider } from "./auth/AuthContext";
 import RequireAuth from "./auth/RequireAuth";
 
@@ -33,6 +34,14 @@ function App() {
             element={
               <RequireAuth>
                 <DashboardPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <RequireAuth>
+                <SettingsPage />
               </RequireAuth>
             }
           />

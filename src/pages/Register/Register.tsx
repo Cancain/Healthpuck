@@ -16,7 +16,6 @@ const RegisterPage: React.FC = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [role, setRole] = useState<"patient" | "caregiver">("caregiver");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -43,7 +42,7 @@ const RegisterPage: React.FC = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ name, email, password, role }),
+        body: JSON.stringify({ name, email, password }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -62,7 +61,11 @@ const RegisterPage: React.FC = () => {
 
   return (
     <section className={styles.container}>
-      <h2 className={styles.title}>Skapa konto</h2>
+      <h2 className={styles.title}>Skapa konto som omsorgsgivare</h2>
+      <p className={styles.description}>
+        Registrera dig för att skapa och hantera omsorgstagare. Omsorgstagare skapas av
+        omsorgsgivare i inställningar.
+      </p>
 
       {success && (
         <div className={styles.success} role="status">
@@ -125,20 +128,6 @@ const RegisterPage: React.FC = () => {
             disabled={submitting || success}
             minLength={8}
           />
-        </div>
-
-        <div className={styles.field}>
-          <label htmlFor="role">Jag registrerar mig som</label>
-          <select
-            id="role"
-            value={role}
-            onChange={(e) => setRole(e.target.value as "patient" | "caregiver")}
-            required
-            disabled={submitting || success}
-          >
-            <option value="caregiver">Omsorgsgivare</option>
-            <option value="patient">Omsorgstagare</option>
-          </select>
         </div>
 
         <div className={styles.actions}>

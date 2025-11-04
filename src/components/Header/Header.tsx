@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 
 import Button from "../Button/Button";
 import styles from "./Header.module.css";
@@ -13,6 +14,7 @@ const Header: React.FC<HeaderProps> = ({ onLoginClick, onGetStartedClick }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
 
   const handleMenuToggle = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -31,6 +33,11 @@ const Header: React.FC<HeaderProps> = ({ onLoginClick, onGetStartedClick }) => {
   const handleLogoutClick = async () => {
     setIsMenuOpen(false);
     await logout();
+  };
+
+  const handleSettingsClick = () => {
+    setIsMenuOpen(false);
+    navigate("/settings");
   };
 
   useEffect(() => {
@@ -60,6 +67,9 @@ const Header: React.FC<HeaderProps> = ({ onLoginClick, onGetStartedClick }) => {
           <div className={styles.desktopButtons}>
             {user ? (
               <>
+                <Button variant="secondary" onClick={handleSettingsClick}>
+                  Inställningar
+                </Button>
                 <Button variant="secondary" onClick={handleLogoutClick}>
                   Logga ut
                 </Button>
@@ -89,11 +99,11 @@ const Header: React.FC<HeaderProps> = ({ onLoginClick, onGetStartedClick }) => {
             <div className={styles.dropdown}>
               {user ? (
                 <>
+                  <Button variant="secondary" onClick={handleSettingsClick}>
+                    Inställningar
+                  </Button>
                   <Button variant="secondary" onClick={handleLogoutClick}>
                     Logga ut
-                  </Button>
-                  <Button variant="primary" onClick={handleGetStartedClick}>
-                    Skaffa nu!
                   </Button>
                 </>
               ) : (
