@@ -29,7 +29,6 @@ const SettingsPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [inviteEmail, setInviteEmail] = useState<Record<number, string>>({});
   const [inviting, setInviting] = useState<Record<number, boolean>>({});
-  const [removing, setRemoving] = useState<Record<string, boolean>>({});
   const [deletingPatient, setDeletingPatient] = useState<Record<number, boolean>>({});
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [inviteError, setInviteError] = useState<Record<number, string | null>>({});
@@ -128,35 +127,6 @@ const SettingsPage: React.FC = () => {
       }));
     } finally {
       setInviting((prev) => ({ ...prev, [patientId]: false }));
-    }
-  };
-
-  const handleRemove = async (patientId: number, userId: number, userName: string) => {
-    if (!window.confirm(`Är du säker på att du vill ta bort ${userName}?`)) {
-      return;
-    }
-
-    const key = `${patientId}-${userId}`;
-    setRemoving((prev) => ({ ...prev, [key]: true }));
-
-    try {
-      const res = await fetch(`${API_BASE}/api/patients/${patientId}/users/${userId}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-
-      if (!res.ok) {
-        throw new Error("Kunde inte ta bort användare");
-      }
-
-      setSuccessMessage("Användare borttagen!");
-      await fetchPatientUsers(patientId);
-      await fetchPatients();
-      setTimeout(() => setSuccessMessage(null), 3000);
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Något gick fel");
-    } finally {
-      setRemoving((prev) => ({ ...prev, [key]: false }));
     }
   };
 
