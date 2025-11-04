@@ -24,8 +24,8 @@ RUN [ -d node_modules ] || npm install --omit=dev
 
 # Copy built files
 COPY --from=build /app/dist ./dist
-# Copy migrations if needed at runtime
-COPY --from=build /app/src/db/migrations ./src/db/migrations
+# Copy migrations to dist/db/migrations for runtime access
+COPY --from=build /app/src/db/migrations ./dist/db/migrations
 
 EXPOSE 3001
 CMD ["node", "dist/index.js"]

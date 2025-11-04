@@ -30,8 +30,6 @@ const allowedOrigins = CORS_ORIGIN.split(",")
 
 console.log("CORS allowed origins:", allowedOrigins);
 
-initializeDatabase();
-
 app.use(
   cors({
     origin: function (origin, callback) {
@@ -72,9 +70,20 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   res.status(500).json({ error: "Internal server error" });
 });
 
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
-  console.log(`Health check: http://localhost:${PORT}/health`);
-});
+// Initialize database and start server
+async function startServer() {
+  try {
+    await initializeDatabase();
+    app.listen(PORT, () => {
+      console.log(`Server is running on http://localhost:${PORT}`);
+      console.log(`Health check: http://localhost:${PORT}/health`);
+    });
+  } catch (error) {
+    console.error("Failed to start server:", error);
+    process.exit(1);
+  }
+}
+
+startServer();
 
 export default app;
