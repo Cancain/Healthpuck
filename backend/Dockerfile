@@ -24,8 +24,10 @@ RUN [ -d node_modules ] || npm install --omit=dev
 
 # Copy built files
 COPY --from=build /app/dist ./dist
-# Copy migrations to dist/db/migrations for runtime access
+# Copy migrations to dist/db/migrations for runtime access (must include meta folder)
 COPY --from=build /app/src/db/migrations ./dist/db/migrations
+# Verify migrations were copied
+RUN ls -la dist/db/migrations/ || echo "WARNING: Migrations folder not found!"
 
 EXPOSE 3001
 CMD ["node", "dist/index.js"]
