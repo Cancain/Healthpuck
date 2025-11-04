@@ -137,7 +137,7 @@ const RegisterPage: React.FC = () => {
             disabled={submitting || success}
           >
             <option value="caregiver">Omsorgsgivare</option>
-            <option value="patient">Patient</option>
+            <option value="patient">Omsorgstagare</option>
           </select>
         </div>
 
