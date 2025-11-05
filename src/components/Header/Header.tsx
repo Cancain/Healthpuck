@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
 import Button from "../Button/Button";
+import Logo from "../Logo/Logo";
 import styles from "./Header.module.css";
 import { useAuth } from "../../auth/AuthContext";
 
@@ -60,7 +61,7 @@ const Header: React.FC<HeaderProps> = ({ onLoginClick, onGetStartedClick }) => {
     <header className={styles.header}>
       <div className={styles.headerContent}>
         <div className={styles.logoSection}>
-          <div className={styles.logo}>LOGGA</div>
+          <Logo size="small" className={styles.logo} />
           <h1 className={styles.title}>Healthpuck</h1>
         </div>
         <nav className={styles.navigation} ref={menuRef}>
