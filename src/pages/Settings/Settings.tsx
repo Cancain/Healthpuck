@@ -36,6 +36,7 @@ const SettingsPage: React.FC = () => {
   const [newPatientName, setNewPatientName] = useState("");
   const [newPatientEmail, setNewPatientEmail] = useState("");
   const [newPatientPassword, setNewPatientPassword] = useState("");
+  const [newPatientConfirmPassword, setNewPatientConfirmPassword] = useState("");
   const [creatingPatient, setCreatingPatient] = useState(false);
   const [createPatientError, setCreatePatientError] = useState<string | null>(null);
 
@@ -186,6 +187,11 @@ const SettingsPage: React.FC = () => {
       return;
     }
 
+    if (newPatientPassword !== newPatientConfirmPassword) {
+      setCreatePatientError("Lösenorden matchar inte");
+      return;
+    }
+
     setCreatingPatient(true);
 
     try {
@@ -210,6 +216,7 @@ const SettingsPage: React.FC = () => {
       setNewPatientName("");
       setNewPatientEmail("");
       setNewPatientPassword("");
+      setNewPatientConfirmPassword("");
       setShowCreatePatient(false);
       await fetchPatients();
       setTimeout(() => setSuccessMessage(null), 3000);
@@ -288,6 +295,19 @@ const SettingsPage: React.FC = () => {
                   minLength={8}
                 />
               </div>
+              <div className={styles.field}>
+                <label htmlFor="newPatientConfirmPassword">Bekräfta lösenord *</label>
+                <input
+                  id="newPatientConfirmPassword"
+                  type="password"
+                  value={newPatientConfirmPassword}
+                  onChange={(e) => setNewPatientConfirmPassword(e.target.value)}
+                  required
+                  disabled={creatingPatient}
+                  className={styles.input}
+                  placeholder="Bekräfta lösenord"
+                />
+              </div>
               {createPatientError && <div className={styles.error}>{createPatientError}</div>}
               <div className={styles.formActions}>
                 <Button type="submit" disabled={creatingPatient}>
@@ -301,6 +321,7 @@ const SettingsPage: React.FC = () => {
                     setNewPatientName("");
                     setNewPatientEmail("");
                     setNewPatientPassword("");
+                    setNewPatientConfirmPassword("");
                     setCreatePatientError(null);
                   }}
                   disabled={creatingPatient}
