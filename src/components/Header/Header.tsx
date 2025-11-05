@@ -41,6 +41,11 @@ const Header: React.FC<HeaderProps> = ({ onLoginClick, onGetStartedClick }) => {
     navigate("/settings");
   };
 
+  const handleLogoClick = () => {
+    setIsMenuOpen(false);
+    navigate("/");
+  };
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
@@ -60,7 +65,7 @@ const Header: React.FC<HeaderProps> = ({ onLoginClick, onGetStartedClick }) => {
   return (
     <header className={styles.header}>
       <div className={styles.headerContent}>
-        <div className={styles.logoSection}>
+        <div className={styles.logoSection} onClick={handleLogoClick}>
           <Logo size="small" className={styles.logo} />
           <h1 className={styles.title}>Healthpuck</h1>
         </div>
