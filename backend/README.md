@@ -75,23 +75,31 @@ Notes:
 DATABASE_URL=... TURSO_AUTH_TOKEN=... bun run db:migrate
 ```
 
-### Koyeb (API)
+### Fly.io (API)
 
-1. One-time: create a Service (HTTP port 3001). Copy the Service ID.
-2. Set env in Koyeb (or let CI patch them):
-   - `APP_ENV=production`
-   - `DATABASE_URL` (Turso URL)
-   - `TURSO_AUTH_TOKEN`
-   - `JWT_SECRET`, `JWT_EXPIRES_IN`
-   - `CORS_ORIGIN` (your frontend domain)
-3. CI builds/pushes GHCR image and updates the service via API.
+1. Install the Fly CLI locally and run `fly launch` (already generated `fly.toml` under `backend/`).
+2. Set required runtime secrets (one-time or through CI):
+
+   ```bash
+   cd backend
+   fly secrets set \
+     APP_ENV=production \
+     DATABASE_URL=libsql://<your-db>.turso.io \
+     TURSO_AUTH_TOKEN=<token> \
+     JWT_SECRET=<random> \
+     JWT_EXPIRES_IN=7d \
+     CORS_ORIGIN=https://<frontend-domain>
+   ```
+
+3. Deploy with `fly deploy --config fly.toml` from `backend/` or rely on the GitHub workflow.
+4. Verify health check at `/health` once deployment finishes.
 
 ### CI (GitHub Actions)
 
-- `.github/workflows/backend-koyeb.yml` builds/pushes image, runs migrations, and deploys to Koyeb.
+- `.github/workflows/backend-fly.yml` runs migrations and deploys to Fly.io.
 - Repo secrets required:
-  - `KOYEB_API_TOKEN`, `KOYEB_SERVICE_ID`
-  - `DATABASE_URL`, `TURSO_AUTH_TOKEN`, `JWT_SECRET`
+  - `FLY_API_TOKEN`
+  - `APP_ENV`, `DATABASE_URL`, `TURSO_AUTH_TOKEN`, `JWT_SECRET`, `JWT_EXPIRES_IN`, `CORS_ORIGIN`
 
 ## API Endpoints (summary)
 
