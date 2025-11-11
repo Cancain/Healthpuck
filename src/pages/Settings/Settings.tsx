@@ -33,8 +33,16 @@ interface Medication {
   updatedAt: string;
 }
 
+interface WhoopStatus {
+  connected: boolean;
+  whoopUserId?: string;
+  scope?: string | null;
+  expiresAt?: string | null;
+  lastSyncedAt?: string | null;
+}
+
 const SettingsPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<"users" | "medications">("users");
+  const [activeTab, setActiveTab] = useState<"users" | "medications" | "whoop">("users");
   const [patients, setPatients] = useState<Patient[]>([]);
   const [patientUsers, setPatientUsers] = useState<Record<number, PatientUser[]>>({});
   const [medications, setMedications] = useState<Record<number, Medication[]>>({});
@@ -72,9 +80,14 @@ const SettingsPage: React.FC = () => {
   const [medicationError, setMedicationError] = useState<Record<number, string | null>>({});
   const [deletingMedication, setDeletingMedication] = useState<Record<number, boolean>>({});
   const [savingMedication, setSavingMedication] = useState<Record<number, boolean>>({});
+  const [whoopStatus, setWhoopStatus] = useState<WhoopStatus | null>(null);
+  const [whoopLoading, setWhoopLoading] = useState<boolean>(false);
+  const [whoopError, setWhoopError] = useState<string | null>(null);
+  const [connectingWhoop, setConnectingWhoop] = useState<boolean>(false);
 
   useEffect(() => {
     fetchPatients();
+    fetchWhoopStatus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -97,6 +110,62 @@ const SettingsPage: React.FC = () => {
       setError(err instanceof Error ? err.message : "Något gick fel");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchWhoopStatus = async () => {
+    setWhoopLoading(true);
+    setWhoopError(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/integrations/whoop/status`, {
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        if (res.status === 404 || res.status === 401) {
+          setWhoopStatus({ connected: false });
+          return;
+        }
+        throw new Error("Kunde inte hämta Whoop-status");
+      }
+
+      const data = (await res.json()) as WhoopStatus;
+      setWhoopStatus(data);
+    } catch (err) {
+      console.error("Error fetching Whoop status:", err);
+      setWhoopError(err instanceof Error ? err.message : "Något gick fel");
+    } finally {
+      setWhoopLoading(false);
+    }
+  };
+
+  const handleWhoopConnect = async () => {
+    setWhoopError(null);
+    setConnectingWhoop(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/integrations/whoop/connect`, {
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!res.ok || !data.authorizeUrl) {
+        throw new Error(data.error || "Kunde inte initiera Whoop-koppling");
+      }
+
+      window.location.href = data.authorizeUrl;
+    } catch (err) {
+      setWhoopError(err instanceof Error ? err.message : "Kunde inte starta Whoop-koppling");
+    } finally {
+      setConnectingWhoop(false);
+    }
+  };
+
+  const formatDate = (value?: string | null) => {
+    if (!value) return "-";
+    try {
+      const date = new Date(value);
+      return date.toLocaleString();
+    } catch {
+      return value;
     }
   };
 
@@ -515,9 +584,16 @@ const SettingsPage: React.FC = () => {
         >
           Mediciner
         </button>
+        <button
+          className={activeTab === "whoop" ? styles.tabActive : styles.tab}
+          onClick={() => setActiveTab("whoop")}
+        >
+          Whoop
+        </button>
       </div>
 
       {successMessage && <div className={styles.success}>{successMessage}</div>}
+      {whoopError && activeTab === "whoop" && <div className={styles.error}>{whoopError}</div>}
 
       <div className={styles.tabContent}>
         {activeTab === "users" && (
@@ -998,6 +1074,70 @@ const SettingsPage: React.FC = () => {
               </div>
             )}
           </>
+        )}
+
+        {activeTab === "whoop" && (
+          <div className={styles.whoopCard}>
+            <div className={styles.whoopHeader}>
+              <div>
+                <h2 className={styles.sectionTitle}>Whoop-integration</h2>
+                <p className={styles.whoopDescription}>
+                  Koppla patientens Whoop-konto för att synkronisera data. Du omdirigeras till Whoop
+                  för att logga in och godkänna åtkomst.
+                </p>
+              </div>
+              <Button onClick={handleWhoopConnect} disabled={connectingWhoop}>
+                {connectingWhoop
+                  ? "Startar..."
+                  : whoopStatus?.connected
+                    ? "Återanslut"
+                    : "Koppla Whoop"}
+              </Button>
+            </div>
+
+            {whoopLoading ? (
+              <p>Laddar Whoop-status...</p>
+            ) : (
+              <div className={styles.whoopStatus}>
+                <div className={styles.whoopStatusRow}>
+                  <span>Status:</span>
+                  <strong
+                    className={
+                      whoopStatus?.connected ? styles.statusConnected : styles.statusDisconnected
+                    }
+                  >
+                    {whoopStatus?.connected ? "Ansluten" : "Inte ansluten"}
+                  </strong>
+                </div>
+                {whoopStatus?.connected && (
+                  <>
+                    <div className={styles.whoopStatusRow}>
+                      <span>Whoop-användar-ID:</span>
+                      <strong>{whoopStatus.whoopUserId || "-"}</strong>
+                    </div>
+                    <div className={styles.whoopStatusRow}>
+                      <span>Behörigheter:</span>
+                      <strong>{whoopStatus.scope || "-"}</strong>
+                    </div>
+                    <div className={styles.whoopStatusRow}>
+                      <span>Token går ut:</span>
+                      <strong>{formatDate(whoopStatus.expiresAt)}</strong>
+                    </div>
+                    <div className={styles.whoopStatusRow}>
+                      <span>Senast synkad:</span>
+                      <strong>{formatDate(whoopStatus.lastSyncedAt)}</strong>
+                    </div>
+                  </>
+                )}
+                {!whoopStatus?.connected && (
+                  <p className={styles.whoopHint}>
+                    Ingen Whoop-anslutning funnen. Klicka på &quot;Koppla Whoop&quot; för att starta
+                    inloggningen.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>
