@@ -11,15 +11,20 @@ turso dev
 # Note the URL it prints, e.g. http://127.0.0.1:8080
 ```
 
-2. Create `backend/.env`
+2. Copy the example env file and fill in values:
 
-```env
-APP_ENV=development
-DATABASE_URL=http://127.0.0.1:8080
-CORS_ORIGIN=http://localhost:3000
-JWT_SECRET=<run `openssl rand -base64 32` and paste>
-JWT_EXPIRES_IN=7d
+```bash
+cp backend/.env.example backend/.env
 ```
+
+At minimum update:
+
+- `APP_ENV=development`
+- `DATABASE_URL=http://127.0.0.1:8080`
+- `CORS_ORIGIN=http://localhost:3000`
+- `JWT_SECRET=$(openssl rand -base64 32)`
+- `WHOOP_CLIENT_ID` / `WHOOP_CLIENT_SECRET` from the Whoop developer portal
+- `WHOOP_REDIRECT_URI=http://localhost:3001/api/integrations/whoop/callback` (must also be registered with Whoop)
 
 3. Install deps (repo root already uses Bun)
 
@@ -45,9 +50,47 @@ Required (dev & prod):
 
 - `APP_ENV` = development | production
 - `DATABASE_URL` = libsql URL (local dev: http://127.0.0.1:8080; Turso: libsql://<db>.turso.io)
+- `TURSO_AUTH_TOKEN` = only required when using Turso-hosted libSQL
 - `CORS_ORIGIN` = exact frontend origin (e.g., http://localhost:3000 or your GitHub Pages domain)
 - `JWT_SECRET` = random string used to sign session cookies
 - `JWT_EXPIRES_IN` = e.g., 7d
+- `WHOOP_CLIENT_ID` = OAuth client id issued by Whoop
+- `WHOOP_CLIENT_SECRET` = OAuth client secret issued by Whoop
+- `WHOOP_REDIRECT_URI` = must match the callback registered with Whoop (`http://localhost:3001/api/integrations/whoop/callback` for local dev)
+- `WHOOP_OAUTH_BASE_URL` = defaults to `https://api.prod.whoop.com/oauth/oauth2`
+- `WHOOP_API_BASE_URL` = defaults to `https://api.prod.whoop.com/developer/v1`
+
+### Whoop OAuth configuration
+
+- Register a developer application at [https://developer.whoop.com](https://developer.whoop.com) to obtain `WHOOP_CLIENT_ID` and `WHOOP_CLIENT_SECRET`.
+- Add the redirect URI you plan to use. For local development it should be `http://localhost:3001/api/integrations/whoop/callback`. For Fly.io replace the host with your Fly app domain, e.g. `https://healthpack-api.fly.dev/api/integrations/whoop/callback`.
+- The provided defaults for `WHOOP_OAUTH_BASE_URL` and `WHOOP_API_BASE_URL` point to Whoop production endpoints. If Whoop provides a sandbox environment, override these values accordingly.
+
+## Whoop integration (manual testing)
+
+All Whoop integration endpoints require an authenticated user (cookie `hp_token`). The quickest way to test is to log in with `curl` or via the frontend, then reuse the cookie.
+
+```bash
+# 1. Log in and store cookies
+curl -i -c cookies.txt \
+  -H "Content-Type: application/json" \
+  -d '{"email":"<your user email>","password":"<password>"}' \
+  http://localhost:3001/api/auth/login
+
+# 2. Request the Whoop authorization URL (returns JSON with authorizeUrl + state)
+curl -b cookies.txt http://localhost:3001/api/integrations/whoop/connect
+
+# 3. Visit the authorizeUrl in a browser, authenticate with Whoop, and approve the app.
+#    Whoop will redirect back to the backend callback which returns JSON confirming the connection.
+
+# 4. Inspect current status
+curl -b cookies.txt http://localhost:3001/api/integrations/whoop/status
+
+# 5. Run the connection test (fetches the Whoop profile and refreshes tokens if needed)
+curl -b cookies.txt -X POST http://localhost:3001/api/integrations/whoop/test
+```
+
+The `/test` endpoint is useful while developing—if it succeeds you know stored credentials work and the API is reachable. Future background sync jobs can reuse the helper in `src/utils/whoopSync.ts`.
 
 Notes:
 

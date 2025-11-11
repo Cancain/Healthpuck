@@ -15,6 +15,13 @@
       "when": 1736179200000,
       "tag": "0001_patient_caregiver",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1762819200000,
+      "tag": "0002_whoop_connections",
+      "breakpoints": true
     }
   ]
 }
