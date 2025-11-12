@@ -85,7 +85,8 @@ export class WhoopClient {
   }
 
   async fetchProfile(accessToken: string): Promise<WhoopProfile> {
-    const url = new URL("/user/profile", this.apiBaseUrl);
+    const url = new URL("user/profile/basic", this.apiBaseUrl);
+    console.log("[whoop] fetching profile", { url: url.toString() });
     const response = await fetch(url, {
       headers: {
         Authorization: `Bearer ${accessToken}`,

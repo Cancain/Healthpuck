@@ -139,24 +139,10 @@ const SettingsPage: React.FC = () => {
     }
   };
 
-  const handleWhoopConnect = async () => {
+  const handleWhoopConnect = () => {
     setWhoopError(null);
     setConnectingWhoop(true);
-    try {
-      const res = await fetch(`${API_BASE}/api/integrations/whoop/connect`, {
-        credentials: "include",
-      });
-      const data = await res.json();
-      if (!res.ok || !data.authorizeUrl) {
-        throw new Error(data.error || "Kunde inte initiera Whoop-koppling");
-      }
-
-      window.location.href = data.authorizeUrl;
-    } catch (err) {
-      setWhoopError(err instanceof Error ? err.message : "Kunde inte starta Whoop-koppling");
-    } finally {
-      setConnectingWhoop(false);
-    }
+    window.location.href = `${API_BASE}/api/integrations/whoop/connect`;
   };
 
   const formatDate = (value?: string | null) => {

@@ -1,11 +1,13 @@
 import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import passport from "passport";
 import dotenv from "dotenv";
 import dotenvSafe from "dotenv-safe";
 import fs from "fs";
 import path from "path";
 
+import "./auth/passportWhoop";
 import { initializeDatabase } from "./db";
 import userRoutes from "./routes/users";
 import authRoutes from "./routes/auth";
@@ -52,6 +54,7 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+app.use(passport.initialize());
 
 app.get("/health", (req: Request, res: Response) => {
   res.json({ status: "ok", message: "Healthpack API is running" });
