@@ -15,6 +15,7 @@ backend/database.db
 # Build outputs
 build/
 backend/dist/
+.cache/
 
 # Logs
 npm-debug.log*
