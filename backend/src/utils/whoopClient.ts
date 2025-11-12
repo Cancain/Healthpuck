@@ -42,7 +42,17 @@ export class WhoopClient {
     this.oauthBaseUrl =
       process.env.WHOOP_OAUTH_BASE_URL ?? "https://api.prod.whoop.com/oauth/oauth2";
     this.apiBaseUrl = process.env.WHOOP_API_BASE_URL ?? "https://api.prod.whoop.com/developer/v1";
-    this.defaultScope = process.env.WHOOP_SCOPE ?? "offline_access read:profile";
+    this.defaultScope =
+      process.env.WHOOP_SCOPE ??
+      [
+        "offline",
+        "read:profile",
+        "read:recovery",
+        "read:cycles",
+        "read:sleep",
+        "read:workout",
+        "read:body_measurement",
+      ].join(" ");
   }
 
   static create() {

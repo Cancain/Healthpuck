@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import Button from "../Button/Button";
 import Logo from "../Logo/Logo";
@@ -73,6 +73,9 @@ const Header: React.FC<HeaderProps> = ({ onLoginClick, onGetStartedClick }) => {
           <div className={styles.desktopButtons}>
             {user ? (
               <>
+                <Link className={styles.userLink} to="/settings">
+                  {user.name}
+                </Link>
                 <Button variant="secondary" onClick={handleSettingsClick}>
                   Inställningar
                 </Button>
@@ -105,6 +108,9 @@ const Header: React.FC<HeaderProps> = ({ onLoginClick, onGetStartedClick }) => {
             <div className={styles.dropdown}>
               {user ? (
                 <>
+                  <Link className={styles.userLink} to="/settings">
+                    {user.name}
+                  </Link>
                   <Button variant="secondary" onClick={handleSettingsClick}>
                     Inställningar
                   </Button>

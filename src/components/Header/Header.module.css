@@ -54,6 +54,16 @@
   align-items: center;
 }
 
+.userLink {
+  color: #336699;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.userLink:hover {
+  text-decoration: underline;
+}
+
 .hamburger {
   display: none;
   flex-direction: column;

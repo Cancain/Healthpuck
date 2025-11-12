@@ -67,6 +67,7 @@ Required (dev & prod):
 - Register a developer application at [https://developer.whoop.com](https://developer.whoop.com) to obtain `WHOOP_CLIENT_ID` and `WHOOP_CLIENT_SECRET`.
 - Add the redirect URI you plan to use. For local development it should be `http://localhost:3001/api/integrations/whoop/callback`. For Fly.io replace the host with your Fly app domain, e.g. `https://healthpack-api.fly.dev/api/integrations/whoop/callback`.
 - The provided defaults for `WHOOP_OAUTH_BASE_URL` and `WHOOP_API_BASE_URL` point to Whoop production endpoints. If Whoop provides a sandbox environment, override these values accordingly.
+- Grant the following scopes when you register your app so we can build the dashboards: `offline`, `read:profile`, `read:recovery`, `read:cycles`, `read:sleep`, `read:workout`, `read:body_measurement`.
 - A single Whoop connection is stored per patient. Any caregiver connected to the patient can complete the OAuth flow; once connected, the shared credentials are visible to the patient and every caregiver.
 
 ## Whoop integration (manual testing)
