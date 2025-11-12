@@ -5,13 +5,15 @@ const STATE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
 export type WhoopState = {
   userId: number;
+  patientId: number;
   nonce: string;
   timestamp: number;
 };
 
-export function serializeState(input: { userId: number }): string {
+export function serializeState(input: { userId: number; patientId: number }): string {
   const payload = {
     uid: input.userId,
+    pid: input.patientId,
     nonce: crypto.randomBytes(12).toString("hex"),
     ts: Date.now(),
   };
@@ -56,9 +58,14 @@ export function parseAndValidateState(state: string): WhoopState {
     throw new Error("Invalid state signature");
   }
 
-  const payload = JSON.parse(payloadString) as { uid: number; nonce: string; ts: number };
+  const payload = JSON.parse(payloadString) as {
+    uid: number;
+    pid: number;
+    nonce: string;
+    ts: number;
+  };
 
-  if (!payload?.uid || !payload?.nonce || !payload?.ts) {
+  if (!payload?.uid || !payload?.pid || !payload?.nonce || !payload?.ts) {
     throw new Error("Invalid state payload");
   }
 
@@ -66,7 +73,12 @@ export function parseAndValidateState(state: string): WhoopState {
     throw new Error("State has expired");
   }
 
-  return { userId: payload.uid, nonce: payload.nonce, timestamp: payload.ts };
+  return {
+    userId: payload.uid,
+    patientId: payload.pid,
+    nonce: payload.nonce,
+    timestamp: payload.ts,
+  };
 }
 
 function resolveStateSecret(): string {

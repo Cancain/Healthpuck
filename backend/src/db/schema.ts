@@ -91,9 +91,9 @@ export const whoopConnections = sqliteTable(
   "whoop_connections",
   {
     id: integer("id").primaryKey({ autoIncrement: true }),
-    userId: integer("user_id")
+    patientId: integer("patient_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => patients.id, { onDelete: "cascade" }),
     whoopUserId: text("whoop_user_id").notNull(),
     accessToken: text("access_token").notNull(),
     refreshToken: text("refresh_token").notNull(),
@@ -102,6 +102,9 @@ export const whoopConnections = sqliteTable(
     expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
     refreshTokenExpiresAt: integer("refresh_token_expires_at", { mode: "timestamp" }),
     lastSyncedAt: integer("last_synced_at", { mode: "timestamp" }),
+    connectedByUserId: integer("connected_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
     createdAt: integer("created_at", { mode: "timestamp" })
       .notNull()
       .$defaultFn(() => new Date()),
@@ -110,7 +113,7 @@ export const whoopConnections = sqliteTable(
       .$defaultFn(() => new Date()),
   },
   (table) => ({
-    uniqueUser: unique().on(table.userId),
+    uniquePatient: unique().on(table.patientId),
     uniqueWhoopUser: unique().on(table.whoopUserId),
   }),
 );

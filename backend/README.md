@@ -59,7 +59,7 @@ Required (dev & prod):
 - `WHOOP_REDIRECT_URI` = must match the callback registered with Whoop (`http://localhost:3001/api/integrations/whoop/callback` for local dev)
 - `WHOOP_OAUTH_BASE_URL` = defaults to `https://api.prod.whoop.com/oauth/oauth2`
 - `WHOOP_API_BASE_URL` = defaults to `https://api.prod.whoop.com/developer/v1`
-- `WHOOP_CONNECT_REDIRECT_SUCCESS` (optional) = where to send the browser after a successful connection (defaults to `<frontend>/settings?tab=whoop`)
+- `WHOOP_CONNECT_REDIRECT_SUCCESS` (optional) = where to send the browser after a successful connection (defaults to `<frontend>/settings?tab=whoop` – adjust if your SPA uses hash routing, e.g. `<frontend>/#/settings?tab=whoop`)
 - `WHOOP_CONNECT_REDIRECT_ERROR` (optional) = where to send the browser if connecting fails (defaults to `<frontend>/settings?tab=whoop`)
 
 ### Whoop OAuth configuration
@@ -67,6 +67,7 @@ Required (dev & prod):
 - Register a developer application at [https://developer.whoop.com](https://developer.whoop.com) to obtain `WHOOP_CLIENT_ID` and `WHOOP_CLIENT_SECRET`.
 - Add the redirect URI you plan to use. For local development it should be `http://localhost:3001/api/integrations/whoop/callback`. For Fly.io replace the host with your Fly app domain, e.g. `https://healthpack-api.fly.dev/api/integrations/whoop/callback`.
 - The provided defaults for `WHOOP_OAUTH_BASE_URL` and `WHOOP_API_BASE_URL` point to Whoop production endpoints. If Whoop provides a sandbox environment, override these values accordingly.
+- A single Whoop connection is stored per patient. Any caregiver connected to the patient can complete the OAuth flow; once connected, the shared credentials are visible to the patient and every caregiver.
 
 ## Whoop integration (manual testing)
 

@@ -36,6 +36,8 @@ interface Medication {
 
 interface WhoopStatus {
   connected: boolean;
+  patientId?: number;
+  patientName?: string;
   whoopUserId?: string;
   scope?: string | null;
   expiresAt?: string | null;
@@ -1143,6 +1145,13 @@ const SettingsPage: React.FC = () => {
                     {whoopStatus?.connected ? "Ansluten" : "Inte ansluten"}
                   </strong>
                 </div>
+                <div className={styles.whoopStatusRow}>
+                  <span>Patient:</span>
+                  <strong>
+                    {whoopStatus?.patientName ||
+                      (whoopStatus?.patientId ? `ID ${whoopStatus.patientId}` : "-")}
+                  </strong>
+                </div>
                 {whoopStatus?.connected && (
                   <>
                     <div className={styles.whoopStatusRow}>
@@ -1165,8 +1174,9 @@ const SettingsPage: React.FC = () => {
                 )}
                 {!whoopStatus?.connected && (
                   <p className={styles.whoopHint}>
-                    Ingen Whoop-anslutning funnen. Klicka på &quot;Koppla Whoop&quot; för att starta
-                    inloggningen.
+                    Ingen Whoop-anslutning funnen för patienten. Klicka på &quot;Koppla Whoop&quot;
+                    för att logga in på patientens Whoop-konto. Anslutningen delas automatiskt med
+                    alla omsorgsgivare.
                   </p>
                 )}
               </div>

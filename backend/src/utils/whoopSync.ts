@@ -12,15 +12,15 @@ type SyncOptions = {
  * Placeholder for future background syncing of Whoop data.
  * Currently validates connectivity and returns the profile payload.
  */
-export async function syncWhoopDataForUser(userId: number, options: SyncOptions = {}) {
+export async function syncWhoopDataForPatient(patientId: number, options: SyncOptions = {}) {
   const [connection] = await db
     .select()
     .from(whoopConnections)
-    .where(eq(whoopConnections.userId, userId))
+    .where(eq(whoopConnections.patientId, patientId))
     .limit(1);
 
   if (!connection) {
-    throw new Error("No Whoop connection found for user");
+    throw new Error("No Whoop connection found for patient");
   }
 
   const client = WhoopClient.create();

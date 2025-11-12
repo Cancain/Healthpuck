@@ -50,6 +50,7 @@ const whoopStrategy = new OAuth2Strategy(
         throw new Error("Missing or invalid OAuth state");
       }
 
+      const patientId = state.patientId;
       const userId = state.userId;
       const expiresIn =
         typeof params?.expires_in === "number"
@@ -62,7 +63,7 @@ const whoopStrategy = new OAuth2Strategy(
       await db
         .insert(whoopConnections)
         .values({
-          userId,
+          patientId,
           whoopUserId,
           accessToken,
           refreshToken,
@@ -71,11 +72,12 @@ const whoopStrategy = new OAuth2Strategy(
           expiresAt: expiresAt ?? new Date(),
           refreshTokenExpiresAt: null,
           lastSyncedAt: null,
+          connectedByUserId: userId,
           createdAt: new Date(),
           updatedAt: new Date(),
         })
         .onConflictDoUpdate({
-          target: whoopConnections.userId,
+          target: whoopConnections.patientId,
           set: {
             whoopUserId,
             accessToken,
@@ -84,11 +86,12 @@ const whoopStrategy = new OAuth2Strategy(
             scope: params?.scope ?? null,
             expiresAt: expiresAt ?? new Date(),
             refreshTokenExpiresAt: null,
+            connectedByUserId: userId,
             updatedAt: new Date(),
           },
         });
 
-      done(null, { userId }, { whoopUserId, scope: params?.scope, expiresAt });
+      done(null, { userId }, { whoopUserId, scope: params?.scope, expiresAt, patientId });
     } catch (error) {
       done(error as Error);
     }
