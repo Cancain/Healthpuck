@@ -28,7 +28,11 @@ const ERROR_REDIRECT_URL =
 router.get("/connect", authenticate, (req: Request, res: Response, next: NextFunction) => {
   const userId = getUserIdFromRequest(req);
   if (!userId) {
-    return res.status(401).json({ error: "Not authenticated" });
+    const redirectUrl = buildRedirect(ERROR_REDIRECT_URL, {
+      whoop: "error",
+      whoop_error: "Not authenticated",
+    });
+    return res.redirect(303, redirectUrl);
   }
 
   const state = serializeState({ userId });
