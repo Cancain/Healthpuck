@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import Button from "../../components/Button/Button";
 import styles from "./Settings.module.css";
@@ -42,7 +43,16 @@ interface WhoopStatus {
 }
 
 const SettingsPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<"users" | "medications" | "whoop">("users");
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<"users" | "medications" | "whoop">(() => {
+    const params = new URLSearchParams(location.search);
+    const tabParam = params.get("tab");
+    if (tabParam === "medications" || tabParam === "whoop" || tabParam === "users") {
+      return tabParam as "users" | "medications" | "whoop";
+    }
+    return "users";
+  });
   const [patients, setPatients] = useState<Patient[]>([]);
   const [patientUsers, setPatientUsers] = useState<Record<number, PatientUser[]>>({});
   const [medications, setMedications] = useState<Record<number, Medication[]>>({});
@@ -85,12 +95,6 @@ const SettingsPage: React.FC = () => {
   const [whoopError, setWhoopError] = useState<string | null>(null);
   const [connectingWhoop, setConnectingWhoop] = useState<boolean>(false);
 
-  useEffect(() => {
-    fetchPatients();
-    fetchWhoopStatus();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const fetchPatients = async () => {
     try {
       const res = await fetch(`${API_BASE}/api/patients`, {
@@ -113,7 +117,7 @@ const SettingsPage: React.FC = () => {
     }
   };
 
-  const fetchWhoopStatus = async () => {
+  const fetchWhoopStatus = useCallback(async () => {
     setWhoopLoading(true);
     setWhoopError(null);
     try {
@@ -137,7 +141,45 @@ const SettingsPage: React.FC = () => {
     } finally {
       setWhoopLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tabParam = params.get("tab");
+    if (tabParam === "whoop" || tabParam === "medications" || tabParam === "users") {
+      setActiveTab(tabParam as "users" | "medications" | "whoop");
+    }
+
+    let shouldReplace = false;
+
+    const whoopResult = params.get("whoop");
+    if (whoopResult === "connected") {
+      setSuccessMessage("Whoop-anslutning lyckades!");
+      setWhoopError(null);
+      fetchWhoopStatus();
+      params.delete("whoop");
+      shouldReplace = true;
+    }
+
+    const whoopErrorParam = params.get("whoop_error");
+    if (whoopErrorParam) {
+      setWhoopError(whoopErrorParam);
+      setSuccessMessage(null);
+      params.delete("whoop_error");
+      shouldReplace = true;
+    }
+
+    if (tabParam) {
+      params.delete("tab");
+      shouldReplace = true;
+    }
+
+    if (shouldReplace) {
+      const search = params.toString();
+      navigate({ search: search ? `?${search}` : "" }, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.search, navigate, fetchWhoopStatus]);
 
   const handleWhoopConnect = () => {
     setWhoopError(null);
@@ -184,6 +226,12 @@ const SettingsPage: React.FC = () => {
       console.error("Error fetching medications:", err);
     }
   };
+
+  useEffect(() => {
+    fetchPatients();
+    fetchWhoopStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchWhoopStatus]);
 
   const handleInvite = async (patientId: number, role: "patient" | "caregiver") => {
     const email = inviteEmail[patientId]?.trim();

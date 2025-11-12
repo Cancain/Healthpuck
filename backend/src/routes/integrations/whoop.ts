@@ -14,6 +14,16 @@ const scopeList = (process.env.WHOOP_SCOPE ?? "offline read:profile")
   .split(/\s+/)
   .map((s) => s.trim())
   .filter(Boolean);
+const frontendBase =
+  process.env.WHOOP_APP_BASE_URL ||
+  process.env.CORS_ORIGIN?.split(",")[0]?.trim() ||
+  "http://localhost:3000";
+const SUCCESS_REDIRECT_URL =
+  process.env.WHOOP_CONNECT_REDIRECT_SUCCESS ||
+  `${removeTrailingSlash(frontendBase)}/settings?tab=whoop`;
+const ERROR_REDIRECT_URL =
+  process.env.WHOOP_CONNECT_REDIRECT_ERROR ||
+  `${removeTrailingSlash(frontendBase)}/settings?tab=whoop`;
 
 router.get("/connect", authenticate, (req: Request, res: Response, next: NextFunction) => {
   const userId = getUserIdFromRequest(req);
@@ -48,18 +58,21 @@ router.get(
     passport.authenticate("whoop", { session: false }, (err: any, _user: any, info: any) => {
       if (err) {
         console.error("Whoop callback error", err);
-        return res.status(500).json({
-          error: "Failed to complete Whoop connection",
-          detail: err instanceof Error ? err.message : String(err),
+        const redirectUrl = buildRedirect(ERROR_REDIRECT_URL, {
+          whoop: "error",
+          whoop_error:
+            err instanceof Error
+              ? err.message.slice(0, 250)
+              : String(err ?? "Unknown error").slice(0, 250),
         });
+        return res.redirect(303, redirectUrl);
       }
 
-      return res.json({
-        status: "connected",
-        whoopUserId: info?.whoopUserId,
-        scope: info?.scope,
-        expiresAt: info?.expiresAt,
+      const redirectUrl = buildRedirect(SUCCESS_REDIRECT_URL, {
+        whoop: "connected",
+        whoopUserId: info?.whoopUserId ? String(info.whoopUserId) : undefined,
       });
+      return res.redirect(303, redirectUrl);
     })(req, res, next);
   },
 );
@@ -166,3 +179,28 @@ router.post("/test", authenticate, async (req: Request, res: Response) => {
 });
 
 export default router;
+
+function removeTrailingSlash(url: string) {
+  return url.replace(/\/$/, "");
+}
+
+function buildRedirect(base: string, params: Record<string, string | undefined>): string {
+  try {
+    const target = new URL(base);
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== "") {
+        target.searchParams.set(key, value);
+      }
+    });
+    return target.toString();
+  } catch {
+    const query = Object.entries(params)
+      .filter(([_, value]) => value !== undefined && value !== null && value !== "")
+      .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value as string)}`)
+      .join("&");
+    if (!query) {
+      return base;
+    }
+    return `${base}${base.includes("?") ? "&" : "?"}${query}`;
+  }
+}

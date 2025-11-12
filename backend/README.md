@@ -59,6 +59,8 @@ Required (dev & prod):
 - `WHOOP_REDIRECT_URI` = must match the callback registered with Whoop (`http://localhost:3001/api/integrations/whoop/callback` for local dev)
 - `WHOOP_OAUTH_BASE_URL` = defaults to `https://api.prod.whoop.com/oauth/oauth2`
 - `WHOOP_API_BASE_URL` = defaults to `https://api.prod.whoop.com/developer/v1`
+- `WHOOP_CONNECT_REDIRECT_SUCCESS` (optional) = where to send the browser after a successful connection (defaults to `<frontend>/settings?tab=whoop`)
+- `WHOOP_CONNECT_REDIRECT_ERROR` (optional) = where to send the browser if connecting fails (defaults to `<frontend>/settings?tab=whoop`)
 
 ### Whoop OAuth configuration
 
@@ -77,16 +79,14 @@ curl -i -c cookies.txt \
   -d '{"email":"<your user email>","password":"<password>"}' \
   http://localhost:3001/api/auth/login
 
-# 2. Request the Whoop authorization URL (returns JSON with authorizeUrl + state)
-curl -b cookies.txt http://localhost:3001/api/integrations/whoop/connect
+# 2. Start the Whoop authorization flow by visiting this URL in your browser
+#    (you need to approve the request in the Whoop UI):
+#    http://localhost:3001/api/integrations/whoop/connect
 
-# 3. Visit the authorizeUrl in a browser, authenticate with Whoop, and approve the app.
-#    Whoop will redirect back to the backend callback which returns JSON confirming the connection.
-
-# 4. Inspect current status
+# 3. Inspect current status
 curl -b cookies.txt http://localhost:3001/api/integrations/whoop/status
 
-# 5. Run the connection test (fetches the Whoop profile and refreshes tokens if needed)
+# 4. Run the connection test (fetches the Whoop profile and refreshes tokens if needed)
 curl -b cookies.txt -X POST http://localhost:3001/api/integrations/whoop/test
 ```
 
