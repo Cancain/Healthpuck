@@ -96,6 +96,30 @@ const whoopStrategy = new OAuth2Strategy(
   },
 );
 
+// Force OAuth2 token requests to use client_secret_post rather than HTTP Basic auth.
+const oauth2Client = (whoopStrategy as any)._oauth2 as any;
+const originalRequest = oauth2Client._request.bind(oauth2Client);
+oauth2Client._request = function (
+  method: string,
+  url: string,
+  headers: Record<string, string>,
+  postBody: string,
+  accessToken: string,
+  callback: (error: any, data?: any, response?: any) => void,
+) {
+  if (url === `${oauthBase}/token`) {
+    // Remove any Authorization header added by default
+    const { Authorization, authorization, ...restHeaders } = headers || {};
+    const augmentedBody = postBody
+      ? `${postBody}&client_id=${encodeURIComponent(clientId)}&client_secret=${encodeURIComponent(clientSecret)}`
+      : `client_id=${encodeURIComponent(clientId)}&client_secret=${encodeURIComponent(clientSecret)}`;
+
+    return originalRequest(method, url, restHeaders, augmentedBody, accessToken, callback);
+  }
+
+  return originalRequest(method, url, headers, postBody, accessToken, callback);
+};
+
 whoopStrategy.userProfile = async function (
   accessToken: string,
   done: (err: Error | null, profile?: any) => void,
