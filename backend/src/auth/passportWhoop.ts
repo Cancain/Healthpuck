@@ -1,7 +1,6 @@
 import passport from "passport";
 import { Strategy as OAuth2Strategy } from "passport-oauth2";
 import type { Request } from "express";
-import { eq } from "drizzle-orm";
 
 import { db } from "../db";
 import { whoopConnections } from "../db/schema";

@@ -1,4 +1,5 @@
-import { Routes, Route, useNavigate } from "react-router-dom";
+import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
+import { useEffect } from "react";
 
 import Header from "./components/Header/Header";
 import Hero from "./components/Hero/Hero";
@@ -12,6 +13,7 @@ import RequireAuth from "./auth/RequireAuth";
 
 function App() {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLoginClick = () => {
     navigate("/login");
@@ -20,6 +22,26 @@ function App() {
   const handleGetStartedClick = () => {
     navigate("/register");
   };
+
+  useEffect(() => {
+    const navigateToSettings = (query: string) => {
+      if (location.pathname !== "/settings") {
+        navigate(`/settings${query}`, { replace: true });
+      }
+    };
+
+    const hash = window.location.hash;
+    if (hash.startsWith("#/settings")) {
+      const questionMarkIndex = hash.indexOf("?");
+      const query = questionMarkIndex !== -1 ? hash.substring(questionMarkIndex) : "";
+      navigateToSettings(query);
+      return;
+    }
+
+    if (location.search.includes("tab=")) {
+      navigateToSettings(location.search);
+    }
+  }, [location.pathname, location.search, navigate]);
 
   return (
     <AuthProvider>
