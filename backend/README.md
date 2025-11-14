@@ -58,7 +58,7 @@ Required (dev & prod):
 - `WHOOP_CLIENT_SECRET` = OAuth client secret issued by Whoop
 - `WHOOP_REDIRECT_URI` = must match the callback registered with Whoop (`http://localhost:3001/api/integrations/whoop/callback` for local dev)
 - `WHOOP_OAUTH_BASE_URL` = defaults to `https://api.prod.whoop.com/oauth/oauth2`
-- `WHOOP_API_BASE_URL` = defaults to `https://api.prod.whoop.com/developer/v1`
+- `WHOOP_API_BASE_URL` = defaults to `https://api.prod.whoop.com/developer/v2`
 - `WHOOP_CONNECT_REDIRECT_SUCCESS` (optional) = where to send the browser after a successful connection (defaults to `<frontend>/settings?tab=whoop` – adjust if your SPA uses hash routing, e.g. `<frontend>/#/settings?tab=whoop`)
 - `WHOOP_CONNECT_REDIRECT_ERROR` (optional) = where to send the browser if connecting fails (defaults to `<frontend>/settings?tab=whoop`)
 

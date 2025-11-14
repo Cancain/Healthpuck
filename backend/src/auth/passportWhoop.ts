@@ -16,7 +16,7 @@ const oauthBase = (
   process.env.WHOOP_OAUTH_BASE_URL || "https://api.prod.whoop.com/oauth/oauth2"
 ).replace(/\/$/, "");
 const apiBase =
-  (process.env.WHOOP_API_BASE_URL || "https://api.prod.whoop.com/developer/v1").replace(/\/$/, "") +
+  (process.env.WHOOP_API_BASE_URL || "https://api.prod.whoop.com/developer/v2").replace(/\/$/, "") +
   "/";
 const clientId = process.env.WHOOP_CLIENT_ID;
 const clientSecret = process.env.WHOOP_CLIENT_SECRET;

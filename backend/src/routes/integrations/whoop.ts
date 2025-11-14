@@ -6,12 +6,16 @@ import authenticate, { getUserIdFromRequest } from "../../middleware/auth";
 import { db } from "../../db";
 import { whoopConnections } from "../../db/schema";
 import { WhoopClient } from "../../utils/whoopClient";
+import { ensureWhoopAccessTokenForPatient } from "../../utils/whoopSync";
 import { serializeState, parseAndValidateState } from "../../utils/whoopState";
 import { getPatientContextForUser, assertUserHasAccessToPatient } from "../../utils/patientContext";
 
 const router = Router();
 const whoopClient = WhoopClient.create();
-const scopeList = (process.env.WHOOP_SCOPE ?? "offline read:profile")
+const scopeList = (
+  process.env.WHOOP_SCOPE ??
+  "offline read:profile read:recovery read:cycles read:sleep read:workout read:body_measurement"
+)
   .split(/\s+/)
   .map((s) => s.trim())
   .filter(Boolean);
@@ -149,6 +153,75 @@ router.get("/status", authenticate, async (req: Request, res: Response) => {
   }
 });
 
+router.get("/metrics", authenticate, async (req: Request, res: Response) => {
+  const userId = getUserIdFromRequest(req);
+  if (!userId) {
+    return res.status(401).json({ error: "Not authenticated" });
+  }
+
+  try {
+    const { patientId, patientName } = await getPatientContextForUser(userId);
+    const rangeDays = clampRange(Number(req.query.range ?? 7));
+    const end = new Date();
+    const start = new Date(end.getTime() - rangeDays * 24 * 60 * 60 * 1000);
+
+    const { accessToken } = await ensureWhoopAccessTokenForPatient(patientId);
+
+    const fetchWithFallback = async <T>(
+      fn: () => Promise<T>,
+      metricName: string,
+    ): Promise<T | null> => {
+      try {
+        const result = await fn();
+        console.log(`Successfully fetched ${metricName}:`, {
+          hasData: result !== null && result !== undefined,
+          type: Array.isArray(result) ? "array" : typeof result,
+          isObject: typeof result === "object" && result !== null,
+        });
+        return result;
+      } catch (error) {
+        console.error(`Failed to fetch Whoop metric [${metricName}]:`, error);
+        if (error instanceof Error) {
+          console.error(`  Error message: ${error.message}`);
+        }
+        return null;
+      }
+    };
+
+    const [cycles, recovery] = await Promise.all([
+      fetchWithFallback(() => whoopClient.fetchCycles(accessToken, start, end), "cycles"),
+      fetchWithFallback(() => whoopClient.fetchRecovery(accessToken, start, end), "recovery"),
+    ]);
+
+    const [sleep, workouts, bodyMeasurement] = await Promise.all([
+      fetchWithFallback(() => whoopClient.fetchSleep(accessToken, start, end), "sleep"),
+      fetchWithFallback(() => whoopClient.fetchWorkouts(accessToken, start, end), "workouts"),
+      fetchWithFallback(() => whoopClient.fetchBodyMeasurement(accessToken), "bodyMeasurement"),
+    ]);
+
+    res.json({
+      patientId,
+      patientName,
+      range: {
+        start: start.toISOString(),
+        end: end.toISOString(),
+        days: rangeDays,
+      },
+      cycles,
+      recovery,
+      sleep,
+      workouts,
+      bodyMeasurement,
+    });
+  } catch (error) {
+    console.error("Whoop metrics error", error);
+    if (error instanceof Error && error.message.includes("No Whoop connection")) {
+      return res.status(404).json({ error: "Whoop is not connected" });
+    }
+    res.status(500).json({ error: "Failed to load Whoop metrics" });
+  }
+});
+
 router.post("/test", authenticate, async (req: Request, res: Response) => {
   const userId = getUserIdFromRequest(req);
   if (!userId) {
@@ -157,48 +230,18 @@ router.post("/test", authenticate, async (req: Request, res: Response) => {
 
   try {
     const { patientId, patientName } = await getPatientContextForUser(userId);
-    const [connection] = await db
-      .select()
-      .from(whoopConnections)
-      .where(eq(whoopConnections.patientId, patientId))
-      .limit(1);
-
-    if (!connection) {
-      return res.status(404).json({ error: "Whoop is not connected" });
-    }
-
-    let accessToken = connection.accessToken;
-    let refreshToken = connection.refreshToken;
-    let expiresAt = connection.expiresAt;
-    let refreshTokenExpiresAt = connection.refreshTokenExpiresAt;
-
-    if (!expiresAt || expiresAt.getTime() <= Date.now()) {
-      const refreshed = await whoopClient.refreshTokens(connection.refreshToken);
-      accessToken = refreshed.accessToken;
-      refreshToken = refreshed.refreshToken;
-      expiresAt = refreshed.expiresAt;
-      refreshTokenExpiresAt = refreshed.refreshTokenExpiresAt ?? null;
-
-      await db
-        .update(whoopConnections)
-        .set({
-          accessToken,
-          refreshToken,
-          expiresAt,
-          refreshTokenExpiresAt,
-          tokenType: refreshed.tokenType,
-          scope: refreshed.scope,
-          updatedAt: new Date(),
-        })
-        .where(eq(whoopConnections.id, connection.id));
-    }
-
+    const { connection, accessToken, refreshToken, expiresAt, refreshTokenExpiresAt } =
+      await ensureWhoopAccessTokenForPatient(patientId);
     const profile = await whoopClient.fetchProfile(accessToken);
 
     await db
       .update(whoopConnections)
       .set({
         whoopUserId: String(profile.user_id ?? connection.whoopUserId),
+        accessToken,
+        refreshToken,
+        expiresAt,
+        refreshTokenExpiresAt,
         lastSyncedAt: new Date(),
         updatedAt: new Date(),
       })
@@ -248,4 +291,9 @@ function buildRedirect(base: string, params: Record<string, string | undefined>)
     }
     return `${base}${base.includes("?") ? "&" : "?"}${query}`;
   }
+}
+
+function clampRange(raw: number) {
+  if (Number.isNaN(raw) || !Number.isFinite(raw)) return 7;
+  return Math.min(Math.max(Math.floor(raw), 1), 30);
 }

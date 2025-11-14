@@ -41,7 +41,15 @@ export class WhoopClient {
     this.redirectUri = this.requireEnv("WHOOP_REDIRECT_URI");
     this.oauthBaseUrl =
       process.env.WHOOP_OAUTH_BASE_URL ?? "https://api.prod.whoop.com/oauth/oauth2";
-    this.apiBaseUrl = process.env.WHOOP_API_BASE_URL ?? "https://api.prod.whoop.com/developer/v1";
+    const rawApiBase = process.env.WHOOP_API_BASE_URL ?? "https://api.prod.whoop.com/developer/v2";
+    this.apiBaseUrl = rawApiBase.endsWith("/") ? rawApiBase : `${rawApiBase}/`;
+    console.log("[whoop] API Base URL configured:", this.apiBaseUrl);
+
+    if (this.apiBaseUrl.includes("/developer/v1") || this.apiBaseUrl.includes("/v1/")) {
+      console.warn(
+        "[whoop] WARNING: Using API v1 which is deprecated. Please set WHOOP_API_BASE_URL to use v2 endpoints.",
+      );
+    }
     this.defaultScope =
       process.env.WHOOP_SCOPE ??
       [
@@ -95,7 +103,7 @@ export class WhoopClient {
   }
 
   async fetchProfile(accessToken: string): Promise<WhoopProfile> {
-    const url = new URL("user/profile/basic", this.apiBaseUrl);
+    const url = new URL(this.joinApiPath("user/profile/basic"));
     console.log("[whoop] fetching profile", { url: url.toString() });
     const response = await fetch(url, {
       headers: {
@@ -112,6 +120,54 @@ export class WhoopClient {
     }
 
     return (await response.json()) as WhoopProfile;
+  }
+
+  async fetchCycles(accessToken: string, start: Date, end: Date) {
+    return this.fetchWithDateRange(accessToken, "cycle", start, end);
+  }
+
+  async fetchRecovery(accessToken: string, start: Date, end: Date) {
+    try {
+      return await this.fetchWithDateRange(accessToken, "recovery", start, end);
+    } catch (error) {
+      console.log("[whoop] Direct recovery endpoint failed, trying to extract from cycles");
+      const cycles = await this.fetchCycles(accessToken, start, end);
+
+      if (Array.isArray(cycles)) {
+        const recoveries = cycles
+          .map((cycle: any) => {
+            if (cycle.recovery) {
+              return cycle.recovery;
+            }
+            return null;
+          })
+          .filter(Boolean);
+
+        return recoveries.length > 0 ? recoveries : null;
+      }
+
+      if (cycles && typeof cycles === "object" && !Array.isArray(cycles)) {
+        const cycleArray = (cycles as any).records || (cycles as any).data || [];
+        const recoveries = cycleArray.map((cycle: any) => cycle.recovery).filter(Boolean);
+
+        return recoveries.length > 0 ? recoveries : null;
+      }
+
+      throw error;
+    }
+  }
+
+  async fetchSleep(accessToken: string, start: Date, end: Date) {
+    return this.fetchWithDateRange(accessToken, "activity/sleep", start, end);
+  }
+
+  async fetchWorkouts(accessToken: string, start: Date, end: Date) {
+    return this.fetchWithDateRange(accessToken, "activity/workout", start, end);
+  }
+
+  async fetchBodyMeasurement(accessToken: string) {
+    const url = new URL(this.joinApiPath("user/measurement/body"));
+    return this.fetchJson(accessToken, url);
   }
 
   private async requestToken(url: string, body: URLSearchParams): Promise<WhoopTokenSet> {
@@ -178,5 +234,44 @@ export class WhoopClient {
         return null;
       }
     }
+  }
+
+  private async fetchWithDateRange(accessToken: string, path: string, start: Date, end: Date) {
+    const url = new URL(this.joinApiPath(path));
+    url.searchParams.set("start", start.toISOString());
+    url.searchParams.set("end", end.toISOString());
+    console.log(`[whoop] Fetching ${path} from:`, url.toString());
+    const result = await this.fetchJson(accessToken, url);
+    console.log(`[whoop] Received response for ${path}:`, {
+      isArray: Array.isArray(result),
+      isObject: typeof result === "object" && result !== null,
+      hasRecords: result && typeof result === "object" && "records" in result,
+      hasData: result && typeof result === "object" && "data" in result,
+      keys: result && typeof result === "object" ? Object.keys(result) : null,
+    });
+    return result;
+  }
+
+  private async fetchJson(accessToken: string, url: URL) {
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const errorBody = await this.safeJson(response);
+      throw new Error(
+        `Failed to fetch Whoop data (${url.pathname}): ${response.status} ${response.statusText} - ${JSON.stringify(errorBody)}`,
+      );
+    }
+
+    return response.json();
+  }
+
+  private joinApiPath(pathname: string) {
+    const base = this.apiBaseUrl.endsWith("/") ? this.apiBaseUrl : `${this.apiBaseUrl}/`;
+    return new URL(pathname, base).toString();
   }
 }
