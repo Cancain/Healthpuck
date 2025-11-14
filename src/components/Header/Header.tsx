@@ -73,7 +73,7 @@ const Header: React.FC<HeaderProps> = ({ onLoginClick, onGetStartedClick }) => {
           <div className={styles.desktopButtons}>
             {user ? (
               <>
-                <Link className={styles.userLink} to="/settings">
+                <Link className={styles.userLink} to="/dashboard">
                   {user.name}
                 </Link>
                 <Button variant="secondary" onClick={handleSettingsClick}>
@@ -108,7 +108,7 @@ const Header: React.FC<HeaderProps> = ({ onLoginClick, onGetStartedClick }) => {
             <div className={styles.dropdown}>
               {user ? (
                 <>
-                  <Link className={styles.userLink} to="/settings">
+                  <Link className={styles.userLink} to="/dashboard">
                     {user.name}
                   </Link>
                   <Button variant="secondary" onClick={handleSettingsClick}>

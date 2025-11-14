@@ -8,11 +8,7 @@ type SyncOptions = {
   forceRefresh?: boolean;
 };
 
-/**
- * Placeholder for future background syncing of Whoop data.
- * Currently validates connectivity and returns the profile payload.
- */
-export async function syncWhoopDataForPatient(patientId: number, options: SyncOptions = {}) {
+export async function ensureWhoopAccessTokenForPatient(patientId: number) {
   const [connection] = await db
     .select()
     .from(whoopConnections)
@@ -30,8 +26,8 @@ export async function syncWhoopDataForPatient(patientId: number, options: SyncOp
   let expiresAt = connection.expiresAt;
   let refreshTokenExpiresAt = connection.refreshTokenExpiresAt;
 
-  if (options.forceRefresh || !expiresAt || expiresAt.getTime() <= Date.now()) {
-    const refreshed = await client.refreshTokens(refreshToken);
+  if (!expiresAt || expiresAt.getTime() <= Date.now()) {
+    const refreshed = await client.refreshTokens(connection.refreshToken);
     accessToken = refreshed.accessToken;
     refreshToken = refreshed.refreshToken;
     expiresAt = refreshed.expiresAt;
@@ -49,6 +45,51 @@ export async function syncWhoopDataForPatient(patientId: number, options: SyncOp
         updatedAt: new Date(),
       })
       .where(eq(whoopConnections.id, connection.id));
+  }
+
+  return {
+    connection,
+    accessToken,
+    refreshToken,
+    expiresAt,
+    refreshTokenExpiresAt,
+  };
+}
+
+/**
+ * Placeholder for future background syncing of Whoop data.
+ * Currently validates connectivity and returns the profile payload.
+ */
+export async function syncWhoopDataForPatient(patientId: number, options: SyncOptions = {}) {
+  const { connection, accessToken, refreshToken, expiresAt, refreshTokenExpiresAt } =
+    await ensureWhoopAccessTokenForPatient(patientId);
+
+  const client = WhoopClient.create();
+
+  if (options.forceRefresh) {
+    const refreshed = await client.refreshTokens(refreshToken);
+    await db
+      .update(whoopConnections)
+      .set({
+        accessToken: refreshed.accessToken,
+        refreshToken: refreshed.refreshToken,
+        expiresAt: refreshed.expiresAt,
+        refreshTokenExpiresAt: refreshed.refreshTokenExpiresAt ?? null,
+        tokenType: refreshed.tokenType,
+        scope: refreshed.scope,
+        updatedAt: new Date(),
+      })
+      .where(eq(whoopConnections.id, connection.id));
+
+    return {
+      profile: await client.fetchProfile(refreshed.accessToken),
+      tokens: {
+        accessToken: refreshed.accessToken,
+        refreshToken: refreshed.refreshToken,
+        expiresAt: refreshed.expiresAt,
+        refreshTokenExpiresAt: refreshed.refreshTokenExpiresAt,
+      },
+    };
   }
 
   const profile = await client.fetchProfile(accessToken);

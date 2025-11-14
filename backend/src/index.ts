@@ -13,6 +13,7 @@ import userRoutes from "./routes/users";
 import authRoutes from "./routes/auth";
 import patientRoutes from "./routes/patients";
 import medicationRoutes from "./routes/medications";
+import checkInRoutes from "./routes/checkIns";
 import whoopIntegrationRoutes from "./routes/integrations/whoop";
 
 // Prefer dotenv-safe when an example file exists to validate required env vars.
@@ -64,6 +65,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/patients", patientRoutes);
 app.use("/api/medications", medicationRoutes);
+app.use("/api/check-ins", checkInRoutes);
 app.use("/api/integrations/whoop", whoopIntegrationRoutes);
 
 app.use((req: Request, res: Response) => {

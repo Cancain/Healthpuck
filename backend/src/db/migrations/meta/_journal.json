@@ -29,6 +29,13 @@
       "when": 1762948800000,
       "tag": "0003_patient_whoop",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1762962000000,
+      "tag": "0004_medication_checkins",
+      "breakpoints": true
     }
   ]
 }

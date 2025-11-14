@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, unique } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, unique, index } from "drizzle-orm/sqlite-core";
 
 export const users = sqliteTable("users", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -87,6 +87,44 @@ export const medicationIntakes = sqliteTable(
   }),
 );
 
+export const medicationCheckIns = sqliteTable(
+  "medication_check_ins",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    patientId: integer("patient_id")
+      .notNull()
+      .references(() => patients.id, { onDelete: "cascade" }),
+    medicationId: integer("medication_id")
+      .notNull()
+      .references(() => medications.id, { onDelete: "cascade" }),
+    status: text("status", { enum: ["taken", "skipped", "missed"] })
+      .notNull()
+      .default("taken"),
+    scheduledFor: integer("scheduled_for", { mode: "timestamp" }),
+    takenAt: integer("taken_at", { mode: "timestamp" }).notNull(),
+    notes: text("notes"),
+    recordedByUserId: integer("recorded_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+    updatedAt: integer("updated_at", { mode: "timestamp" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => ({
+    patientDateIdx: index("medication_check_ins_patient_date_idx").on(
+      table.patientId,
+      table.takenAt,
+    ),
+    medicationDateIdx: index("medication_check_ins_medication_date_idx").on(
+      table.medicationId,
+      table.takenAt,
+    ),
+  }),
+);
+
 export const whoopConnections = sqliteTable(
   "whoop_connections",
   {
@@ -128,5 +166,7 @@ export type Medication = typeof medications.$inferSelect;
 export type NewMedication = typeof medications.$inferInsert;
 export type MedicationIntake = typeof medicationIntakes.$inferSelect;
 export type NewMedicationIntake = typeof medicationIntakes.$inferInsert;
+export type MedicationCheckIn = typeof medicationCheckIns.$inferSelect;
+export type NewMedicationCheckIn = typeof medicationCheckIns.$inferInsert;
 export type WhoopConnection = typeof whoopConnections.$inferSelect;
 export type NewWhoopConnection = typeof whoopConnections.$inferInsert;

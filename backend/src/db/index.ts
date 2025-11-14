@@ -139,6 +139,7 @@ export const initializeDatabase = async () => {
       "patient_users",
       "medications",
       "medication_intakes",
+      "medication_check_ins",
     ];
     const missingTables: string[] = [];
 
