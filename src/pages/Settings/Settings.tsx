@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 
 import Button from "../../components/Button/Button";
 import styles from "./Settings.module.css";
+import { translateWhoopScope } from "../../utils/whoopTranslations";
 
 const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:3001";
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -1208,7 +1209,9 @@ const SettingsPage: React.FC = () => {
                     </div>
                     <div className={styles.whoopStatusRow}>
                       <span>Behörigheter:</span>
-                      <strong>{whoopStatus.scope || "-"}</strong>
+                      <strong>
+                        {whoopStatus.scope ? translateWhoopScope(whoopStatus.scope) : "-"}
+                      </strong>
                     </div>
                     <div className={styles.whoopStatusRow}>
                       <span>Token går ut:</span>

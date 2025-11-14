@@ -88,6 +88,27 @@ const whoopTranslations = new Map<string, string>([
   ["day", "Dag"],
 ]);
 
+const scopeTranslations = new Map<string, string>([
+  ["offline", "Offline-åtkomst"],
+  ["read:profile", "Läs profil"],
+  ["read:recovery", "Läs återhämtning"],
+  ["read:cycles", "Läs cykler"],
+  ["read:sleep", "Läs sömn"],
+  ["read:workout", "Läs träning"],
+  ["read:body_measurement", "Läs kroppsmätningar"],
+]);
+
+export function translateWhoopScope(scope: string): string {
+  if (!scope) return "";
+
+  return scope
+    .split(/\s+/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((s) => scopeTranslations.get(s) || s)
+    .join(", ");
+}
+
 export function translateWhoopField(key: string): string {
   if (whoopTranslations.has(key)) {
     return whoopTranslations.get(key)!;
