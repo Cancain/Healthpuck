@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import styles from "./Dashboard.module.css";
 import Button from "../../components/Button/Button";
 import { whoopBluetooth } from "../../utils/whoopBluetooth";
+import { translateWhoopField } from "../../utils/whoopTranslations";
 
 const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:3001";
 const CHECK_IN_RANGE_DAYS = 7;
@@ -659,17 +660,11 @@ const MetricCard: React.FC<MetricCardProps> = ({ title, payload, allowSingleReco
             {metricPairs.length === 0 && <li>Inga numeriska värden att visa</li>}
             {metricPairs.map(([key, value]) => (
               <li key={key}>
-                <span>{key}</span>
+                <span>{translateWhoopField(key)}</span>
                 <strong>{formatNumber(value)}</strong>
               </li>
             ))}
           </ul>
-          <details className={styles.metricDetails}>
-            <summary>Visa rådata</summary>
-            <pre className={styles.jsonPreview}>
-              {JSON.stringify(latest.raw ?? latest, null, 2)}
-            </pre>
-          </details>
         </>
       ) : (
         <>
