@@ -42,24 +42,36 @@ router.post("/", async (req: Request, res: Response) => {
     const existingUser = await db.select().from(users).where(eq(users.email, email)).limit(1);
 
     if (existingUser.length > 0) {
-      return res.status(409).json({ error: "User with this email already exists" });
+      return res.status(409).json({ error: "En användare med denna e-post finns redan" });
     }
 
     const hashedPassword = await hashPassword(password);
 
-    const newUser = await db
-      .insert(users)
-      .values({
-        email,
-        name,
-        password: hashedPassword,
-      })
-      .returning();
+    let newUser;
+    try {
+      newUser = await db
+        .insert(users)
+        .values({
+          email,
+          name,
+          password: hashedPassword,
+        })
+        .returning();
+    } catch (dbError: any) {
+      if (
+        dbError?.code === 19 ||
+        dbError?.message?.includes("UNIQUE constraint") ||
+        dbError?.message?.includes("unique constraint")
+      ) {
+        return res.status(409).json({ error: "En användare med denna e-post finns redan" });
+      }
+      throw dbError;
+    }
 
-    const { password: _, ...userResponse } = newUser[0];
+    const { password: _, ...userResponse } = newUser![0];
 
     // Create JWT token and set cookie to automatically log in the user
-    const token = signJwt({ sub: String(newUser[0].id), email: newUser[0].email });
+    const token = signJwt({ sub: String(newUser![0].id), email: newUser![0].email });
 
     const isProd = (process.env.APP_ENV ?? process.env.NODE_ENV) === "production";
     res.cookie("hp_token", token, {

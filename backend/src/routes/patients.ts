@@ -55,15 +55,41 @@ router.post("/", authenticate, async (req: Request, res: Response) => {
     } else {
       // Create new user account for the patient
       const hashedPassword = await hashPassword(password);
-      const newUser = await db
-        .insert(users)
-        .values({
-          email,
-          name,
-          password: hashedPassword,
-        })
-        .returning();
-      patientUserId = newUser[0].id;
+      try {
+        const newUser = await db
+          .insert(users)
+          .values({
+            email,
+            name,
+            password: hashedPassword,
+          })
+          .returning();
+        patientUserId = newUser[0].id;
+      } catch (dbError: any) {
+        if (
+          dbError?.code === 19 ||
+          dbError?.message?.includes("UNIQUE constraint") ||
+          dbError?.message?.includes("unique constraint")
+        ) {
+          const raceConditionUser = await db
+            .select()
+            .from(users)
+            .where(eq(users.email, email))
+            .limit(1);
+          if (raceConditionUser.length > 0) {
+            const hashedPassword = await hashPassword(password);
+            await db
+              .update(users)
+              .set({ password: hashedPassword })
+              .where(eq(users.id, raceConditionUser[0].id));
+            patientUserId = raceConditionUser[0].id;
+          } else {
+            throw dbError;
+          }
+        } else {
+          throw dbError;
+        }
+      }
     }
 
     // Create patient record
