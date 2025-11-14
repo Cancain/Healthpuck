@@ -649,21 +649,39 @@ const MetricCard: React.FC<MetricCardProps> = ({ title, payload, allowSingleReco
     <article className={styles.metricCard}>
       <header className={styles.metricHeader}>
         <h3>{title}</h3>
-        <span className={styles.metricCount}>{records.length} poster</span>
       </header>
       {latest ? (
         <>
           {latest.timestamp && (
-            <p className={styles.metricMeta}>Senaste: {formatDate(latest.timestamp)}</p>
+            <p className={styles.metricMeta}>
+              Senaste:{" "}
+              {new Date(latest.timestamp).toLocaleTimeString("sv-SE", {
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+                timeZone: "Europe/Stockholm",
+              })}
+            </p>
           )}
           <ul className={styles.metricValues}>
             {metricPairs.length === 0 && <li>Inga numeriska värden att visa</li>}
-            {metricPairs.map(([key, value]) => (
-              <li key={key}>
-                <span>{translateWhoopField(key)}</span>
-                <strong>{formatNumber(value)}</strong>
-              </li>
-            ))}
+            {metricPairs.map(([key, value]) => {
+              const keysToHide = [
+                "id",
+                "user_id",
+                "sport_id",
+                "cycle_id",
+                "score.percent_recorded",
+              ];
+              if (keysToHide.includes(key)) return null;
+
+              return (
+                <li key={key}>
+                  <span>{translateWhoopField(key)}</span>
+                  <strong>{formatNumber(value)}</strong>
+                </li>
+              );
+            })}
           </ul>
         </>
       ) : (
