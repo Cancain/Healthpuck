@@ -96,6 +96,7 @@ const SettingsPage: React.FC = () => {
   const [whoopLoading, setWhoopLoading] = useState<boolean>(false);
   const [whoopError, setWhoopError] = useState<string | null>(null);
   const [connectingWhoop, setConnectingWhoop] = useState<boolean>(false);
+  const [disconnectingWhoop, setDisconnectingWhoop] = useState<boolean>(false);
 
   const fetchPatients = async () => {
     try {
@@ -187,6 +188,39 @@ const SettingsPage: React.FC = () => {
     setWhoopError(null);
     setConnectingWhoop(true);
     window.location.href = `${API_BASE}/api/integrations/whoop/connect`;
+  };
+
+  const handleWhoopDisconnect = async () => {
+    if (
+      !window.confirm(
+        "Är du säker på att du vill ta bort Whoop-anslutningen? Detta kommer att stoppa all data-synkronisering.",
+      )
+    ) {
+      return;
+    }
+
+    setWhoopError(null);
+    setDisconnectingWhoop(true);
+
+    try {
+      const res = await fetch(`${API_BASE}/api/integrations/whoop/disconnect`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Kunde inte ta bort Whoop-anslutning");
+      }
+
+      setSuccessMessage("Whoop-anslutning borttagen!");
+      await fetchWhoopStatus();
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      setWhoopError(err instanceof Error ? err.message : "Något gick fel");
+    } finally {
+      setDisconnectingWhoop(false);
+    }
   };
 
   const formatDate = (value?: string | null) => {
@@ -1122,13 +1156,27 @@ const SettingsPage: React.FC = () => {
                   för att logga in och godkänna åtkomst.
                 </p>
               </div>
-              <Button onClick={handleWhoopConnect} disabled={connectingWhoop}>
-                {connectingWhoop
-                  ? "Startar..."
-                  : whoopStatus?.connected
-                    ? "Återanslut"
-                    : "Koppla Whoop"}
-              </Button>
+              <div style={{ display: "flex", gap: "0.5rem", alignItems: "flex-start" }}>
+                {whoopStatus?.connected && (
+                  <Button
+                    variant="secondary"
+                    onClick={handleWhoopDisconnect}
+                    disabled={disconnectingWhoop || connectingWhoop}
+                  >
+                    {disconnectingWhoop ? "Tar bort..." : "Ta bort"}
+                  </Button>
+                )}
+                <Button
+                  onClick={handleWhoopConnect}
+                  disabled={connectingWhoop || disconnectingWhoop}
+                >
+                  {connectingWhoop
+                    ? "Startar..."
+                    : whoopStatus?.connected
+                      ? "Återanslut"
+                      : "Koppla Whoop"}
+                </Button>
+              </div>
             </div>
 
             {whoopLoading ? (

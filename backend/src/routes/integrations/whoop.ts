@@ -469,6 +469,33 @@ router.post("/test", authenticate, async (req: Request, res: Response) => {
   }
 });
 
+router.delete("/disconnect", authenticate, async (req: Request, res: Response) => {
+  const userId = getUserIdFromRequest(req);
+  if (!userId) {
+    return res.status(401).json({ error: "Not authenticated" });
+  }
+
+  try {
+    const { patientId } = await getPatientContextForUser(userId);
+    const [connection] = await db
+      .select()
+      .from(whoopConnections)
+      .where(eq(whoopConnections.patientId, patientId))
+      .limit(1);
+
+    if (!connection) {
+      return res.status(404).json({ error: "No Whoop connection found" });
+    }
+
+    await db.delete(whoopConnections).where(eq(whoopConnections.id, connection.id));
+
+    res.json({ success: true, message: "Whoop connection removed" });
+  } catch (error) {
+    console.error("Whoop disconnect error", error);
+    res.status(500).json({ error: "Failed to disconnect Whoop" });
+  }
+});
+
 export default router;
 
 function removeTrailingSlash(url: string) {
