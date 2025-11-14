@@ -1,5 +1,7 @@
 import crypto from "crypto";
 
+import { whoopRateLimiter } from "./whoopRateLimiter";
+
 type TokenResponse = {
   access_token: string;
   refresh_token: string;
@@ -104,7 +106,6 @@ export class WhoopClient {
 
   async fetchProfile(accessToken: string): Promise<WhoopProfile> {
     const url = new URL(this.joinApiPath("user/profile/basic"));
-    console.log("[whoop] fetching profile", { url: url.toString() });
     const response = await fetch(url, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -130,7 +131,6 @@ export class WhoopClient {
     try {
       return await this.fetchWithDateRange(accessToken, "recovery", start, end);
     } catch (error) {
-      console.log("[whoop] Direct recovery endpoint failed, trying to extract from cycles");
       const cycles = await this.fetchCycles(accessToken, start, end);
 
       if (Array.isArray(cycles)) {
@@ -240,15 +240,7 @@ export class WhoopClient {
     const url = new URL(this.joinApiPath(path));
     url.searchParams.set("start", start.toISOString());
     url.searchParams.set("end", end.toISOString());
-    console.log(`[whoop] Fetching ${path} from:`, url.toString());
     const result = await this.fetchJson(accessToken, url);
-    console.log(`[whoop] Received response for ${path}:`, {
-      isArray: Array.isArray(result),
-      isObject: typeof result === "object" && result !== null,
-      hasRecords: result && typeof result === "object" && "records" in result,
-      hasData: result && typeof result === "object" && "data" in result,
-      keys: result && typeof result === "object" ? Object.keys(result) : null,
-    });
     return result;
   }
 
@@ -260,14 +252,33 @@ export class WhoopClient {
       },
     });
 
+    whoopRateLimiter.updateRateLimits(response.headers);
+    whoopRateLimiter.recordRequest();
+
     if (!response.ok) {
       const errorBody = await this.safeJson(response);
+
+      if (response.status === 429) {
+        const retryAfter = response.headers.get("Retry-After");
+        const waitSeconds = retryAfter ? parseInt(retryAfter, 10) : undefined;
+        const rateLimitCheck = whoopRateLimiter.canMakeRequest();
+
+        throw new Error(
+          `Rate limit exceeded (429): ${errorBody ? JSON.stringify(errorBody) : "Too Many Requests"}. ` +
+            `Wait ${waitSeconds ? `${waitSeconds} seconds` : rateLimitCheck.waitMs ? `${Math.ceil(rateLimitCheck.waitMs / 1000)} seconds` : "before retrying"}.`,
+        );
+      }
+
       throw new Error(
         `Failed to fetch Whoop data (${url.pathname}): ${response.status} ${response.statusText} - ${JSON.stringify(errorBody)}`,
       );
     }
 
     return response.json();
+  }
+
+  canMakeRequest(): { allowed: boolean; waitMs?: number; reason?: string } {
+    return whoopRateLimiter.canMakeRequest();
   }
 
   private joinApiPath(pathname: string) {

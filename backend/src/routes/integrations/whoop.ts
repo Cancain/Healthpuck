@@ -9,6 +9,7 @@ import { WhoopClient } from "../../utils/whoopClient";
 import { ensureWhoopAccessTokenForPatient } from "../../utils/whoopSync";
 import { serializeState, parseAndValidateState } from "../../utils/whoopState";
 import { getPatientContextForUser, assertUserHasAccessToPatient } from "../../utils/patientContext";
+import { whoopRateLimiter } from "../../utils/whoopRateLimiter";
 
 const router = Router();
 const whoopClient = WhoopClient.create();
@@ -173,25 +174,37 @@ router.get("/metrics", authenticate, async (req: Request, res: Response) => {
     ): Promise<T | null> => {
       try {
         const result = await fn();
-        console.log(`Successfully fetched ${metricName}:`, {
-          hasData: result !== null && result !== undefined,
-          type: Array.isArray(result) ? "array" : typeof result,
-          isObject: typeof result === "object" && result !== null,
-        });
         return result;
       } catch (error) {
         console.error(`Failed to fetch Whoop metric [${metricName}]:`, error);
-        if (error instanceof Error) {
-          console.error(`  Error message: ${error.message}`);
-        }
         return null;
       }
     };
 
-    const [cycles, recovery] = await Promise.all([
-      fetchWithFallback(() => whoopClient.fetchCycles(accessToken, start, end), "cycles"),
-      fetchWithFallback(() => whoopClient.fetchRecovery(accessToken, start, end), "recovery"),
-    ]);
+    const cycles = await fetchWithFallback(
+      () => whoopClient.fetchCycles(accessToken, start, end),
+      "cycles",
+    );
+
+    const extractRecoveryFromCycles = (cyclesData: any): any => {
+      if (!cyclesData) return null;
+
+      const cycleArray = Array.isArray(cyclesData)
+        ? cyclesData
+        : cyclesData.records || cyclesData.data || [];
+
+      const recoveries = cycleArray.map((cycle: any) => cycle.recovery).filter(Boolean);
+
+      return recoveries.length > 0 ? recoveries : null;
+    };
+
+    let recovery = extractRecoveryFromCycles(cycles);
+    if (!recovery) {
+      recovery = await fetchWithFallback(
+        () => whoopClient.fetchRecovery(accessToken, start, end),
+        "recovery",
+      );
+    }
 
     const [sleep, workouts, bodyMeasurement] = await Promise.all([
       fetchWithFallback(() => whoopClient.fetchSleep(accessToken, start, end), "sleep"),
@@ -219,6 +232,196 @@ router.get("/metrics", authenticate, async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Whoop is not connected" });
     }
     res.status(500).json({ error: "Failed to load Whoop metrics" });
+  }
+});
+
+router.get("/heart-rate", authenticate, async (req: Request, res: Response) => {
+  const userId = getUserIdFromRequest(req);
+  if (!userId) {
+    return res.status(401).json({ error: "Not authenticated" });
+  }
+
+  try {
+    const { patientId } = await getPatientContextForUser(userId);
+
+    whoopRateLimiter.addActiveUser(userId, patientId);
+
+    const cached = whoopRateLimiter.getCachedHeartRate(patientId);
+    if (cached && cached.source === "cache") {
+      return res.json({
+        heartRate: cached.heartRate,
+        cached: true,
+        rateLimited: false,
+        timestamp: cached.timestamp,
+      });
+    }
+
+    const rateLimitCheck = whoopRateLimiter.canMakeRequest();
+    if (!rateLimitCheck.allowed) {
+      if (cached) {
+        return res.json({
+          heartRate: cached.heartRate,
+          cached: true,
+          rateLimited: true,
+          message: `Rate limit reached. Showing cached data. Next update in ${Math.ceil((rateLimitCheck.waitMs || 0) / 1000)} seconds.`,
+          nextAvailableAt: new Date(Date.now() + (rateLimitCheck.waitMs || 0)).toISOString(),
+          timestamp: cached.timestamp,
+        });
+      }
+
+      return res.json({
+        heartRate: null,
+        cached: false,
+        rateLimited: true,
+        message: `Rate limit reached: ${rateLimitCheck.reason}. Please try again in ${Math.ceil((rateLimitCheck.waitMs || 0) / 1000)} seconds.`,
+        nextAvailableAt: new Date(Date.now() + (rateLimitCheck.waitMs || 0)).toISOString(),
+      });
+    }
+
+    const { accessToken } = await ensureWhoopAccessTokenForPatient(patientId);
+    const end = new Date();
+    const start = new Date(end.getTime() - 24 * 60 * 60 * 1000);
+
+    let heartRate: number | null = null;
+
+    try {
+      const workouts = await whoopClient.fetchWorkouts(accessToken, start, end);
+
+      const workoutArray = Array.isArray(workouts)
+        ? workouts
+        : (workouts as any)?.records || (workouts as any)?.data || [];
+
+      for (const workout of workoutArray) {
+        const hr =
+          workout.score?.average_heart_rate ||
+          workout.score?.max_heart_rate ||
+          workout.score?.heart_rate ||
+          workout.heart_rate ||
+          workout.hr ||
+          workout.average_heart_rate ||
+          workout.avg_heart_rate ||
+          workout.max_heart_rate ||
+          workout.heartRate ||
+          workout.averageHeartRate ||
+          workout.maxHeartRate;
+
+        if (typeof hr === "number" && hr > 0) {
+          heartRate = hr;
+          break;
+        }
+
+        if (workout.metrics?.heart_rate) {
+          heartRate = workout.metrics.heart_rate;
+          break;
+        }
+        if (workout.metrics?.average_heart_rate) {
+          heartRate = workout.metrics.average_heart_rate;
+          break;
+        }
+        if (workout.score?.metrics?.heart_rate) {
+          heartRate = workout.score.metrics.heart_rate;
+          break;
+        }
+      }
+
+      if (heartRate === null) {
+        const cycles = await whoopClient.fetchCycles(accessToken, start, end);
+        const cycleArray = Array.isArray(cycles)
+          ? cycles
+          : (cycles as any)?.records || (cycles as any)?.data || [];
+
+        for (const cycle of cycleArray) {
+          const hr =
+            cycle.score?.average_heart_rate ||
+            cycle.score?.max_heart_rate ||
+            cycle.score?.heart_rate ||
+            cycle.average_heart_rate ||
+            cycle.max_heart_rate;
+
+          if (typeof hr === "number" && hr > 0) {
+            heartRate = hr;
+            break;
+          }
+        }
+      }
+
+      if (heartRate === null) {
+        const recovery = await whoopClient.fetchRecovery(accessToken, start, end);
+        const recoveryArray = Array.isArray(recovery)
+          ? recovery
+          : (recovery as any)?.records || (recovery as any)?.data || [];
+
+        for (const rec of recoveryArray) {
+          const hr =
+            rec.score?.resting_heart_rate ||
+            rec.score?.heart_rate ||
+            rec.resting_heart_rate ||
+            rec.heart_rate;
+
+          if (typeof hr === "number" && hr > 0) {
+            heartRate = hr;
+            break;
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch workout data for heart rate:", error);
+      if (cached) {
+        return res.json({
+          heartRate: cached.heartRate,
+          cached: true,
+          rateLimited: false,
+          message: "Failed to fetch new data, showing cached value.",
+          timestamp: cached.timestamp,
+        });
+      }
+    }
+
+    whoopRateLimiter.cacheHeartRate(patientId, heartRate);
+
+    res.json({
+      heartRate,
+      cached: false,
+      rateLimited: false,
+      timestamp: Date.now(),
+    });
+  } catch (error) {
+    console.error("Whoop heart rate error", error);
+
+    try {
+      const { patientId } = await getPatientContextForUser(userId);
+      const cached = whoopRateLimiter.getCachedHeartRate(patientId);
+      if (cached) {
+        return res.json({
+          heartRate: cached.heartRate,
+          cached: true,
+          rateLimited: false,
+          message: "Error fetching data, showing cached value.",
+          timestamp: cached.timestamp,
+        });
+      }
+    } catch {}
+
+    if (error instanceof Error && error.message.includes("No Whoop connection")) {
+      return res.status(404).json({ error: "Whoop is not connected" });
+    }
+    res.status(500).json({ error: "Failed to fetch heart rate data" });
+  }
+});
+
+router.post("/heart-rate/stop", authenticate, async (req: Request, res: Response) => {
+  const userId = getUserIdFromRequest(req);
+  if (!userId) {
+    return res.status(401).json({ error: "Not authenticated" });
+  }
+
+  try {
+    const { patientId } = await getPatientContextForUser(userId);
+    whoopRateLimiter.removeActiveUser(userId, patientId);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error removing user from queue:", error);
+    res.status(500).json({ error: "Failed to stop polling" });
   }
 });
 
