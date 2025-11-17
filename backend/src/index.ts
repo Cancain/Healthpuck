@@ -15,6 +15,8 @@ import patientRoutes from "./routes/patients";
 import medicationRoutes from "./routes/medications";
 import checkInRoutes from "./routes/checkIns";
 import whoopIntegrationRoutes from "./routes/integrations/whoop";
+import alertRoutes from "./routes/alerts";
+import { startAlertScheduler } from "./utils/alertScheduler";
 
 // Prefer dotenv-safe when an example file exists to validate required env vars.
 // Fallback to plain dotenv if the example file is not present.
@@ -67,6 +69,7 @@ app.use("/api/patients", patientRoutes);
 app.use("/api/medications", medicationRoutes);
 app.use("/api/check-ins", checkInRoutes);
 app.use("/api/integrations/whoop", whoopIntegrationRoutes);
+app.use("/api/alerts", alertRoutes);
 
 app.use((req: Request, res: Response) => {
   res.status(404).json({ error: "Route not found" });
@@ -85,6 +88,7 @@ async function startServer() {
       console.log(`Server is running on http://localhost:${PORT}`);
       console.log(`Health check: http://localhost:${PORT}/health`);
     });
+    startAlertScheduler();
   } catch (error) {
     console.error("Failed to start server:", error);
     process.exit(1);

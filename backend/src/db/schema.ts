@@ -156,6 +156,29 @@ export const whoopConnections = sqliteTable(
   }),
 );
 
+export const alerts = sqliteTable("alerts", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  patientId: integer("patient_id")
+    .notNull()
+    .references(() => patients.id, { onDelete: "cascade" }),
+  createdBy: integer("created_by")
+    .notNull()
+    .references(() => users.id),
+  name: text("name").notNull(),
+  metricType: text("metric_type", { enum: ["whoop", "medication"] }).notNull(),
+  metricPath: text("metric_path").notNull(),
+  operator: text("operator", { enum: ["<", ">", "=", "<=", ">="] }).notNull(),
+  thresholdValue: text("threshold_value").notNull(),
+  priority: text("priority", { enum: ["high", "mid", "low"] }).notNull(),
+  enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Patient = typeof patients.$inferSelect;
@@ -170,3 +193,5 @@ export type MedicationCheckIn = typeof medicationCheckIns.$inferSelect;
 export type NewMedicationCheckIn = typeof medicationCheckIns.$inferInsert;
 export type WhoopConnection = typeof whoopConnections.$inferSelect;
 export type NewWhoopConnection = typeof whoopConnections.$inferInsert;
+export type Alert = typeof alerts.$inferSelect;
+export type NewAlert = typeof alerts.$inferInsert;

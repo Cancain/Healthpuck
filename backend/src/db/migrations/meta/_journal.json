@@ -36,6 +36,13 @@
       "when": 1762962000000,
       "tag": "0004_medication_checkins",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1763000000000,
+      "tag": "0005_alerts",
+      "breakpoints": true
     }
   ]
 }

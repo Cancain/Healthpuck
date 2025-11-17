@@ -1,9 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState, useRef } from "react";
 
 import styles from "./Dashboard.module.css";
 import Button from "../../components/Button/Button";
 import { whoopBluetooth } from "../../utils/whoopBluetooth";
 import { translateWhoopField } from "../../utils/whoopTranslations";
+import ToastContainer, { ToastMessage } from "../../components/Toast/ToastContainer";
 
 const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:3001";
 const CHECK_IN_RANGE_DAYS = 7;
@@ -113,6 +114,20 @@ type CheckInState = AsyncState<CheckInResponse>;
 
 type Feedback = { type: "success" | "error"; message: string } | null;
 
+type ActiveAlert = {
+  alert: {
+    id: number;
+    name: string;
+    metricType: "whoop" | "medication";
+    metricPath: string;
+    operator: "<" | ">" | "=" | "<=" | ">=";
+    thresholdValue: string;
+    priority: "high" | "mid" | "low";
+  };
+  currentValue: number;
+  isActive: boolean;
+};
+
 const DashboardPage: React.FC = () => {
   const [me, setMe] = useState<MeResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -131,6 +146,49 @@ const DashboardPage: React.FC = () => {
   const [checkInNotes, setCheckInNotes] = useState<Record<number, string>>({});
   const [checkInSubmittingId, setCheckInSubmittingId] = useState<number | null>(null);
   const [checkInFeedback, setCheckInFeedback] = useState<Feedback>(null);
+  const [activeAlerts, setActiveAlerts] = useState<ActiveAlert[]>([]);
+  const [alertsLoading, setAlertsLoading] = useState(false);
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const previousAlertsRef = useRef<Set<number>>(new Set());
+
+  const fetchActiveAlerts = useCallback(async () => {
+    setAlertsLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/alerts/active`, {
+        credentials: "include",
+      });
+      if (res.ok) {
+        const data = (await res.json()) as ActiveAlert[];
+        const currentAlertIds = new Set<number>(data.map((a: ActiveAlert) => a.alert.id));
+        const previousAlertIds = previousAlertsRef.current;
+
+        const newAlerts = data.filter((a: ActiveAlert) => !previousAlertIds.has(a.alert.id));
+
+        newAlerts.forEach((alert: ActiveAlert) => {
+          setToasts((prev) => [
+            ...prev,
+            {
+              id: `alert-${alert.alert.id}-${Date.now()}`,
+              message: `Varning: ${alert.alert.name} (Nuvarande värde: ${alert.currentValue}, Tröskel: ${alert.alert.operator} ${alert.alert.thresholdValue})`,
+              type: "warning",
+              duration: 8000,
+            },
+          ]);
+        });
+
+        previousAlertsRef.current = currentAlertIds;
+        setActiveAlerts(data);
+      }
+    } catch (err) {
+      console.error("Error fetching active alerts:", err);
+    } finally {
+      setAlertsLoading(false);
+    }
+  }, []);
+
+  const removeToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== id));
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -154,6 +212,15 @@ const DashboardPage: React.FC = () => {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!me) return;
+    fetchActiveAlerts();
+    const interval = setInterval(() => {
+      fetchActiveAlerts();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [me, fetchActiveAlerts]);
 
   useEffect(() => {
     if (!me) return;
@@ -438,6 +505,7 @@ const DashboardPage: React.FC = () => {
 
   return (
     <div className={styles.page}>
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
       <header className={styles.header}>
         <div>
           <h1>Välkommen, {me.name}</h1>
@@ -450,6 +518,44 @@ const DashboardPage: React.FC = () => {
           </div>
         )}
       </header>
+
+      {activeAlerts.length > 0 && (
+        <section className={styles.alertsBanner}>
+          <h2 className={styles.alertsBannerTitle}>Aktiva varningar</h2>
+          <div className={styles.alertsList}>
+            {activeAlerts.map((activeAlert) => (
+              <div key={activeAlert.alert.id} className={styles.alertCard}>
+                <div className={styles.alertCardHeader}>
+                  <span className={styles.alertCardName}>{activeAlert.alert.name}</span>
+                  <span
+                    className={
+                      activeAlert.alert.priority === "high"
+                        ? styles.alertPriorityHigh
+                        : activeAlert.alert.priority === "mid"
+                          ? styles.alertPriorityMid
+                          : styles.alertPriorityLow
+                    }
+                  >
+                    {activeAlert.alert.priority === "high"
+                      ? "Hög prioritet"
+                      : activeAlert.alert.priority === "mid"
+                        ? "Medel prioritet"
+                        : "Låg prioritet"}
+                  </span>
+                </div>
+                <div className={styles.alertCardDetails}>
+                  <span>
+                    Nuvarande värde: <strong>{activeAlert.currentValue}</strong>
+                  </span>
+                  <span>
+                    Tröskel: {activeAlert.alert.operator} {activeAlert.alert.thresholdValue}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className={styles.section}>
         <div className={styles.sectionHeader}>
