@@ -150,6 +150,12 @@ router.get("/status", authenticate, async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("Whoop status error", error);
+    if (isMissingPatientContextError(error)) {
+      return res.status(404).json({
+        error: "Inga omsorgstagare hittades för ditt konto. Lägg till en patient först.",
+        code: "NO_PATIENT",
+      });
+    }
     res.status(500).json({ error: "Failed to load Whoop status" });
   }
 });
@@ -230,6 +236,12 @@ router.get("/metrics", authenticate, async (req: Request, res: Response) => {
     console.error("Whoop metrics error", error);
     if (error instanceof Error && error.message.includes("No Whoop connection")) {
       return res.status(404).json({ error: "Whoop is not connected" });
+    }
+    if (isMissingPatientContextError(error)) {
+      return res.status(404).json({
+        error: "Inga omsorgstagare hittades för ditt konto. Lägg till en patient först.",
+        code: "NO_PATIENT",
+      });
     }
     res.status(500).json({ error: "Failed to load Whoop metrics" });
   }
@@ -400,10 +412,23 @@ router.get("/heart-rate", authenticate, async (req: Request, res: Response) => {
           timestamp: cached.timestamp,
         });
       }
-    } catch {}
+    } catch (ctxError) {
+      if (isMissingPatientContextError(ctxError)) {
+        return res.status(404).json({
+          error: "Inga omsorgstagare hittades för ditt konto. Lägg till en patient först.",
+          code: "NO_PATIENT",
+        });
+      }
+    }
 
     if (error instanceof Error && error.message.includes("No Whoop connection")) {
       return res.status(404).json({ error: "Whoop is not connected" });
+    }
+    if (isMissingPatientContextError(error)) {
+      return res.status(404).json({
+        error: "Inga omsorgstagare hittades för ditt konto. Lägg till en patient först.",
+        code: "NO_PATIENT",
+      });
     }
     res.status(500).json({ error: "Failed to fetch heart rate data" });
   }
@@ -421,6 +446,12 @@ router.post("/heart-rate/stop", authenticate, async (req: Request, res: Response
     res.json({ success: true });
   } catch (error) {
     console.error("Error removing user from queue:", error);
+    if (isMissingPatientContextError(error)) {
+      return res.status(404).json({
+        error: "Inga omsorgstagare hittades för ditt konto. Lägg till en patient först.",
+        code: "NO_PATIENT",
+      });
+    }
     res.status(500).json({ error: "Failed to stop polling" });
   }
 });
@@ -462,6 +493,13 @@ router.post("/test", authenticate, async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error("Whoop test error", error);
+    if (isMissingPatientContextError(error)) {
+      return res.status(404).json({
+        ok: false,
+        error: "Inga omsorgstagare hittades för ditt konto. Lägg till en patient först.",
+        code: "NO_PATIENT",
+      });
+    }
     res.status(500).json({
       ok: false,
       error: error?.message ?? "Failed to contact Whoop",
@@ -492,6 +530,12 @@ router.delete("/disconnect", authenticate, async (req: Request, res: Response) =
     res.json({ success: true, message: "Whoop connection removed" });
   } catch (error) {
     console.error("Whoop disconnect error", error);
+    if (isMissingPatientContextError(error)) {
+      return res.status(404).json({
+        error: "Inga omsorgstagare hittades för ditt konto. Lägg till en patient först.",
+        code: "NO_PATIENT",
+      });
+    }
     res.status(500).json({ error: "Failed to disconnect Whoop" });
   }
 });
@@ -526,4 +570,8 @@ function buildRedirect(base: string, params: Record<string, string | undefined>)
 function clampRange(raw: number) {
   if (Number.isNaN(raw) || !Number.isFinite(raw)) return 7;
   return Math.min(Math.max(Math.floor(raw), 1), 30);
+}
+
+function isMissingPatientContextError(error: unknown): boolean {
+  return error instanceof Error && error.message.includes("not associated with a patient");
 }
