@@ -344,8 +344,11 @@ const DashboardPage: React.FC = () => {
     const setupBluetoothConnection = async () => {
       const isAlreadyConnected = whoopBluetooth.isConnected();
 
-      if (isAlreadyConnected && !bluetoothConnected) {
-        setBluetoothConnected(true);
+      if (isAlreadyConnected) {
+        setBluetoothConnected((prev) => {
+          if (!prev) return true;
+          return prev;
+        });
         try {
           await whoopBluetooth.startHeartRateMonitoring((heartRate: number) => {
             if (!cancelled) {
@@ -366,7 +369,7 @@ const DashboardPage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [me, patient, bluetoothConnected, handleHeartRateReading]);
+  }, [me, patient, handleHeartRateReading]);
 
   const patientLoading = patientState.status === "loading";
   const patientError = patientState.status === "error" ? patientState.error : null;
