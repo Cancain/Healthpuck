@@ -1,9 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState, useRef } from "react";
 
 import styles from "./Dashboard.module.css";
 import Button from "../../components/Button/Button";
 import { whoopBluetooth } from "../../utils/whoopBluetooth";
 import { translateWhoopField } from "../../utils/whoopTranslations";
+import ToastContainer, { ToastMessage } from "../../components/Toast/ToastContainer";
 
 const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:3001";
 const CHECK_IN_RANGE_DAYS = 7;
@@ -113,6 +114,20 @@ type CheckInState = AsyncState<CheckInResponse>;
 
 type Feedback = { type: "success" | "error"; message: string } | null;
 
+type ActiveAlert = {
+  alert: {
+    id: number;
+    name: string;
+    metricType: "whoop" | "medication";
+    metricPath: string;
+    operator: "<" | ">" | "=" | "<=" | ">=";
+    thresholdValue: string;
+    priority: "high" | "mid" | "low";
+  };
+  currentValue: number;
+  isActive: boolean;
+};
+
 const DashboardPage: React.FC = () => {
   const [me, setMe] = useState<MeResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -131,6 +146,93 @@ const DashboardPage: React.FC = () => {
   const [checkInNotes, setCheckInNotes] = useState<Record<number, string>>({});
   const [checkInSubmittingId, setCheckInSubmittingId] = useState<number | null>(null);
   const [checkInFeedback, setCheckInFeedback] = useState<Feedback>(null);
+  const [activeAlerts, setActiveAlerts] = useState<ActiveAlert[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_, setAlertsLoading] = useState(false);
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const previousAlertsRef = useRef<Set<number>>(new Set());
+  const lastValidHeartRateRef = useRef<number | null>(null);
+
+  const handleHeartRateReading = useCallback(
+    (heartRate: number) => {
+      if (heartRate > 0) {
+        lastValidHeartRateRef.current = heartRate;
+        setHeartRateState({
+          status: "loaded",
+          data: {
+            heartRate,
+            cached: false,
+            rateLimited: false,
+            timestamp: Date.now(),
+          },
+        });
+        return;
+      }
+
+      if (lastValidHeartRateRef.current !== null) {
+        setHeartRateState({
+          status: "loaded",
+          data: {
+            heartRate: lastValidHeartRateRef.current,
+            cached: true,
+            rateLimited: false,
+            timestamp: Date.now(),
+            message: "Visar senast uppmätta puls medan enheten rapporterar 0 bpm.",
+          },
+        });
+      } else {
+        setHeartRateState({
+          status: "loaded",
+          data: {
+            heartRate: null,
+            cached: false,
+            rateLimited: false,
+            message: "Ingen pulsdata mottagen ännu.",
+          },
+        });
+      }
+    },
+    [setHeartRateState],
+  );
+
+  const fetchActiveAlerts = useCallback(async () => {
+    setAlertsLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/alerts/active`, {
+        credentials: "include",
+      });
+      if (res.ok) {
+        const data = (await res.json()) as ActiveAlert[];
+        const currentAlertIds = new Set<number>(data.map((a: ActiveAlert) => a.alert.id));
+        const previousAlertIds = previousAlertsRef.current;
+
+        const newAlerts = data.filter((a: ActiveAlert) => !previousAlertIds.has(a.alert.id));
+
+        newAlerts.forEach((alert: ActiveAlert) => {
+          setToasts((prev) => [
+            ...prev,
+            {
+              id: `alert-${alert.alert.id}-${Date.now()}`,
+              message: `Varning: ${alert.alert.name} (Nuvarande värde: ${alert.currentValue}, Tröskel: ${alert.alert.operator} ${alert.alert.thresholdValue})`,
+              type: "warning",
+              duration: 8000,
+            },
+          ]);
+        });
+
+        previousAlertsRef.current = currentAlertIds;
+        setActiveAlerts(data);
+      }
+    } catch (err) {
+      console.error("Error fetching active alerts:", err);
+    } finally {
+      setAlertsLoading(false);
+    }
+  }, []);
+
+  const removeToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== id));
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -154,6 +256,15 @@ const DashboardPage: React.FC = () => {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!me) return;
+    fetchActiveAlerts();
+    const interval = setInterval(() => {
+      fetchActiveAlerts();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [me, fetchActiveAlerts]);
 
   useEffect(() => {
     if (!me) return;
@@ -230,57 +341,33 @@ const DashboardPage: React.FC = () => {
     if (!me || !patient) return;
 
     let cancelled = false;
-    let bluetoothCleanup: (() => Promise<void>) | null = null;
 
-    const tryBluetoothConnection = async () => {
-      if (!whoopBluetooth.isSupported() && !whoopBluetooth.isMockMode()) {
-        whoopBluetooth.enableMockMode();
-      }
+    const setupBluetoothConnection = async () => {
+      const isAlreadyConnected = whoopBluetooth.isConnected();
 
-      try {
-        setBluetoothError(null);
-        await whoopBluetooth.connect();
+      if (isAlreadyConnected && !bluetoothConnected) {
         setBluetoothConnected(true);
-
-        await whoopBluetooth.startHeartRateMonitoring((heartRate: number) => {
+        try {
+          await whoopBluetooth.startHeartRateMonitoring((heartRate: number) => {
+            if (!cancelled) {
+              handleHeartRateReading(heartRate);
+            }
+          });
+        } catch (error) {
+          console.error("[Dashboard] Error starting heart rate monitoring:", error);
           if (!cancelled) {
-            setHeartRateState({
-              status: "loaded",
-              data: {
-                heartRate,
-                cached: false,
-                rateLimited: false,
-                timestamp: Date.now(),
-              },
-            });
+            setBluetoothConnected(false);
           }
-        });
-
-        bluetoothCleanup = async () => {
-          try {
-            await whoopBluetooth.stopHeartRateMonitoring();
-            await whoopBluetooth.disconnect();
-          } catch (error) {
-            console.error("Error disconnecting Bluetooth:", error);
-          }
-        };
-      } catch (error) {
-        console.error("Bluetooth connection failed:", error);
-        setBluetoothError(error instanceof Error ? error.message : "Bluetooth connection failed");
-        setBluetoothConnected(false);
-        setHeartRateState({ status: "idle" });
+        }
       }
     };
 
-    tryBluetoothConnection();
+    setupBluetoothConnection();
 
     return () => {
       cancelled = true;
-      if (bluetoothCleanup) {
-        bluetoothCleanup();
-      }
     };
-  }, [me, patient]);
+  }, [me, patient, bluetoothConnected, handleHeartRateReading]);
 
   const patientLoading = patientState.status === "loading";
   const patientError = patientState.status === "error" ? patientState.error : null;
@@ -438,6 +525,7 @@ const DashboardPage: React.FC = () => {
 
   return (
     <div className={styles.page}>
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
       <header className={styles.header}>
         <div>
           <h1>Välkommen, {me.name}</h1>
@@ -451,40 +539,115 @@ const DashboardPage: React.FC = () => {
         )}
       </header>
 
+      {activeAlerts.length > 0 && (
+        <section className={styles.alertsBanner}>
+          <h2 className={styles.alertsBannerTitle}>Aktiva varningar</h2>
+          <div className={styles.alertsList}>
+            {activeAlerts.map((activeAlert) => (
+              <div key={activeAlert.alert.id} className={styles.alertCard}>
+                <div className={styles.alertCardHeader}>
+                  <span className={styles.alertCardName}>{activeAlert.alert.name}</span>
+                  <span
+                    className={
+                      activeAlert.alert.priority === "high"
+                        ? styles.alertPriorityHigh
+                        : activeAlert.alert.priority === "mid"
+                          ? styles.alertPriorityMid
+                          : styles.alertPriorityLow
+                    }
+                  >
+                    {activeAlert.alert.priority === "high"
+                      ? "Hög prioritet"
+                      : activeAlert.alert.priority === "mid"
+                        ? "Medel prioritet"
+                        : "Låg prioritet"}
+                  </span>
+                </div>
+                <div className={styles.alertCardDetails}>
+                  <span>
+                    Nuvarande värde: <strong>{activeAlert.currentValue}</strong>
+                  </span>
+                  <span>
+                    Tröskel: {activeAlert.alert.operator} {activeAlert.alert.thresholdValue}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       <section className={styles.section}>
         <div className={styles.sectionHeader}>
           <h2>Whoop-status</h2>
           {whoopRangeLabel && <span className={styles.rangeBadge}>{whoopRangeLabel}</span>}
         </div>
-        {heartRateState.status === "loaded" && (
+        {(heartRateState.status === "loaded" ||
+          heartRateState.status === "idle" ||
+          heartRateState.status === "loading") && (
           <HeartRateDisplay
-            data={heartRateState.data}
+            data={
+              heartRateState.status === "loaded"
+                ? heartRateState.data
+                : heartRateState.status === "loading"
+                  ? { heartRate: null, cached: false, rateLimited: false }
+                  : { heartRate: null, cached: false, rateLimited: false }
+            }
             bluetoothConnected={bluetoothConnected}
             bluetoothError={bluetoothError}
+            isMockMode={whoopBluetooth.isMockMode()}
             onBluetoothConnect={async () => {
               try {
                 setBluetoothError(null);
-                if (!whoopBluetooth.isSupported() && !whoopBluetooth.isMockMode()) {
-                  whoopBluetooth.enableMockMode();
+                setHeartRateState({ status: "loading" });
+                if (whoopBluetooth.isConnected()) {
+                  await whoopBluetooth.disconnect();
+                  setBluetoothConnected(false);
+                  lastValidHeartRateRef.current = null;
+                }
+                if (whoopBluetooth.isSupported()) {
+                  whoopBluetooth.disableMockMode();
+                } else {
+                  if (!whoopBluetooth.isMockMode()) {
+                    whoopBluetooth.enableMockMode();
+                  }
                 }
                 await whoopBluetooth.connect();
                 setBluetoothConnected(true);
                 await whoopBluetooth.startHeartRateMonitoring((heartRate: number) => {
-                  setHeartRateState({
-                    status: "loaded",
-                    data: {
-                      heartRate,
-                      cached: false,
-                      rateLimited: false,
-                      timestamp: Date.now(),
-                    },
-                  });
+                  handleHeartRateReading(heartRate);
+                });
+              } catch (error) {
+                console.error("[Dashboard] Bluetooth connection error:", error);
+                setBluetoothError(
+                  error instanceof Error ? error.message : "Bluetooth connection failed",
+                );
+                setBluetoothConnected(false);
+                setHeartRateState({ status: "idle" });
+                lastValidHeartRateRef.current = null;
+              }
+            }}
+            onBluetoothConnectMock={async () => {
+              try {
+                setBluetoothError(null);
+                if (whoopBluetooth.isConnected()) {
+                  await whoopBluetooth.disconnect();
+                  setBluetoothConnected(false);
+                  lastValidHeartRateRef.current = null;
+                }
+                whoopBluetooth.enableMockMode();
+                await whoopBluetooth.connect();
+                setBluetoothConnected(true);
+                await whoopBluetooth.startHeartRateMonitoring((heartRate: number) => {
+                  handleHeartRateReading(heartRate);
                 });
               } catch (error) {
                 setBluetoothError(
                   error instanceof Error ? error.message : "Bluetooth connection failed",
                 );
                 setBluetoothConnected(false);
+                setHeartRateState({ status: "idle" });
+                lastValidHeartRateRef.current = null;
               }
             }}
           />
@@ -569,20 +732,27 @@ type HeartRateDisplayProps = {
   data: HeartRateResponse;
   bluetoothConnected: boolean;
   bluetoothError: string | null;
+  isMockMode: boolean;
   onBluetoothConnect: () => Promise<void>;
+  onBluetoothConnectMock: () => Promise<void>;
 };
 
 const HeartRateDisplay: React.FC<HeartRateDisplayProps> = ({
   data,
   bluetoothConnected,
   bluetoothError,
+  isMockMode,
   onBluetoothConnect,
+  onBluetoothConnectMock,
 }) => {
   return (
     <div className={styles.heartRateCard}>
       <div className={styles.heartRateHeader}>
         <h3>Hjärtfrekvens</h3>
         {bluetoothConnected && <span className={styles.bluetoothBadge}>Live</span>}
+        {bluetoothConnected && (
+          <span className={styles.cachedBadge}>{isMockMode ? "Simulerad" : "Enhet"}</span>
+        )}
         {data.cached && <span className={styles.cachedBadge}>Cached</span>}
         {data.rateLimited && <span className={styles.rateLimitBadge}>Rate Limited</span>}
       </div>
@@ -597,11 +767,20 @@ const HeartRateDisplay: React.FC<HeartRateDisplayProps> = ({
         )}
       </div>
       {!bluetoothConnected && (
-        <button onClick={onBluetoothConnect} className={styles.bluetoothButton}>
-          {whoopBluetooth.isSupported()
-            ? "Anslut Whoop via Bluetooth för realtidsdata"
-            : "Aktivera simulerad Whoop-enhet"}
-        </button>
+        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+          {whoopBluetooth.isSupported() && (
+            <button onClick={onBluetoothConnect} className={styles.bluetoothButton}>
+              Anslut Whoop via Bluetooth för realtidsdata
+            </button>
+          )}
+          <button
+            onClick={onBluetoothConnectMock}
+            className={styles.bluetoothButton}
+            style={{ backgroundColor: "#f0f0f0", color: "#666" }}
+          >
+            Använd simulerad Whoop-enhet
+          </button>
+        </div>
       )}
       {bluetoothError && (
         <p className={styles.heartRateMessage} style={{ color: "red" }}>

@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import Button from "../../components/Button/Button";
 import styles from "./Settings.module.css";
 import { translateWhoopScope } from "../../utils/whoopTranslations";
+import { whoopBluetooth } from "../../utils/whoopBluetooth";
 
 const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:3001";
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -45,16 +46,36 @@ interface WhoopStatus {
   lastSyncedAt?: string | null;
 }
 
+interface Alert {
+  id: number;
+  patientId: number;
+  createdBy: number;
+  name: string;
+  metricType: "whoop" | "medication";
+  metricPath: string;
+  operator: "<" | ">" | "=" | "<=" | ">=";
+  thresholdValue: string;
+  priority: "high" | "mid" | "low";
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 const SettingsPage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<"users" | "medications" | "whoop">(() => {
+  const [activeTab, setActiveTab] = useState<"users" | "medications" | "whoop" | "alerts">(() => {
     const params = new URLSearchParams(location.search);
     const tabParam = params.get("tab");
-    if (tabParam === "medications" || tabParam === "whoop" || tabParam === "users") {
-      return tabParam as "users" | "medications" | "whoop";
+    if (
+      tabParam === "medications" ||
+      tabParam === "whoop" ||
+      tabParam === "users" ||
+      tabParam === "alerts"
+    ) {
+      return tabParam as "users" | "medications" | "whoop" | "alerts";
     }
-    return "users";
+    return "alerts";
   });
   const [patients, setPatients] = useState<Patient[]>([]);
   const [patientUsers, setPatientUsers] = useState<Record<number, PatientUser[]>>({});
@@ -74,7 +95,6 @@ const SettingsPage: React.FC = () => {
   const [creatingPatient, setCreatingPatient] = useState(false);
   const [createPatientError, setCreatePatientError] = useState<string | null>(null);
 
-  // Medication form state
   const [showAddMedication, setShowAddMedication] = useState<Record<number, boolean>>({});
   const [editingMedication, setEditingMedication] = useState<number | null>(null);
   const [medicationFormData, setMedicationFormData] = useState<{
@@ -98,6 +118,33 @@ const SettingsPage: React.FC = () => {
   const [whoopError, setWhoopError] = useState<string | null>(null);
   const [connectingWhoop, setConnectingWhoop] = useState<boolean>(false);
   const [disconnectingWhoop, setDisconnectingWhoop] = useState<boolean>(false);
+  const [bluetoothConnected, setBluetoothConnected] = useState<boolean>(false);
+  const [bluetoothError, setBluetoothError] = useState<string | null>(null);
+  const [connectingBluetooth, setConnectingBluetooth] = useState<boolean>(false);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [alertsLoading, setAlertsLoading] = useState<boolean>(false);
+  const [alertsError, setAlertsError] = useState<string | null>(null);
+  const [showCreateAlert, setShowCreateAlert] = useState(false);
+  const [editingAlert, setEditingAlert] = useState<number | null>(null);
+  const [alertFormData, setAlertFormData] = useState<{
+    name: string;
+    metricType: "whoop" | "medication" | "";
+    metricPath: string;
+    operator: "<" | ">" | "=" | "<=" | ">=" | "";
+    thresholdValue: string;
+    priority: "high" | "mid" | "low" | "";
+    enabled: boolean;
+  }>({
+    name: "",
+    metricType: "",
+    metricPath: "",
+    operator: "",
+    thresholdValue: "",
+    priority: "",
+    enabled: true,
+  });
+  const [savingAlert, setSavingAlert] = useState<boolean>(false);
+  const [deletingAlert, setDeletingAlert] = useState<Record<number, boolean>>({});
 
   const fetchPatients = async () => {
     try {
@@ -224,6 +271,65 @@ const SettingsPage: React.FC = () => {
     }
   };
 
+  const handleBluetoothConnect = async () => {
+    setBluetoothError(null);
+    setConnectingBluetooth(true);
+
+    try {
+      if (!whoopBluetooth.isSupported()) {
+        throw new Error(
+          "Web Bluetooth stöds inte i denna webbläsare. Använd Chrome eller Edge för att ansluta till en riktig enhet.",
+        );
+      }
+
+      whoopBluetooth.disableMockMode();
+      await whoopBluetooth.connect();
+      setBluetoothConnected(true);
+      setSuccessMessage("Ansluten till Whoop-enhet via Bluetooth!");
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (error) {
+      setBluetoothError(
+        error instanceof Error ? error.message : "Bluetooth-anslutning misslyckades",
+      );
+      setBluetoothConnected(false);
+    } finally {
+      setConnectingBluetooth(false);
+    }
+  };
+
+  const handleBluetoothConnectMock = async () => {
+    setBluetoothError(null);
+    setConnectingBluetooth(true);
+
+    try {
+      whoopBluetooth.enableMockMode();
+      await whoopBluetooth.connect();
+      setBluetoothConnected(true);
+      setSuccessMessage("Ansluten till simulerad Whoop-enhet!");
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (error) {
+      setBluetoothError(
+        error instanceof Error ? error.message : "Kunde inte ansluta till simulerad enhet",
+      );
+      setBluetoothConnected(false);
+    } finally {
+      setConnectingBluetooth(false);
+    }
+  };
+
+  const handleBluetoothDisconnect = async () => {
+    try {
+      await whoopBluetooth.disconnect();
+      setBluetoothConnected(false);
+      setSuccessMessage("Bluetooth-anslutning borttagen!");
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (error) {
+      setBluetoothError(
+        error instanceof Error ? error.message : "Kunde inte koppla från Bluetooth",
+      );
+    }
+  };
+
   const formatDate = (value?: string | null) => {
     if (!value) return "-";
     try {
@@ -264,11 +370,37 @@ const SettingsPage: React.FC = () => {
     }
   };
 
+  const fetchAlerts = async () => {
+    setAlertsLoading(true);
+    setAlertsError(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/alerts`, {
+        credentials: "include",
+      });
+      if (!res.ok) {
+        throw new Error("Kunde inte hämta varningar");
+      }
+      const data = await res.json();
+      setAlerts(data);
+    } catch (err) {
+      setAlertsError(err instanceof Error ? err.message : "Något gick fel");
+    } finally {
+      setAlertsLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchPatients();
     fetchWhoopStatus();
+    if (activeTab === "alerts") {
+      fetchAlerts();
+    }
+    if (activeTab === "whoop") {
+      const isConnected = whoopBluetooth.isConnected();
+      setBluetoothConnected(isConnected);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchWhoopStatus]);
+  }, [fetchWhoopStatus, activeTab]);
 
   const handleInvite = async (patientId: number, role: "patient" | "caregiver") => {
     const email = inviteEmail[patientId]?.trim();
@@ -622,6 +754,228 @@ const SettingsPage: React.FC = () => {
     setMedicationError((prev) => ({ ...prev, [patientId]: null }));
   };
 
+  const handleCreateAlert = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAlertsError(null);
+
+    if (!alertFormData.name.trim()) {
+      setAlertsError("Namn krävs");
+      return;
+    }
+
+    if (!alertFormData.metricType) {
+      setAlertsError("Måtttyp krävs");
+      return;
+    }
+
+    if (!alertFormData.metricPath.trim()) {
+      setAlertsError("Måttväg krävs");
+      return;
+    }
+
+    if (!alertFormData.operator) {
+      setAlertsError("Operator krävs");
+      return;
+    }
+
+    if (!alertFormData.thresholdValue.trim()) {
+      setAlertsError("Tröskelvärde krävs");
+      return;
+    }
+
+    if (!alertFormData.priority) {
+      setAlertsError("Prioritet krävs");
+      return;
+    }
+
+    if (patients.length === 0) {
+      setAlertsError("Inga omsorgstagare hittades");
+      return;
+    }
+
+    setSavingAlert(true);
+
+    try {
+      const patientId = patients[0].id;
+      const res = await fetch(`${API_BASE}/api/alerts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          patientId,
+          name: alertFormData.name.trim(),
+          metricType: alertFormData.metricType,
+          metricPath: alertFormData.metricPath.trim(),
+          operator: alertFormData.operator,
+          thresholdValue: alertFormData.thresholdValue.trim(),
+          priority: alertFormData.priority,
+          enabled: alertFormData.enabled,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data.error || "Kunde inte skapa varning");
+      }
+
+      setSuccessMessage("Varning skapad!");
+      setAlertFormData({
+        name: "",
+        metricType: "",
+        metricPath: "",
+        operator: "",
+        thresholdValue: "",
+        priority: "",
+        enabled: true,
+      });
+      setShowCreateAlert(false);
+      await fetchAlerts();
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      setAlertsError(err instanceof Error ? err.message : "Något gick fel");
+    } finally {
+      setSavingAlert(false);
+    }
+  };
+
+  const handleUpdateAlert = async (alertId: number, e: React.FormEvent) => {
+    e.preventDefault();
+    setAlertsError(null);
+
+    if (!alertFormData.name.trim()) {
+      setAlertsError("Namn krävs");
+      return;
+    }
+
+    setSavingAlert(true);
+
+    try {
+      const res = await fetch(`${API_BASE}/api/alerts/${alertId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          name: alertFormData.name.trim(),
+          metricType: alertFormData.metricType || undefined,
+          metricPath: alertFormData.metricPath.trim() || undefined,
+          operator: alertFormData.operator || undefined,
+          thresholdValue: alertFormData.thresholdValue.trim() || undefined,
+          priority: alertFormData.priority || undefined,
+          enabled: alertFormData.enabled,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data.error || "Kunde inte uppdatera varning");
+      }
+
+      setSuccessMessage("Varning uppdaterad!");
+      setEditingAlert(null);
+      setAlertFormData({
+        name: "",
+        metricType: "",
+        metricPath: "",
+        operator: "",
+        thresholdValue: "",
+        priority: "",
+        enabled: true,
+      });
+      await fetchAlerts();
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      setAlertsError(err instanceof Error ? err.message : "Något gick fel");
+    } finally {
+      setSavingAlert(false);
+    }
+  };
+
+  const handleDeleteAlert = async (alertId: number, alertName: string) => {
+    if (!window.confirm(`Är du säker på att du vill ta bort varningen "${alertName}"?`)) {
+      return;
+    }
+
+    setDeletingAlert((prev) => ({ ...prev, [alertId]: true }));
+
+    try {
+      const res = await fetch(`${API_BASE}/api/alerts/${alertId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Kunde inte ta bort varning");
+      }
+
+      setSuccessMessage("Varning borttagen!");
+      await fetchAlerts();
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      setAlertsError(err instanceof Error ? err.message : "Något gick fel");
+    } finally {
+      setDeletingAlert((prev) => ({ ...prev, [alertId]: false }));
+    }
+  };
+
+  const startEditAlert = (alert: Alert) => {
+    setEditingAlert(alert.id);
+    setAlertFormData({
+      name: alert.name,
+      metricType: alert.metricType,
+      metricPath: alert.metricPath,
+      operator: alert.operator,
+      thresholdValue: alert.thresholdValue,
+      priority: alert.priority,
+      enabled: alert.enabled,
+    });
+    setAlertsError(null);
+  };
+
+  const cancelEditAlert = () => {
+    setEditingAlert(null);
+    setAlertFormData({
+      name: "",
+      metricType: "",
+      metricPath: "",
+      operator: "",
+      thresholdValue: "",
+      priority: "",
+      enabled: true,
+    });
+    setAlertsError(null);
+  };
+
+  const startAddAlert = () => {
+    setShowCreateAlert(true);
+    setAlertFormData({
+      name: "",
+      metricType: "",
+      metricPath: "",
+      operator: "",
+      thresholdValue: "",
+      priority: "",
+      enabled: true,
+    });
+    setAlertsError(null);
+  };
+
+  const cancelAddAlert = () => {
+    setShowCreateAlert(false);
+    setAlertFormData({
+      name: "",
+      metricType: "",
+      metricPath: "",
+      operator: "",
+      thresholdValue: "",
+      priority: "",
+      enabled: true,
+    });
+    setAlertsError(null);
+  };
+
   if (loading) {
     return (
       <div className={styles.container}>
@@ -654,6 +1008,12 @@ const SettingsPage: React.FC = () => {
           onClick={() => setActiveTab("medications")}
         >
           Mediciner
+        </button>
+        <button
+          className={activeTab === "alerts" ? styles.tabActive : styles.tab}
+          onClick={() => setActiveTab("alerts")}
+        >
+          Varningar
         </button>
         <button
           className={activeTab === "whoop" ? styles.tabActive : styles.tab}
@@ -1147,6 +1507,283 @@ const SettingsPage: React.FC = () => {
           </>
         )}
 
+        {activeTab === "alerts" && (
+          <>
+            {patients.length === 0 ? (
+              <p className={styles.empty}>Du har inga omsorgstagare ännu.</p>
+            ) : (
+              <div className={styles.alertsSection}>
+                <div className={styles.sectionHeader}>
+                  <h2 className={styles.sectionTitle}>Varningar</h2>
+                  {!showCreateAlert && !editingAlert && (
+                    <Button onClick={startAddAlert}>Lägg till varning</Button>
+                  )}
+                </div>
+
+                {alertsError && <div className={styles.error}>{alertsError}</div>}
+
+                {alertsLoading ? (
+                  <p>Laddar varningar...</p>
+                ) : showCreateAlert || editingAlert ? (
+                  <form
+                    onSubmit={
+                      editingAlert ? (e) => handleUpdateAlert(editingAlert, e) : handleCreateAlert
+                    }
+                    className={styles.alertForm}
+                  >
+                    <h3 className={styles.sectionTitle}>
+                      {editingAlert ? "Redigera varning" : "Skapa ny varning"}
+                    </h3>
+
+                    <div className={styles.field}>
+                      <label htmlFor="alertName">Namn *</label>
+                      <input
+                        id="alertName"
+                        type="text"
+                        value={alertFormData.name}
+                        onChange={(e) =>
+                          setAlertFormData((prev) => ({ ...prev, name: e.target.value }))
+                        }
+                        required
+                        disabled={savingAlert}
+                        className={styles.input}
+                        placeholder="t.ex. Låg hjärtfrekvens"
+                      />
+                    </div>
+
+                    <div className={styles.field}>
+                      <label htmlFor="alertMetricType">Måtttyp *</label>
+                      <select
+                        id="alertMetricType"
+                        value={alertFormData.metricType}
+                        onChange={(e) =>
+                          setAlertFormData((prev) => ({
+                            ...prev,
+                            metricType: e.target.value as "whoop" | "medication",
+                            metricPath: "",
+                          }))
+                        }
+                        required
+                        disabled={savingAlert}
+                        className={styles.input}
+                      >
+                        <option value="">Välj måtttyp</option>
+                        <option value="whoop">Whoop</option>
+                        <option value="medication">Medicin</option>
+                      </select>
+                    </div>
+
+                    <div className={styles.field}>
+                      <label htmlFor="alertMetricPath">Mått *</label>
+                      {alertFormData.metricType === "whoop" ? (
+                        <select
+                          id="alertMetricPath"
+                          value={alertFormData.metricPath}
+                          onChange={(e) =>
+                            setAlertFormData((prev) => ({ ...prev, metricPath: e.target.value }))
+                          }
+                          required
+                          disabled={savingAlert}
+                          className={styles.input}
+                        >
+                          <option value="">Välj Whoop-mått</option>
+                          <option value="heart_rate">Hjärtfrekvens</option>
+                          <option value="recovery.score.recovery_score">Återhämtningspoäng</option>
+                          <option value="recovery.score.resting_heart_rate">Vilopuls</option>
+                          <option value="recovery.score.hrv_rmssd_milli">HRV RMSSD</option>
+                          <option value="recovery.score.spo2_percentage">Syrehalt (%)</option>
+                          <option value="sleep.score.sleep_performance_percentage">
+                            Sömnprestanda (%)
+                          </option>
+                        </select>
+                      ) : alertFormData.metricType === "medication" ? (
+                        <select
+                          id="alertMetricPath"
+                          value={alertFormData.metricPath}
+                          onChange={(e) =>
+                            setAlertFormData((prev) => ({ ...prev, metricPath: e.target.value }))
+                          }
+                          required
+                          disabled={savingAlert}
+                          className={styles.input}
+                        >
+                          <option value="">Välj medicin-mått</option>
+                          <option value="missed_dose">Missade doser (senaste 24h)</option>
+                        </select>
+                      ) : (
+                        <input
+                          id="alertMetricPath"
+                          type="text"
+                          value={alertFormData.metricPath}
+                          onChange={(e) =>
+                            setAlertFormData((prev) => ({ ...prev, metricPath: e.target.value }))
+                          }
+                          required
+                          disabled={savingAlert}
+                          className={styles.input}
+                          placeholder="Måttväg"
+                        />
+                      )}
+                    </div>
+
+                    <div className={styles.field}>
+                      <label htmlFor="alertOperator">Operator *</label>
+                      <select
+                        id="alertOperator"
+                        value={alertFormData.operator}
+                        onChange={(e) =>
+                          setAlertFormData((prev) => ({
+                            ...prev,
+                            operator: e.target.value as "<" | ">" | "=" | "<=" | ">=",
+                          }))
+                        }
+                        required
+                        disabled={savingAlert}
+                        className={styles.input}
+                      >
+                        <option value="">Välj operator</option>
+                        <option value="<">Mindre än (&lt;)</option>
+                        <option value=">">Större än (&gt;)</option>
+                        <option value="=">Lika med (=)</option>
+                        <option value="<=">Mindre än eller lika med (&lt;=)</option>
+                        <option value=">=">Större än eller lika med (&gt;=)</option>
+                      </select>
+                    </div>
+
+                    <div className={styles.field}>
+                      <label htmlFor="alertThresholdValue">Tröskelvärde *</label>
+                      <input
+                        id="alertThresholdValue"
+                        type="number"
+                        step="any"
+                        value={alertFormData.thresholdValue}
+                        onChange={(e) =>
+                          setAlertFormData((prev) => ({ ...prev, thresholdValue: e.target.value }))
+                        }
+                        required
+                        disabled={savingAlert}
+                        className={styles.input}
+                        placeholder="t.ex. 20"
+                      />
+                    </div>
+
+                    <div className={styles.field}>
+                      <label htmlFor="alertPriority">Prioritet *</label>
+                      <select
+                        id="alertPriority"
+                        value={alertFormData.priority}
+                        onChange={(e) =>
+                          setAlertFormData((prev) => ({
+                            ...prev,
+                            priority: e.target.value as "high" | "mid" | "low",
+                          }))
+                        }
+                        required
+                        disabled={savingAlert}
+                        className={styles.input}
+                      >
+                        <option value="">Välj prioritet</option>
+                        <option value="high">Hög (kontrolleras var 30:e sekund)</option>
+                        <option value="mid">Medel (kontrolleras var 5:e minut)</option>
+                        <option value="low">Låg (kontrolleras en gång per dag)</option>
+                      </select>
+                    </div>
+
+                    <div className={styles.field}>
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={alertFormData.enabled}
+                          onChange={(e) =>
+                            setAlertFormData((prev) => ({ ...prev, enabled: e.target.checked }))
+                          }
+                          disabled={savingAlert}
+                        />
+                        Aktiverad
+                      </label>
+                    </div>
+
+                    <div className={styles.formActions}>
+                      <Button type="submit" disabled={savingAlert}>
+                        {savingAlert ? "Sparar..." : editingAlert ? "Spara" : "Skapa"}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={editingAlert ? cancelEditAlert : cancelAddAlert}
+                        disabled={savingAlert}
+                      >
+                        Avbryt
+                      </Button>
+                    </div>
+                  </form>
+                ) : alerts.length === 0 ? (
+                  <p className={styles.emptyList}>Inga varningar ännu</p>
+                ) : (
+                  <ul className={styles.alertsList}>
+                    {alerts.map((alert) => {
+                      if (editingAlert === alert.id) {
+                        return null;
+                      }
+
+                      return (
+                        <li key={alert.id} className={styles.alertItem}>
+                          <div className={styles.alertInfo}>
+                            <div className={styles.alertHeader}>
+                              <span className={styles.alertName}>{alert.name}</span>
+                              <span
+                                className={
+                                  alert.enabled
+                                    ? styles.alertStatusEnabled
+                                    : styles.alertStatusDisabled
+                                }
+                              >
+                                {alert.enabled ? "Aktiverad" : "Inaktiverad"}
+                              </span>
+                              <span className={styles.alertPriority}>
+                                {alert.priority === "high"
+                                  ? "Hög"
+                                  : alert.priority === "mid"
+                                    ? "Medel"
+                                    : "Låg"}
+                              </span>
+                            </div>
+                            <div className={styles.alertDetails}>
+                              <span>
+                                {alert.metricType === "whoop" ? "Whoop" : "Medicin"}:{" "}
+                                {alert.metricPath}
+                              </span>
+                              <span>
+                                {alert.operator} {alert.thresholdValue}
+                              </span>
+                            </div>
+                          </div>
+                          <div className={styles.alertActions}>
+                            <Button
+                              variant="secondary"
+                              onClick={() => startEditAlert(alert)}
+                              disabled={deletingAlert[alert.id] || false}
+                            >
+                              Redigera
+                            </Button>
+                            <Button
+                              variant="secondary"
+                              onClick={() => handleDeleteAlert(alert.id, alert.name)}
+                              disabled={deletingAlert[alert.id] || false}
+                            >
+                              {deletingAlert[alert.id] ? "Tar bort..." : "Ta bort"}
+                            </Button>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            )}
+          </>
+        )}
+
         {activeTab === "whoop" && (
           <div className={styles.whoopCard}>
             <div className={styles.whoopHeader}>
@@ -1232,6 +1869,84 @@ const SettingsPage: React.FC = () => {
                 )}
               </div>
             )}
+
+            <div style={{ marginTop: "2rem", paddingTop: "2rem", borderTop: "1px solid #e0e0e0" }}>
+              <h3 className={styles.sectionTitle} style={{ marginBottom: "1rem" }}>
+                Bluetooth-anslutning
+              </h3>
+              <p className={styles.whoopDescription} style={{ marginBottom: "1rem" }}>
+                Anslut direkt till Whoop-enheten via Bluetooth för realtidsdata om hjärtfrekvens.
+              </p>
+              {!bluetoothConnected ? (
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "0.5rem",
+                    alignItems: "center",
+                    marginBottom: "1rem",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <Button
+                    onClick={handleBluetoothConnect}
+                    disabled={connectingBluetooth || !whoopBluetooth.isSupported()}
+                  >
+                    {connectingBluetooth ? "Ansluter..." : "Anslut till Bluetooth-enhet"}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={handleBluetoothConnectMock}
+                    disabled={connectingBluetooth}
+                  >
+                    {connectingBluetooth ? "Ansluter..." : "Använd simulerad enhet"}
+                  </Button>
+                  {!whoopBluetooth.isSupported() && (
+                    <p
+                      style={{
+                        color: "#666",
+                        fontSize: "0.9rem",
+                        width: "100%",
+                        marginTop: "0.5rem",
+                      }}
+                    >
+                      Web Bluetooth är inte tillgängligt. Kontrollera att:
+                      <br />
+                      • Du använder Chrome eller Edge
+                      <br />
+                      • Sidan körs på HTTPS eller localhost
+                      <br />• Web Bluetooth är aktiverat i webbläsarens inställningar
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "0.5rem",
+                    alignItems: "center",
+                    marginBottom: "1rem",
+                  }}
+                >
+                  <Button variant="secondary" onClick={handleBluetoothDisconnect}>
+                    Koppla från Bluetooth
+                  </Button>
+                  <span style={{ color: "#666" }}>
+                    {whoopBluetooth.isMockMode() ? "Simulerad enhet ansluten" : "Enhet ansluten"}
+                  </span>
+                </div>
+              )}
+              {bluetoothConnected && (
+                <div className={styles.whoopStatusRow}>
+                  <span>Bluetooth-status:</span>
+                  <strong className={styles.statusConnected}>
+                    Ansluten {whoopBluetooth.isMockMode() ? "(Simulerad)" : "(Enhet)"}
+                  </strong>
+                </div>
+              )}
+              {bluetoothError && (
+                <p style={{ color: "red", marginTop: "0.5rem" }}>{bluetoothError}</p>
+              )}
+            </div>
           </div>
         )}
       </div>

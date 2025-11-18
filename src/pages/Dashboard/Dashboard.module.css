@@ -17,6 +17,88 @@
   margin-top: 0.25rem;
 }
 
+.alertsBanner {
+  background: #fff3cd;
+  border: 2px solid #ffc107;
+  border-radius: 16px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.alertsBannerTitle {
+  margin: 0;
+  color: #856404;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.alertsList {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.alertCard {
+  background: #fff;
+  border: 1px solid #ffc107;
+  border-radius: 8px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.alertCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.alertCardName {
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: #333;
+}
+
+.alertPriorityHigh {
+  background: #f8d7da;
+  color: #721c24;
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.alertPriorityMid {
+  background: #fff3cd;
+  color: #856404;
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.alertPriorityLow {
+  background: #d1ecf1;
+  color: #0c5460;
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.alertCardDetails {
+  display: flex;
+  gap: 1rem;
+  color: #666;
+  font-size: 0.9rem;
+  flex-wrap: wrap;
+}
+
 .section {
   background: #fff;
   border-radius: 16px;
