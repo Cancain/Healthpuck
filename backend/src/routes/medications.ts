@@ -2,13 +2,8 @@ import { Router, Request, Response } from "express";
 import { eq, and } from "drizzle-orm";
 
 import { db } from "../db";
-import { medications, medicationIntakes, patients } from "../db/schema";
-import {
-  getUserIdFromRequest,
-  requirePatientAccess,
-  hasPatientAccess,
-  authenticate,
-} from "../middleware/auth";
+import { medications, medicationIntakes } from "../db/schema";
+import { getUserIdFromRequest, hasPatientAccess, authenticate } from "../middleware/auth";
 
 const router = Router();
 

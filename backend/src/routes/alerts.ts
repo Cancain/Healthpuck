@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 import { db } from "../db";
 import { alerts } from "../db/schema";

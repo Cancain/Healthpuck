@@ -147,7 +147,8 @@ const DashboardPage: React.FC = () => {
   const [checkInSubmittingId, setCheckInSubmittingId] = useState<number | null>(null);
   const [checkInFeedback, setCheckInFeedback] = useState<Feedback>(null);
   const [activeAlerts, setActiveAlerts] = useState<ActiveAlert[]>([]);
-  const [alertsLoading, setAlertsLoading] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_, setAlertsLoading] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const previousAlertsRef = useRef<Set<number>>(new Set());
   const lastValidHeartRateRef = useRef<number | null>(null);
