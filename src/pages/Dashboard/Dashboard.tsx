@@ -177,7 +177,6 @@ const DashboardPage: React.FC = () => {
             cached: true,
             rateLimited: false,
             timestamp: Date.now(),
-            message: "Visar senast uppmätta puls medan enheten rapporterar 0 bpm.",
           },
         });
       } else {
@@ -749,12 +748,9 @@ const HeartRateDisplay: React.FC<HeartRateDisplayProps> = ({
     <div className={styles.heartRateCard}>
       <div className={styles.heartRateHeader}>
         <h3>Hjärtfrekvens</h3>
-        {bluetoothConnected && <span className={styles.bluetoothBadge}>Live</span>}
         {bluetoothConnected && (
-          <span className={styles.cachedBadge}>{isMockMode ? "Simulerad" : "Enhet"}</span>
+          <span className={styles.cachedBadge}>{isMockMode ? "Simulerad" : ""}</span>
         )}
-        {data.cached && <span className={styles.cachedBadge}>Cached</span>}
-        {data.rateLimited && <span className={styles.rateLimitBadge}>Rate Limited</span>}
       </div>
       <div className={styles.heartRateValue}>
         {data.heartRate !== null ? (
