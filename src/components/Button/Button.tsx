@@ -6,6 +6,7 @@ interface ButtonProps {
   onClick?: () => void;
   type?: "button" | "submit" | "reset";
   disabled?: boolean;
+  tooltip?: string;
 }
 
 const Button: React.FC<ButtonProps> = ({
@@ -14,16 +15,25 @@ const Button: React.FC<ButtonProps> = ({
   onClick,
   type = "button",
   disabled = false,
+  tooltip,
 }) => {
   return (
-    <button
-      disabled={disabled}
-      className={`${styles.button} ${styles[variant]} ${disabled ? styles.disabled : ""}`}
-      onClick={onClick}
-      type={type}
-    >
-      {children}
-    </button>
+    <div className={styles.buttonWrapper}>
+      <button
+        disabled={disabled}
+        className={`${styles.button} ${styles[variant]} ${disabled ? styles.disabled : ""}`}
+        onClick={onClick}
+        type={type}
+        title={tooltip}
+      >
+        {children}
+      </button>
+      {tooltip && (
+        <span className={styles.tooltip} role="tooltip">
+          {tooltip}
+        </span>
+      )}
+    </div>
   );
 };
 

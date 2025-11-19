@@ -179,6 +179,27 @@ export const alerts = sqliteTable("alerts", {
     .$defaultFn(() => new Date()),
 });
 
+export const heartRateReadings = sqliteTable(
+  "heart_rate_readings",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    patientId: integer("patient_id")
+      .notNull()
+      .references(() => patients.id, { onDelete: "cascade" }),
+    heartRate: integer("heart_rate").notNull(),
+    source: text("source", { enum: ["bluetooth", "api"] }).notNull(),
+    timestamp: integer("timestamp", { mode: "timestamp" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => ({
+    patientTimestampIdx: index("heart_rate_readings_patient_timestamp_idx").on(
+      table.patientId,
+      table.timestamp,
+    ),
+  }),
+);
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Patient = typeof patients.$inferSelect;
@@ -195,3 +216,5 @@ export type WhoopConnection = typeof whoopConnections.$inferSelect;
 export type NewWhoopConnection = typeof whoopConnections.$inferInsert;
 export type Alert = typeof alerts.$inferSelect;
 export type NewAlert = typeof alerts.$inferInsert;
+export type HeartRateReading = typeof heartRateReadings.$inferSelect;
+export type NewHeartRateReading = typeof heartRateReadings.$inferInsert;

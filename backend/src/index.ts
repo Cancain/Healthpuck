@@ -1,4 +1,5 @@
 import express, { Request, Response, NextFunction } from "express";
+import http from "http";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import passport from "passport";
@@ -16,7 +17,9 @@ import medicationRoutes from "./routes/medications";
 import checkInRoutes from "./routes/checkIns";
 import whoopIntegrationRoutes from "./routes/integrations/whoop";
 import alertRoutes from "./routes/alerts";
+import heartRateRoutes from "./routes/heartRate";
 import { startAlertScheduler } from "./utils/alertScheduler";
+import { setupWebSocketServer } from "./websocket/server";
 
 // Prefer dotenv-safe when an example file exists to validate required env vars.
 // Fallback to plain dotenv if the example file is not present.
@@ -70,6 +73,7 @@ app.use("/api/medications", medicationRoutes);
 app.use("/api/check-ins", checkInRoutes);
 app.use("/api/integrations/whoop", whoopIntegrationRoutes);
 app.use("/api/alerts", alertRoutes);
+app.use("/api/heart-rate", heartRateRoutes);
 
 app.use((req: Request, res: Response) => {
   res.status(404).json({ error: "Route not found" });
@@ -80,11 +84,12 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   res.status(500).json({ error: "Internal server error" });
 });
 
-// Initialize database and start server
 async function startServer() {
   try {
     await initializeDatabase();
-    app.listen(PORT, () => {
+    const server = http.createServer(app);
+    setupWebSocketServer(server);
+    server.listen(PORT, () => {
       console.log(`Server is running on http://localhost:${PORT}`);
       console.log(`Health check: http://localhost:${PORT}/health`);
     });

@@ -1870,83 +1870,94 @@ const SettingsPage: React.FC = () => {
               </div>
             )}
 
-            <div style={{ marginTop: "2rem", paddingTop: "2rem", borderTop: "1px solid #e0e0e0" }}>
-              <h3 className={styles.sectionTitle} style={{ marginBottom: "1rem" }}>
-                Bluetooth-anslutning
-              </h3>
-              <p className={styles.whoopDescription} style={{ marginBottom: "1rem" }}>
-                Anslut direkt till Whoop-enheten via Bluetooth för realtidsdata om hjärtfrekvens.
-              </p>
-              {!bluetoothConnected ? (
-                <div
-                  style={{
-                    display: "flex",
-                    gap: "0.5rem",
-                    alignItems: "center",
-                    marginBottom: "1rem",
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <Button
-                    onClick={handleBluetoothConnect}
-                    disabled={connectingBluetooth || !whoopBluetooth.isSupported()}
+            {patients.some((p) => p.role === "patient") && (
+              <div
+                style={{ marginTop: "2rem", paddingTop: "2rem", borderTop: "1px solid #e0e0e0" }}
+              >
+                <h3 className={styles.sectionTitle} style={{ marginBottom: "1rem" }}>
+                  Bluetooth-anslutning
+                </h3>
+                <p className={styles.whoopDescription} style={{ marginBottom: "1rem" }}>
+                  Anslut direkt till Whoop-enheten via Bluetooth för realtidsdata om hjärtfrekvens.
+                </p>
+                {!bluetoothConnected ? (
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "0.5rem",
+                      alignItems: "center",
+                      marginBottom: "1rem",
+                      flexWrap: "wrap",
+                    }}
                   >
-                    {connectingBluetooth ? "Ansluter..." : "Anslut till Bluetooth-enhet"}
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    onClick={handleBluetoothConnectMock}
-                    disabled={connectingBluetooth}
-                  >
-                    {connectingBluetooth ? "Ansluter..." : "Använd simulerad enhet"}
-                  </Button>
-                  {!whoopBluetooth.isSupported() && (
-                    <p
-                      style={{
-                        color: "#666",
-                        fontSize: "0.9rem",
-                        width: "100%",
-                        marginTop: "0.5rem",
-                      }}
+                    <Button
+                      onClick={handleBluetoothConnect}
+                      disabled={connectingBluetooth || !whoopBluetooth.isSupported()}
+                      tooltip={
+                        !whoopBluetooth.isSupported()
+                          ? "Web Bluetooth är inte tillgängligt. Kontrollera att din webbläsare stödjer Web Bluetooth API och att du använder HTTPS eller localhost."
+                          : connectingBluetooth
+                            ? "Ansluter till enheten..."
+                            : undefined
+                      }
                     >
-                      Web Bluetooth är inte tillgängligt. Kontrollera att:
-                      <br />
-                      • Du använder Chrome eller Edge
-                      <br />
-                      • Sidan körs på HTTPS eller localhost
-                      <br />• Web Bluetooth är aktiverat i webbläsarens inställningar
-                    </p>
-                  )}
-                </div>
-              ) : (
-                <div
-                  style={{
-                    display: "flex",
-                    gap: "0.5rem",
-                    alignItems: "center",
-                    marginBottom: "1rem",
-                  }}
-                >
-                  <Button variant="secondary" onClick={handleBluetoothDisconnect}>
-                    Koppla från Bluetooth
-                  </Button>
-                  <span style={{ color: "#666" }}>
-                    {whoopBluetooth.isMockMode() ? "Simulerad enhet ansluten" : "Enhet ansluten"}
-                  </span>
-                </div>
-              )}
-              {bluetoothConnected && (
-                <div className={styles.whoopStatusRow}>
-                  <span>Bluetooth-status:</span>
-                  <strong className={styles.statusConnected}>
-                    Ansluten {whoopBluetooth.isMockMode() ? "(Simulerad)" : "(Enhet)"}
-                  </strong>
-                </div>
-              )}
-              {bluetoothError && (
-                <p style={{ color: "red", marginTop: "0.5rem" }}>{bluetoothError}</p>
-              )}
-            </div>
+                      {connectingBluetooth ? "Ansluter..." : "Anslut till Bluetooth-enhet"}
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      onClick={handleBluetoothConnectMock}
+                      disabled={connectingBluetooth}
+                    >
+                      {connectingBluetooth ? "Ansluter..." : "Använd simulerad enhet"}
+                    </Button>
+                    {!whoopBluetooth.isSupported() && (
+                      <p
+                        style={{
+                          color: "#666",
+                          fontSize: "0.9rem",
+                          width: "100%",
+                          marginTop: "0.5rem",
+                        }}
+                      >
+                        Web Bluetooth är inte tillgängligt. Kontrollera att:
+                        <br />
+                        • Du använder Chrome eller Edge
+                        <br />
+                        • Sidan körs på HTTPS eller localhost
+                        <br />• Web Bluetooth är aktiverat i webbläsarens inställningar
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "0.5rem",
+                      alignItems: "center",
+                      marginBottom: "1rem",
+                    }}
+                  >
+                    <Button variant="secondary" onClick={handleBluetoothDisconnect}>
+                      Koppla från Bluetooth
+                    </Button>
+                    <span style={{ color: "#666" }}>
+                      {whoopBluetooth.isMockMode() ? "Simulerad enhet ansluten" : "Enhet ansluten"}
+                    </span>
+                  </div>
+                )}
+                {bluetoothConnected && (
+                  <div className={styles.whoopStatusRow}>
+                    <span>Bluetooth-status:</span>
+                    <strong className={styles.statusConnected}>
+                      Ansluten {whoopBluetooth.isMockMode() ? "(Simulerad)" : "(Enhet)"}
+                    </strong>
+                  </div>
+                )}
+                {bluetoothError && (
+                  <p style={{ color: "red", marginTop: "0.5rem" }}>{bluetoothError}</p>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -5,6 +5,7 @@ import Button from "../../components/Button/Button";
 import { whoopBluetooth } from "../../utils/whoopBluetooth";
 import { translateWhoopField } from "../../utils/whoopTranslations";
 import ToastContainer, { ToastMessage } from "../../components/Toast/ToastContainer";
+import { heartRateWebSocket } from "../../utils/heartRateWebSocket";
 
 const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:3001";
 const CHECK_IN_RANGE_DAYS = 7;
@@ -152,9 +153,10 @@ const DashboardPage: React.FC = () => {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const previousAlertsRef = useRef<Set<number>>(new Set());
   const lastValidHeartRateRef = useRef<number | null>(null);
+  const patientRef = useRef<Patient | null>(null);
 
   const handleHeartRateReading = useCallback(
-    (heartRate: number) => {
+    async (heartRate: number, isFromWebSocket = false) => {
       if (heartRate > 0) {
         lastValidHeartRateRef.current = heartRate;
         setHeartRateState({
@@ -166,6 +168,19 @@ const DashboardPage: React.FC = () => {
             timestamp: Date.now(),
           },
         });
+
+        if (!isFromWebSocket && patientRef.current?.role === "patient" && patientRef.current?.id) {
+          try {
+            await fetch(`${API_BASE}/api/heart-rate`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify({ heartRate, source: "bluetooth" }),
+            });
+          } catch (error) {
+            console.error("[Dashboard] Error sending heart rate to backend:", error);
+          }
+        }
         return;
       }
 
@@ -335,9 +350,14 @@ const DashboardPage: React.FC = () => {
   }, [me]);
 
   const patient = patientState.status === "loaded" ? patientState.data : null;
+  patientRef.current = patient;
 
   useEffect(() => {
     if (!me || !patient) return;
+
+    if (patient.role !== "patient") {
+      return;
+    }
 
     let cancelled = false;
 
@@ -368,6 +388,42 @@ const DashboardPage: React.FC = () => {
 
     return () => {
       cancelled = true;
+    };
+  }, [me, patient, handleHeartRateReading]);
+
+  useEffect(() => {
+    if (!me || !patient) return;
+
+    if (patient.role !== "caregiver") {
+      return;
+    }
+
+    let cancelled = false;
+
+    const setupWebSocketConnection = async () => {
+      try {
+        await heartRateWebSocket.connect(patient.id, "caregiver");
+        const unsubscribe = heartRateWebSocket.onHeartRate((heartRate, timestamp) => {
+          if (!cancelled) {
+            handleHeartRateReading(heartRate, true);
+          }
+        });
+        return unsubscribe;
+      } catch (error) {
+        console.error("[Dashboard] Error connecting WebSocket:", error);
+      }
+    };
+
+    const unsubscribePromise = setupWebSocketConnection();
+
+    return () => {
+      cancelled = true;
+      unsubscribePromise.then((unsubscribe) => {
+        if (unsubscribe) {
+          unsubscribe();
+        }
+        heartRateWebSocket.disconnect();
+      });
     };
   }, [me, patient, handleHeartRateReading]);
 
@@ -598,6 +654,7 @@ const DashboardPage: React.FC = () => {
             bluetoothConnected={bluetoothConnected}
             bluetoothError={bluetoothError}
             isMockMode={whoopBluetooth.isMockMode()}
+            readOnly={patient?.role === "caregiver"}
             onBluetoothConnect={async () => {
               try {
                 setBluetoothError(null);
@@ -735,6 +792,7 @@ type HeartRateDisplayProps = {
   bluetoothConnected: boolean;
   bluetoothError: string | null;
   isMockMode: boolean;
+  readOnly?: boolean;
   onBluetoothConnect: () => Promise<void>;
   onBluetoothConnectMock: () => Promise<void>;
 };
@@ -744,6 +802,7 @@ const HeartRateDisplay: React.FC<HeartRateDisplayProps> = ({
   bluetoothConnected,
   bluetoothError,
   isMockMode,
+  readOnly = false,
   onBluetoothConnect,
   onBluetoothConnectMock,
 }) => {
@@ -751,7 +810,7 @@ const HeartRateDisplay: React.FC<HeartRateDisplayProps> = ({
     <div className={styles.heartRateCard}>
       <div className={styles.heartRateHeader}>
         <h3>Hjärtfrekvens</h3>
-        {bluetoothConnected && (
+        {bluetoothConnected && !readOnly && (
           <span className={styles.cachedBadge}>{isMockMode ? "Simulerad" : ""}</span>
         )}
       </div>
@@ -762,10 +821,12 @@ const HeartRateDisplay: React.FC<HeartRateDisplayProps> = ({
             <span className={styles.heartRateUnit}> bpm</span>
           </>
         ) : (
-          <span className={styles.heartRateUnavailable}>Ingen data tillgänglig</span>
+          <span className={styles.heartRateUnavailable}>
+            {readOnly ? "Väntar på patientdata..." : "Ingen data tillgänglig"}
+          </span>
         )}
       </div>
-      {!bluetoothConnected && (
+      {!readOnly && !bluetoothConnected && (
         <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
           {whoopBluetooth.isSupported() && (
             <button onClick={onBluetoothConnect} className={styles.bluetoothButton}>
