@@ -107,6 +107,11 @@ Healthpack is a full-stack health management platform that enables:
     - Mid priority: Every 5 minutes
     - Low priority: Daily at midnight
 - **Active Alerts**: View currently triggered alerts via API
+- **Alert Dismissals**:
+  - Dismiss active alerts directly from the dashboard
+  - Dismissals are stored in the `dismissed_alerts` table with a timestamp
+  - When the metric drops outside the threshold, the dismissal is automatically cleared so future triggers appear again
+- **Trigger Timestamp**: Active alerts include the exact time they were triggered (rendered with Swedish locale formatting)
 
 ### Dashboard
 
@@ -117,6 +122,7 @@ Healthpack is a full-stack health management platform that enables:
 - **Real-time Heart Rate Display**:
   - Patients: Connect Bluetooth devices and send heart rate readings
   - Caregivers: Receive real-time heart rate updates via WebSocket (read-only)
+- **Alert Cards**: Show the triggered timestamp (sv-SE format) and include dismiss buttons to hide alerts until the condition becomes active again
 
 ### Settings
 
@@ -388,6 +394,7 @@ The project uses Husky for git hooks. Pre-commit hooks will:
 - `PUT /api/alerts/:id` - Update alert
 - `DELETE /api/alerts/:id` - Delete alert
 - `GET /api/alerts/active` - Get currently active alerts
+- `POST /api/alerts/:id/dismiss` - Dismiss an active alert (automatically resets when the condition is no longer met)
 
 ### Health
 
@@ -551,6 +558,12 @@ The `heart_rate_readings` table stores:
 ```json
 { "type": "heart-rate", "heartRate": 72, "timestamp": 1234567890 }
 ```
+
+## Alert Dismissals
+
+- Active alerts can be dismissed from the dashboard; the dismissal is persisted so the same alert stays hidden while the metric remains in the alerting range
+- Dismissals are stored in the `dismissed_alerts` table with `alert_id`, `patient_id`, and `dismissed_at`
+- When the monitored metric returns to a safe range, the dismissal entry is cleared automatically so the alert can notify again the next time it crosses the threshold
 
 ## Contributing
 
