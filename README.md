@@ -11,6 +11,7 @@ Healthpack is a full-stack health management platform that enables:
 - **Whoop Integration**: Connect Whoop devices to monitor recovery, sleep, workouts, and heart rate
 - **Smart Alerts**: Configure alerts based on Whoop metrics or medication adherence
 - **Real-time Monitoring**: Live heart rate monitoring via Bluetooth or Whoop API
+- **Real-time Heart Rate Sharing**: WebSocket-based real-time heart rate sharing between patients and caregivers
 
 ## Tech Stack
 
@@ -28,6 +29,7 @@ Healthpack is a full-stack health management platform that enables:
 - **Drizzle ORM** with libSQL (Turso-compatible)
 - **Passport.js** for OAuth (Whoop integration)
 - **JWT** for authentication (httpOnly cookies)
+- **WebSocket** (ws) for real-time communication
 
 ### Database
 
@@ -81,9 +83,11 @@ Healthpack is a full-stack health management platform that enables:
 - **Real-time Heart Rate**:
   - Live heart rate monitoring via Whoop API
   - Rate limiting with caching to respect API limits
-  - Bluetooth support (frontend utility available)
+  - Bluetooth support for direct device connection (patients only)
+  - WebSocket-based real-time sharing with caregivers
 - **Automatic Token Refresh**: Handles OAuth token refresh automatically
 - **Rate Limiting**: Built-in rate limiter to prevent API abuse
+- **Role-based Access**: Only patients can connect Bluetooth devices; caregivers receive read-only real-time updates
 
 ### Alert System
 
@@ -110,6 +114,9 @@ Healthpack is a full-stack health management platform that enables:
 - Monitor active alerts
 - Track medication adherence
 - Display Whoop data
+- **Real-time Heart Rate Display**:
+  - Patients: Connect Bluetooth devices and send heart rate readings
+  - Caregivers: Receive real-time heart rate updates via WebSocket (read-only)
 
 ### Settings
 
@@ -117,6 +124,10 @@ Healthpack is a full-stack health management platform that enables:
 - Configure Whoop connection
 - Set up and manage alerts
 - Manage medications
+- **Bluetooth Connection** (patients only):
+  - Connect directly to Whoop devices via Web Bluetooth
+  - Simulated device mode for testing
+  - Role-based access: Bluetooth section hidden for caregivers
 
 ## Project Structure
 
@@ -131,11 +142,14 @@ healthpack/
 │   │   │   ├── alerts.ts
 │   │   │   ├── auth.ts
 │   │   │   ├── checkIns.ts
+│   │   │   ├── heartRate.ts
 │   │   │   ├── medications.ts
 │   │   │   ├── patients.ts
 │   │   │   ├── users.ts
 │   │   │   └── integrations/
 │   │   │       └── whoop.ts
+│   │   ├── websocket/    # WebSocket server for real-time communication
+│   │   │   └── server.ts
 │   │   └── utils/        # Alert evaluator, scheduler, Whoop client, etc.
 │   ├── drizzle.config.ts
 │   ├── fly.toml          # Fly.io deployment config
@@ -148,7 +162,9 @@ healthpack/
 │   │   ├── Login/
 │   │   ├── Register/
 │   │   └── Settings/
-│   └── utils/            # Frontend utilities (Whoop Bluetooth, etc.)
+│   └── utils/            # Frontend utilities
+│       ├── whoopBluetooth.ts  # Bluetooth device connection
+│       └── heartRateWebSocket.ts  # WebSocket client for real-time updates
 ├── scripts/              # Development scripts
 │   ├── start-servers.ts  # Start all services concurrently
 │   ├── with-node-localstorage.js
@@ -358,6 +374,12 @@ The project uses Husky for git hooks. Pre-commit hooks will:
 - `POST /api/integrations/whoop/test` - Test connection
 - `DELETE /api/integrations/whoop/disconnect` - Disconnect Whoop
 
+### Heart Rate
+
+- `POST /api/heart-rate` - Send heart rate reading (patients only)
+  - Body: `{ heartRate: number, source: "bluetooth" | "api" }`
+  - Stores reading in database and broadcasts to caregivers via WebSocket
+
 ### Alerts
 
 - `POST /api/alerts` - Create alert
@@ -370,6 +392,14 @@ The project uses Husky for git hooks. Pre-commit hooks will:
 ### Health
 
 - `GET /health` - Health check
+
+### WebSocket
+
+- `WS /` - WebSocket connection for real-time heart rate updates
+  - Authentication via JWT cookie
+  - Patients can send: `{ type: "heart-rate-update", heartRate: number }`
+  - Caregivers receive: `{ type: "heart-rate", heartRate: number, timestamp: number }`
+  - Caregivers subscribe: `{ type: "subscribe", patientId: number }`
 
 ## Deployment
 
@@ -473,6 +503,54 @@ Alerts are evaluated automatically by the scheduler:
 - Low priority alerts: Checked daily at midnight
 
 Alerts trigger when the current metric value matches the operator and threshold condition.
+
+## Real-time Heart Rate Sharing
+
+### Architecture
+
+The application supports real-time heart rate sharing between patients and caregivers using WebSockets:
+
+1. **Patients** can connect Whoop devices via Bluetooth and send heart rate readings to the backend
+2. **Backend** stores readings in the `heart_rate_readings` database table
+3. **Backend** broadcasts readings to all connected caregivers via WebSocket
+4. **Caregivers** receive real-time updates and see the patient's current heart rate
+
+### Database Schema
+
+The `heart_rate_readings` table stores:
+
+- `patient_id` - Foreign key to patients
+- `heart_rate` - Heart rate value (bpm)
+- `source` - Either "bluetooth" or "api"
+- `timestamp` - When the reading was recorded
+
+### Role-based Access
+
+- **Patients**: Can connect Bluetooth devices and send heart rate readings
+- **Caregivers**: Receive read-only real-time heart rate updates via WebSocket
+- Bluetooth connection UI is automatically hidden for caregivers in Settings
+
+### WebSocket Protocol
+
+**Connection**: WebSocket connection is authenticated using JWT from httpOnly cookies.
+
+**Patient Messages**:
+
+```json
+{ "type": "heart-rate-update", "heartRate": 72 }
+```
+
+**Caregiver Messages**:
+
+```json
+{ "type": "subscribe", "patientId": 1 }
+```
+
+**Server Broadcasts**:
+
+```json
+{ "type": "heart-rate", "heartRate": 72, "timestamp": 1234567890 }
+```
 
 ## Contributing
 
