@@ -17,23 +17,6 @@
   margin-top: 0.25rem;
 }
 
-.alertsBanner {
-  background: #fff3cd;
-  border: 2px solid #ffc107;
-  border-radius: 16px;
-  padding: 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.alertsBannerTitle {
-  margin: 0;
-  color: #856404;
-  font-size: 1.25rem;
-  font-weight: 600;
-}
-
 .alertsList {
   display: flex;
   flex-direction: column;
@@ -53,7 +36,7 @@
 .alertCardHeader {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   gap: 1rem;
   flex-wrap: wrap;
 }
@@ -99,6 +82,30 @@
   flex-wrap: wrap;
 }
 
+.dismissButton {
+  background: transparent;
+  border: none;
+  color: #666;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  line-height: 1;
+  border-radius: 4px;
+  transition:
+    background-color 0.2s,
+    color 0.2s;
+  flex-shrink: 0;
+}
+
+.dismissButton:hover {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.dismissButton:active {
+  background: #e0e0e0;
+}
+
 .section {
   background: #fff;
   border-radius: 16px;
@@ -123,6 +130,15 @@
 .rangeBadge {
   background: rgba(24, 119, 242, 0.08);
   color: #1856f2;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.alertCountBadge {
+  background: #f8d7da;
+  color: #721c24;
   padding: 0.35rem 0.75rem;
   border-radius: 999px;
   font-size: 0.85rem;

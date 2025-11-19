@@ -179,6 +179,22 @@ export const alerts = sqliteTable("alerts", {
     .$defaultFn(() => new Date()),
 });
 
+export const dismissedAlerts = sqliteTable("dismissed_alerts", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  alertId: integer("alert_id")
+    .notNull()
+    .references(() => alerts.id, { onDelete: "cascade" }),
+  patientId: integer("patient_id")
+    .notNull()
+    .references(() => patients.id, { onDelete: "cascade" }),
+  dismissedAt: integer("dismissed_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
+export type DismissedAlert = typeof dismissedAlerts.$inferSelect;
+export type NewDismissedAlert = typeof dismissedAlerts.$inferInsert;
+
 export const heartRateReadings = sqliteTable(
   "heart_rate_readings",
   {

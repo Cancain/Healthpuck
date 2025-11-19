@@ -127,6 +127,7 @@ type ActiveAlert = {
   };
   currentValue: number;
   isActive: boolean;
+  triggeredAt: number;
 };
 
 const DashboardPage: React.FC = () => {
@@ -238,7 +239,7 @@ const DashboardPage: React.FC = () => {
         setActiveAlerts(data);
       }
     } catch (err) {
-      console.error("Error fetching active alerts:", err);
+      console.error("[Dashboard] Error fetching active alerts:", err);
     } finally {
       setAlertsLoading(false);
     }
@@ -246,6 +247,31 @@ const DashboardPage: React.FC = () => {
 
   const removeToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((toast) => toast.id !== id));
+  }, []);
+
+  const handleDismissAlert = useCallback(async (alertId: number) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/alerts/${alertId}/dismiss`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (res.ok) {
+        setActiveAlerts((prev) => prev.filter((a) => a.alert.id !== alertId));
+      }
+    } catch (err) {
+      console.error("Error dismissing alert:", err);
+    }
+  }, []);
+
+  const formatSwedishDate = useCallback((timestamp: number) => {
+    const date = new Date(timestamp);
+    return date.toLocaleDateString("sv-SE", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   }, []);
 
   useEffect(() => {
@@ -597,29 +623,55 @@ const DashboardPage: React.FC = () => {
         )}
       </header>
 
-      {activeAlerts.length > 0 && (
-        <section className={styles.alertsBanner}>
-          <h2 className={styles.alertsBannerTitle}>Aktiva varningar</h2>
+      <section className={styles.section}>
+        <div className={styles.sectionHeader}>
+          <h2>Aktiva varningar</h2>
+          {activeAlerts.length > 0 && (
+            <span className={styles.alertCountBadge}>{activeAlerts.length}</span>
+          )}
+        </div>
+        {activeAlerts.length > 0 ? (
           <div className={styles.alertsList}>
             {activeAlerts.map((activeAlert) => (
               <div key={activeAlert.alert.id} className={styles.alertCard}>
                 <div className={styles.alertCardHeader}>
-                  <span className={styles.alertCardName}>{activeAlert.alert.name}</span>
-                  <span
-                    className={
-                      activeAlert.alert.priority === "high"
-                        ? styles.alertPriorityHigh
-                        : activeAlert.alert.priority === "mid"
-                          ? styles.alertPriorityMid
-                          : styles.alertPriorityLow
-                    }
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", flex: 1 }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "1rem",
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <span className={styles.alertCardName}>{activeAlert.alert.name}</span>
+                      <span
+                        className={
+                          activeAlert.alert.priority === "high"
+                            ? styles.alertPriorityHigh
+                            : activeAlert.alert.priority === "mid"
+                              ? styles.alertPriorityMid
+                              : styles.alertPriorityLow
+                        }
+                      >
+                        {activeAlert.alert.priority === "high"
+                          ? "Hög prioritet"
+                          : activeAlert.alert.priority === "mid"
+                            ? "Medel prioritet"
+                            : "Låg prioritet"}
+                      </span>
+                    </div>
+                    <span style={{ fontSize: "0.875rem", color: "#666" }}>
+                      {formatSwedishDate(activeAlert.triggeredAt)}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => handleDismissAlert(activeAlert.alert.id)}
+                    className={styles.dismissButton}
+                    aria-label="Dismissa varning"
                   >
-                    {activeAlert.alert.priority === "high"
-                      ? "Hög prioritet"
-                      : activeAlert.alert.priority === "mid"
-                        ? "Medel prioritet"
-                        : "Låg prioritet"}
-                  </span>
+                    ×
+                  </button>
                 </div>
                 <div className={styles.alertCardDetails}>
                   <span>
@@ -632,8 +684,10 @@ const DashboardPage: React.FC = () => {
               </div>
             ))}
           </div>
-        </section>
-      )}
+        ) : (
+          <div className={styles.feedbackCard}>Inga aktiva varningar</div>
+        )}
+      </section>
 
       <section className={styles.section}>
         <div className={styles.sectionHeader}>

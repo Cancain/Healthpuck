@@ -1,11 +1,12 @@
 import { Router, Request, Response } from "express";
-import { eq } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 
 import { db } from "../db";
-import { alerts } from "../db/schema";
+import { alerts, dismissedAlerts } from "../db/schema";
 import { getUserIdFromRequest, authenticate, hasPatientAccess } from "../middleware/auth";
 import { getPatientContextForUser } from "../utils/patientContext";
 import { evaluateAllAlerts } from "../utils/alertEvaluator";
+import { getTriggeredAtForAlert } from "../utils/alertScheduler";
 
 const router = Router();
 
@@ -93,6 +94,135 @@ router.get("/", authenticate, async (req: Request, res: Response) => {
       });
     }
     console.error("Error fetching alerts:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.get("/active", authenticate, async (req: Request, res: Response) => {
+  try {
+    const userId = getUserIdFromRequest(req);
+    if (!userId) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    const { patientId } = await getPatientContextForUser(userId);
+
+    const activeAlerts = await evaluateAllAlerts(patientId);
+    const activeAlertIds = new Set(activeAlerts.map((a) => a.alert.id));
+
+    const dismissed = await db
+      .select()
+      .from(dismissedAlerts)
+      .where(eq(dismissedAlerts.patientId, patientId));
+
+    const dismissedAlertIds = new Set(dismissed.map((d) => d.alertId));
+
+    const dismissedButInactive = dismissed.filter((d) => !activeAlertIds.has(d.alertId));
+
+    if (dismissedButInactive.length > 0) {
+      const inactiveAlertIds = dismissedButInactive.map((d) => d.alertId);
+      await db
+        .delete(dismissedAlerts)
+        .where(
+          and(
+            eq(dismissedAlerts.patientId, patientId),
+            inArray(dismissedAlerts.alertId, inactiveAlertIds),
+          ),
+        );
+    }
+
+    const filteredAlerts = activeAlerts.filter(
+      (activeAlert) => !dismissedAlertIds.has(activeAlert.alert.id),
+    );
+
+    const serializedAlerts = filteredAlerts.map((activeAlert) => {
+      const triggeredAt = getTriggeredAtForAlert(patientId, activeAlert.alert.id) || new Date();
+      return {
+        alert: {
+          id: activeAlert.alert.id,
+          patientId: activeAlert.alert.patientId,
+          createdBy: activeAlert.alert.createdBy,
+          name: activeAlert.alert.name,
+          metricType: activeAlert.alert.metricType,
+          metricPath: activeAlert.alert.metricPath,
+          operator: activeAlert.alert.operator,
+          thresholdValue: activeAlert.alert.thresholdValue,
+          priority: activeAlert.alert.priority,
+          enabled: activeAlert.alert.enabled,
+          createdAt:
+            activeAlert.alert.createdAt instanceof Date
+              ? activeAlert.alert.createdAt.getTime()
+              : activeAlert.alert.createdAt,
+          updatedAt:
+            activeAlert.alert.updatedAt instanceof Date
+              ? activeAlert.alert.updatedAt.getTime()
+              : activeAlert.alert.updatedAt,
+        },
+        currentValue: activeAlert.currentValue,
+        isActive: activeAlert.isActive,
+        triggeredAt: triggeredAt.getTime(),
+      };
+    });
+
+    return res.json(serializedAlerts);
+  } catch (error: any) {
+    if (error.message === "User is not associated with a patient") {
+      return res.status(404).json({
+        error: "Inga omsorgstagare hittades för ditt konto. Lägg till en patient först.",
+        code: "NO_PATIENT",
+      });
+    }
+    console.error("Error fetching active alerts:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post("/:id/dismiss", authenticate, async (req: Request, res: Response) => {
+  try {
+    const userId = getUserIdFromRequest(req);
+    if (!userId) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    const alertId = Number(req.params.id);
+    const { patientId } = await getPatientContextForUser(userId);
+
+    const existing = await db.select().from(alerts).where(eq(alerts.id, alertId)).limit(1);
+
+    if (existing.length === 0) {
+      return res.status(404).json({ error: "Alert not found" });
+    }
+
+    const alert = existing[0];
+
+    const hasAccess = await hasPatientAccess(userId, alert.patientId);
+    if (!hasAccess) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    if (alert.patientId !== patientId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    const alreadyDismissed = await db
+      .select()
+      .from(dismissedAlerts)
+      .where(and(eq(dismissedAlerts.alertId, alertId), eq(dismissedAlerts.patientId, patientId)))
+      .limit(1);
+
+    if (alreadyDismissed.length > 0) {
+      return res.status(200).json({ message: "Alert already dismissed" });
+    }
+
+    await db.insert(dismissedAlerts).values({
+      alertId,
+      patientId,
+      dismissedAt: new Date(),
+    });
+
+    return res.status(200).json({ message: "Alert dismissed" });
+  } catch (error) {
+    console.error("Error dismissing alert:", error);
     return res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -216,30 +346,6 @@ router.delete("/:id", authenticate, async (req: Request, res: Response) => {
     return res.status(204).send();
   } catch (error) {
     console.error("Error deleting alert:", error);
-    return res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-router.get("/active", authenticate, async (req: Request, res: Response) => {
-  try {
-    const userId = getUserIdFromRequest(req);
-    if (!userId) {
-      return res.status(401).json({ error: "Not authenticated" });
-    }
-
-    const { patientId } = await getPatientContextForUser(userId);
-
-    const activeAlerts = await evaluateAllAlerts(patientId);
-
-    return res.json(activeAlerts);
-  } catch (error: any) {
-    if (error.message === "User is not associated with a patient") {
-      return res.status(404).json({
-        error: "Inga omsorgstagare hittades för ditt konto. Lägg till en patient först.",
-        code: "NO_PATIENT",
-      });
-    }
-    console.error("Error fetching active alerts:", error);
     return res.status(500).json({ error: "Internal server error" });
   }
 });

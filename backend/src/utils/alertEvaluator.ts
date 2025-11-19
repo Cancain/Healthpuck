@@ -1,7 +1,8 @@
 import { eq, and } from "drizzle-orm";
 
 import { db } from "../db";
-import { alerts, medicationCheckIns, Alert } from "../db/schema";
+import { alerts, medicationCheckIns } from "../db/schema";
+import type { Alert } from "../db/schema";
 import { ensureWhoopAccessTokenForPatient } from "./whoopSync";
 import { WhoopClient } from "./whoopClient";
 
@@ -9,6 +10,7 @@ export type ActiveAlert = {
   alert: Alert;
   currentValue: number;
   isActive: boolean;
+  triggeredAt?: Date;
 };
 
 const whoopClient = WhoopClient.create();
@@ -59,7 +61,19 @@ async function evaluateWhoopMetric(
   patientId: number,
 ): Promise<{ currentValue: number | null; error?: string }> {
   try {
-    const { accessToken } = await ensureWhoopAccessTokenForPatient(patientId);
+    let accessToken: string;
+    try {
+      const tokenResult = await ensureWhoopAccessTokenForPatient(patientId);
+      accessToken = tokenResult.accessToken;
+    } catch (error: any) {
+      if (error.message === "No Whoop connection found for patient") {
+        return {
+          currentValue: null,
+          error: "No Whoop connection found for patient",
+        };
+      }
+      throw error;
+    }
 
     const end = new Date();
     const start = new Date(end.getTime() - 24 * 60 * 60 * 1000);
@@ -69,38 +83,70 @@ async function evaluateWhoopMetric(
     const metricPath = alert.metricPath.toLowerCase();
 
     if (metricPath === "heart_rate" || metricPath === "heartrate") {
-      const workouts = await whoopClient.fetchWorkouts(accessToken, start, end);
-      const workoutArray = Array.isArray(workouts)
-        ? workouts
-        : (workouts as any)?.records || (workouts as any)?.data || [];
-
-      for (const workout of workoutArray) {
-        const hr =
-          workout.score?.average_heart_rate ||
-          workout.score?.max_heart_rate ||
-          workout.score?.heart_rate ||
-          workout.heart_rate ||
-          workout.hr ||
-          workout.average_heart_rate ||
-          workout.avg_heart_rate ||
-          workout.max_heart_rate ||
-          workout.heartRate ||
-          workout.averageHeartRate ||
-          workout.maxHeartRate;
-
-        if (typeof hr === "number" && hr > 0 && isFinite(hr)) {
-          metricValue = hr;
-          break;
-        }
-      }
-    } else if (metricPath.startsWith("recovery") || metricPath.includes("recovery_score")) {
       const cycles = await whoopClient.fetchCycles(accessToken, start, end);
       const cycleArray = Array.isArray(cycles)
         ? cycles
         : (cycles as any)?.records || (cycles as any)?.data || [];
 
       if (cycleArray.length > 0 && cycleArray[0].recovery) {
-        metricValue = getNestedValue(cycleArray[0].recovery, "score.recovery_score") || null;
+        const hr =
+          cycleArray[0].recovery.score?.resting_heart_rate ||
+          cycleArray[0].recovery.score?.heart_rate ||
+          cycleArray[0].recovery.resting_heart_rate ||
+          cycleArray[0].recovery.heart_rate;
+
+        if (typeof hr === "number" && hr > 0 && isFinite(hr)) {
+          metricValue = hr;
+        }
+      }
+
+      if (metricValue === null) {
+        const workouts = await whoopClient.fetchWorkouts(accessToken, start, end);
+        const workoutArray = Array.isArray(workouts)
+          ? workouts
+          : (workouts as any)?.records || (workouts as any)?.data || [];
+
+        for (const workout of workoutArray) {
+          const hr =
+            workout.score?.average_heart_rate ||
+            workout.score?.max_heart_rate ||
+            workout.score?.heart_rate ||
+            workout.heart_rate ||
+            workout.hr ||
+            workout.average_heart_rate ||
+            workout.avg_heart_rate ||
+            workout.max_heart_rate ||
+            workout.heartRate ||
+            workout.averageHeartRate ||
+            workout.maxHeartRate;
+
+          if (typeof hr === "number" && hr > 0 && isFinite(hr)) {
+            metricValue = hr;
+            break;
+          }
+        }
+      }
+    } else if (metricPath.startsWith("recovery")) {
+      const cycles = await whoopClient.fetchCycles(accessToken, start, end);
+      const cycleArray = Array.isArray(cycles)
+        ? cycles
+        : (cycles as any)?.records || (cycles as any)?.data || [];
+
+      if (cycleArray.length > 0 && cycleArray[0].recovery) {
+        const pathToUse = alert.metricPath.replace(/^recovery\./, "");
+        metricValue = getNestedValue(cycleArray[0].recovery, pathToUse) || null;
+      }
+
+      if (metricValue === null) {
+        const recovery = await whoopClient.fetchRecovery(accessToken, start, end);
+        const recoveryArray = Array.isArray(recovery)
+          ? recovery
+          : (recovery as any)?.records || (recovery as any)?.data || [];
+
+        if (recoveryArray.length > 0) {
+          const pathToUse = alert.metricPath.replace(/^recovery\./, "");
+          metricValue = getNestedValue(recoveryArray[0], pathToUse) || null;
+        }
       }
     } else if (metricPath.startsWith("sleep")) {
       const sleep = await whoopClient.fetchSleep(accessToken, start, end);
@@ -231,12 +277,28 @@ export async function evaluateAlert(alert: Alert, patientId: number): Promise<Ac
 }
 
 export async function evaluateAllAlerts(patientId: number): Promise<ActiveAlert[]> {
-  const enabledAlerts = await db
-    .select()
-    .from(alerts)
-    .where(and(eq(alerts.patientId, patientId), eq(alerts.enabled, true)));
+  try {
+    const enabledAlerts = await db
+      .select()
+      .from(alerts)
+      .where(and(eq(alerts.patientId, patientId), eq(alerts.enabled, true)));
 
-  const results = await Promise.all(enabledAlerts.map((alert) => evaluateAlert(alert, patientId)));
+    const results = await Promise.all(
+      enabledAlerts.map((alert) =>
+        evaluateAlert(alert, patientId).catch((error) => {
+          console.error(`Error evaluating alert ${alert.id}:`, error);
+          return {
+            alert,
+            currentValue: 0,
+            isActive: false,
+          };
+        }),
+      ),
+    );
 
-  return results.filter((result) => result.isActive);
+    return results.filter((result) => result.isActive);
+  } catch (error) {
+    console.error(`Error in evaluateAllAlerts for patient ${patientId}:`, error);
+    throw error;
+  }
 }

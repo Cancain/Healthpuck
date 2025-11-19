@@ -4,7 +4,7 @@ import { db } from "../db";
 import { alerts } from "../db/schema";
 import { evaluateAllAlerts } from "./alertEvaluator";
 
-type ActiveAlertsCache = Map<number, Array<{ alertId: number; triggeredAt: Date }>>;
+type ActiveAlertsCache = Map<number, Map<number, Date>>;
 
 const activeAlertsCache: ActiveAlertsCache = new Map();
 
@@ -40,8 +40,8 @@ async function evaluateAlertsByPriority(priority: "high" | "mid" | "low") {
         );
 
         const cacheKey = alert.patientId;
-        const previousActive = activeAlertsCache.get(cacheKey) || [];
-        const previousActiveIds = new Set(previousActive.map((a) => a.alertId));
+        const previousActive = activeAlertsCache.get(cacheKey) || new Map();
+        const previousActiveIds = new Set(previousActive.keys());
 
         const newlyTriggered = activeAlertIds.size > 0 && !previousActiveIds.has(alert.id);
 
@@ -51,12 +51,13 @@ async function evaluateAlertsByPriority(priority: "high" | "mid" | "low") {
           );
         }
 
-        const currentActive = Array.from(activeAlertIds).map((alertId) => ({
-          alertId,
-          triggeredAt: new Date(),
-        }));
+        const currentActive = new Map<number, Date>();
+        activeAlertIds.forEach((alertId) => {
+          const existingTriggeredAt = previousActive.get(alertId);
+          currentActive.set(alertId, existingTriggeredAt || new Date());
+        });
 
-        if (currentActive.length > 0) {
+        if (currentActive.size > 0) {
           activeAlertsCache.set(cacheKey, currentActive);
         } else {
           activeAlertsCache.delete(cacheKey);
@@ -90,15 +91,15 @@ export function startAlertScheduler() {
     const timeout = setTimeout(() => {
       evaluateAlertsByPriority("low");
       scheduleLowPriority();
-    }, getNextLowPriorityRunTime());
+    }, getNextLowPriorityRunTime()) as unknown as NodeJS.Timeout;
 
     intervals.set("low", timeout);
   };
 
   scheduleLowPriority();
 
-  intervals.set("high", highInterval);
-  intervals.set("mid", midInterval);
+  intervals.set("high", highInterval as unknown as NodeJS.Timeout);
+  intervals.set("mid", midInterval as unknown as NodeJS.Timeout);
 
   schedulerRunning = true;
 
@@ -128,5 +129,10 @@ export function stopAlertScheduler() {
 
 export function getActiveAlertsForPatient(patientId: number): number[] {
   const cached = activeAlertsCache.get(patientId);
-  return cached ? cached.map((a) => a.alertId) : [];
+  return cached ? Array.from(cached.keys()) : [];
+}
+
+export function getTriggeredAtForAlert(patientId: number, alertId: number): Date | null {
+  const cached = activeAlertsCache.get(patientId);
+  return cached?.get(alertId) || null;
 }
