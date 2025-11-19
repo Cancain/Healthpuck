@@ -5,6 +5,7 @@ import { alerts, medicationCheckIns } from "../db/schema";
 import type { Alert } from "../db/schema";
 import { ensureWhoopAccessTokenForPatient } from "./whoopSync";
 import { WhoopClient } from "./whoopClient";
+import { whoopRateLimiter } from "./whoopRateLimiter";
 
 export type ActiveAlert = {
   alert: Alert;
@@ -61,6 +62,14 @@ async function evaluateWhoopMetric(
   patientId: number,
 ): Promise<{ currentValue: number | null; error?: string }> {
   try {
+    const rateLimitCheck = whoopRateLimiter.canMakeRequest();
+    if (!rateLimitCheck.allowed) {
+      return {
+        currentValue: null,
+        error: `Rate limit exceeded: ${rateLimitCheck.reason}. Please wait before retrying.`,
+      };
+    }
+
     let accessToken: string;
     try {
       const tokenResult = await ensureWhoopAccessTokenForPatient(patientId);
@@ -83,7 +92,11 @@ async function evaluateWhoopMetric(
     const metricPath = alert.metricPath.toLowerCase();
 
     if (metricPath === "heart_rate" || metricPath === "heartrate") {
-      const cycles = await whoopClient.fetchCycles(accessToken, start, end);
+      let cycles = whoopRateLimiter.getCachedCycles(patientId);
+      if (!cycles) {
+        cycles = await whoopClient.fetchCycles(accessToken, start, end);
+        whoopRateLimiter.cacheCycles(patientId, cycles);
+      }
       const cycleArray = Array.isArray(cycles)
         ? cycles
         : (cycles as any)?.records || (cycles as any)?.data || [];
@@ -101,7 +114,11 @@ async function evaluateWhoopMetric(
       }
 
       if (metricValue === null) {
-        const workouts = await whoopClient.fetchWorkouts(accessToken, start, end);
+        let workouts = whoopRateLimiter.getCachedWorkouts(patientId);
+        if (!workouts) {
+          workouts = await whoopClient.fetchWorkouts(accessToken, start, end);
+          whoopRateLimiter.cacheWorkouts(patientId, workouts);
+        }
         const workoutArray = Array.isArray(workouts)
           ? workouts
           : (workouts as any)?.records || (workouts as any)?.data || [];
@@ -127,7 +144,11 @@ async function evaluateWhoopMetric(
         }
       }
     } else if (metricPath.startsWith("recovery")) {
-      const cycles = await whoopClient.fetchCycles(accessToken, start, end);
+      let cycles = whoopRateLimiter.getCachedCycles(patientId);
+      if (!cycles) {
+        cycles = await whoopClient.fetchCycles(accessToken, start, end);
+        whoopRateLimiter.cacheCycles(patientId, cycles);
+      }
       const cycleArray = Array.isArray(cycles)
         ? cycles
         : (cycles as any)?.records || (cycles as any)?.data || [];
@@ -138,7 +159,11 @@ async function evaluateWhoopMetric(
       }
 
       if (metricValue === null) {
-        const recovery = await whoopClient.fetchRecovery(accessToken, start, end);
+        let recovery = whoopRateLimiter.getCachedRecovery(patientId);
+        if (!recovery) {
+          recovery = await whoopClient.fetchRecovery(accessToken, start, end);
+          whoopRateLimiter.cacheRecovery(patientId, recovery);
+        }
         const recoveryArray = Array.isArray(recovery)
           ? recovery
           : (recovery as any)?.records || (recovery as any)?.data || [];
@@ -149,7 +174,11 @@ async function evaluateWhoopMetric(
         }
       }
     } else if (metricPath.startsWith("sleep")) {
-      const sleep = await whoopClient.fetchSleep(accessToken, start, end);
+      let sleep = whoopRateLimiter.getCachedSleep(patientId);
+      if (!sleep) {
+        sleep = await whoopClient.fetchSleep(accessToken, start, end);
+        whoopRateLimiter.cacheSleep(patientId, sleep);
+      }
       const sleepArray = Array.isArray(sleep)
         ? sleep
         : (sleep as any)?.records || (sleep as any)?.data || [];
@@ -158,7 +187,11 @@ async function evaluateWhoopMetric(
         metricValue = getNestedValue(sleepArray[0], alert.metricPath) || null;
       }
     } else {
-      const cycles = await whoopClient.fetchCycles(accessToken, start, end);
+      let cycles = whoopRateLimiter.getCachedCycles(patientId);
+      if (!cycles) {
+        cycles = await whoopClient.fetchCycles(accessToken, start, end);
+        whoopRateLimiter.cacheCycles(patientId, cycles);
+      }
       const cycleArray = Array.isArray(cycles)
         ? cycles
         : (cycles as any)?.records || (cycles as any)?.data || [];
@@ -168,7 +201,11 @@ async function evaluateWhoopMetric(
       }
 
       if (metricValue === null) {
-        const recovery = await whoopClient.fetchRecovery(accessToken, start, end);
+        let recovery = whoopRateLimiter.getCachedRecovery(patientId);
+        if (!recovery) {
+          recovery = await whoopClient.fetchRecovery(accessToken, start, end);
+          whoopRateLimiter.cacheRecovery(patientId, recovery);
+        }
         const recoveryArray = Array.isArray(recovery)
           ? recovery
           : (recovery as any)?.records || (recovery as any)?.data || [];

@@ -33,6 +33,12 @@ class WhoopRateLimiter {
   private heartRateCache: Map<number, CachedHeartRate> = new Map();
   private readonly CACHE_TTL_MS = 15000;
 
+  private cyclesCache: Map<number, { data: any; timestamp: number }> = new Map();
+  private recoveryCache: Map<number, { data: any; timestamp: number }> = new Map();
+  private sleepCache: Map<number, { data: any; timestamp: number }> = new Map();
+  private workoutsCache: Map<number, { data: any; timestamp: number }> = new Map();
+  private readonly METRIC_CACHE_TTL_MS = 60000;
+
   private constructor() {
     setInterval(() => this.cleanupOldRequests(), 60000);
     setInterval(() => this.resetDailyCounter(), 60000);
@@ -167,6 +173,62 @@ class WhoopRateLimiter {
       ...cached,
       source: "cache",
     };
+  }
+
+  getCachedCycles(patientId: number): any | null {
+    const cached = this.cyclesCache.get(patientId);
+    if (!cached) return null;
+    if (Date.now() - cached.timestamp > this.METRIC_CACHE_TTL_MS) {
+      this.cyclesCache.delete(patientId);
+      return null;
+    }
+    return cached.data;
+  }
+
+  cacheCycles(patientId: number, data: any): void {
+    this.cyclesCache.set(patientId, { data, timestamp: Date.now() });
+  }
+
+  getCachedRecovery(patientId: number): any | null {
+    const cached = this.recoveryCache.get(patientId);
+    if (!cached) return null;
+    if (Date.now() - cached.timestamp > this.METRIC_CACHE_TTL_MS) {
+      this.recoveryCache.delete(patientId);
+      return null;
+    }
+    return cached.data;
+  }
+
+  cacheRecovery(patientId: number, data: any): void {
+    this.recoveryCache.set(patientId, { data, timestamp: Date.now() });
+  }
+
+  getCachedSleep(patientId: number): any | null {
+    const cached = this.sleepCache.get(patientId);
+    if (!cached) return null;
+    if (Date.now() - cached.timestamp > this.METRIC_CACHE_TTL_MS) {
+      this.sleepCache.delete(patientId);
+      return null;
+    }
+    return cached.data;
+  }
+
+  cacheSleep(patientId: number, data: any): void {
+    this.sleepCache.set(patientId, { data, timestamp: Date.now() });
+  }
+
+  getCachedWorkouts(patientId: number): any | null {
+    const cached = this.workoutsCache.get(patientId);
+    if (!cached) return null;
+    if (Date.now() - cached.timestamp > this.METRIC_CACHE_TTL_MS) {
+      this.workoutsCache.delete(patientId);
+      return null;
+    }
+    return cached.data;
+  }
+
+  cacheWorkouts(patientId: number, data: any): void {
+    this.workoutsCache.set(patientId, { data, timestamp: Date.now() });
   }
 
   getRateLimitStatus(): {
