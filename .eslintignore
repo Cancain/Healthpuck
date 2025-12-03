@@ -1,9 +1,16 @@
-node_modules
-build
-docs
-dist
-coverage
-public
-**/*.css
-backend/src/routes/auth.ts
-backend/src/middleware/auth.ts
+# Mobile config files
+mobile/.eslintrc.js
+mobile/.prettierrc.js
+mobile/babel.config.js
+mobile/metro.config.js
+mobile/jest.config.js
+mobile/index.js
+
+# Backend dist
+backend/dist/
+backend/**/*.js
+
+# Build outputs
+build/
+dist/
+node_modules/

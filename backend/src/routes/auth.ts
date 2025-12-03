@@ -1,9 +1,9 @@
 import { Router, Request, Response } from "express";
 import jwt from "jsonwebtoken";
+import { eq } from "drizzle-orm";
 
 import { db } from "../db";
 import { users } from "../db/schema";
-import { eq } from "drizzle-orm";
 import { verifyPassword } from "../utils/hash";
 
 const router = Router();
@@ -53,7 +53,8 @@ router.post("/login", async (req: Request, res: Response) => {
     });
 
     const { password: _pw, ...safe } = user as any;
-    return res.json({ user: safe });
+    // Return token in response for mobile clients
+    return res.json({ user: safe, token });
   } catch (err) {
     console.error("Login error", err);
     return res.status(500).json({ error: "Internal server error" });
@@ -62,12 +63,21 @@ router.post("/login", async (req: Request, res: Response) => {
 
 router.get("/me", async (req: Request, res: Response) => {
   try {
-    const raw = req.headers.cookie || "";
-    const token = raw
-      .split(";")
-      .map((c) => c.trim())
-      .find((c) => c.startsWith("hp_token="))
-      ?.split("=")[1];
+    // Check Authorization header first (for mobile clients)
+    const authHeader = req.headers.authorization;
+    let token: string | undefined;
+
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      token = authHeader.substring(7);
+    } else {
+      // Fall back to cookie-based auth (for web clients)
+      const raw = req.headers.cookie || "";
+      token = raw
+        .split(";")
+        .map((c) => c.trim())
+        .find((c) => c.startsWith("hp_token="))
+        ?.split("=")[1];
+    }
 
     if (!token) {
       return res.status(401).json({ error: "Not authenticated" });

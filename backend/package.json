@@ -1,7 +1,7 @@
 {
-  "name": "healthpack-backend",
+  "name": "healthpuck-backend",
   "version": "1.0.0",
-  "description": "Healthpack backend API",
+  "description": "Healthpuck backend API",
   "main": "dist/index.js",
   "scripts": {
     "dev": "bun --hot src/index.ts",

@@ -1,12 +1,19 @@
 {
   "root": true,
-  "extends": [
-    "react-app",
-    "react-app/jest",
-    "plugin:import/recommended",
-    "prettier"
-  ],
+  "extends": ["react-app", "react-app/jest", "plugin:import/recommended", "prettier"],
   "plugins": ["import"],
+  "ignorePatterns": [
+    "mobile/.eslintrc.js",
+    "mobile/.prettierrc.js",
+    "mobile/babel.config.js",
+    "mobile/metro.config.js",
+    "mobile/jest.config.js",
+    "mobile/index.js",
+    "backend/dist/**",
+    "build/**",
+    "dist/**",
+    "node_modules/**"
+  ],
   "settings": {
     "import/resolver": {
       "node": {
@@ -28,7 +35,10 @@
     "import/order": [
       "warn",
       {
-        "groups": [["builtin", "external"], ["internal", "parent", "sibling", "index"]],
+        "groups": [
+          ["builtin", "external"],
+          ["internal", "parent", "sibling", "index"]
+        ],
         "newlines-between": "always"
       }
     ]

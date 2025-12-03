@@ -1,10 +1,10 @@
-# Healthpack
+# Healthpuck
 
 A comprehensive health monitoring application for patients and caregivers, featuring medication tracking, Whoop device integration, and intelligent alerting.
 
 ## Overview
 
-Healthpack is a full-stack health management platform that enables:
+Healthpuck is a full-stack health management platform that enables:
 
 - **Patient Management**: Create and manage patient profiles with caregiver access
 - **Medication Tracking**: Track medications, dosages, and adherence with check-ins
@@ -138,7 +138,7 @@ Healthpack is a full-stack health management platform that enables:
 ## Project Structure
 
 ```
-healthpack/
+healthpuck/
 ├── backend/              # Express API server
 │   ├── src/
 │   │   ├── auth/         # Passport Whoop OAuth strategy

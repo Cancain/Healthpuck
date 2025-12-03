@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import jwt, { JwtPayload } from "jsonwebtoken";
 import { eq, and } from "drizzle-orm";
+
 import { db } from "../db";
 import { patientUsers, patients } from "../db/schema";
 
@@ -12,12 +13,21 @@ if (!JWT_SECRET) {
 
 export function getUserIdFromRequest(req: Request): number | null {
   try {
-    const raw = req.headers.cookie || "";
-    const token = raw
-      .split(";")
-      .map((c) => c.trim())
-      .find((c) => c.startsWith("hp_token="))
-      ?.split("=")[1];
+    // Check Authorization header first (for mobile clients)
+    const authHeader = req.headers.authorization;
+    let token: string | undefined;
+
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      token = authHeader.substring(7);
+    } else {
+      // Fall back to cookie-based auth (for web clients)
+      const raw = req.headers.cookie || "";
+      token = raw
+        .split(";")
+        .map((c) => c.trim())
+        .find((c) => c.startsWith("hp_token="))
+        ?.split("=")[1];
+    }
 
     if (!token) return null;
 
@@ -41,12 +51,21 @@ export async function hasPatientAccess(userId: number, patientId: number): Promi
 
 export function authenticate(req: Request, res: Response, next: NextFunction) {
   try {
-    const raw = req.headers.cookie || "";
-    const token = raw
-      .split(";")
-      .map((c) => c.trim())
-      .find((c) => c.startsWith("hp_token="))
-      ?.split("=")[1];
+    // Check Authorization header first (for mobile clients)
+    const authHeader = req.headers.authorization;
+    let token: string | undefined;
+
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      token = authHeader.substring(7);
+    } else {
+      // Fall back to cookie-based auth (for web clients)
+      const raw = req.headers.cookie || "";
+      token = raw
+        .split(";")
+        .map((c) => c.trim())
+        .find((c) => c.startsWith("hp_token="))
+        ?.split("=")[1];
+    }
 
     if (!token) return res.status(401).json({ error: "Not authenticated" });
 

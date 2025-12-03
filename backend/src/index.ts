@@ -63,7 +63,7 @@ app.use(cookieParser());
 app.use(passport.initialize());
 
 app.get("/health", (req: Request, res: Response) => {
-  res.json({ status: "ok", message: "Healthpack API is running" });
+  res.json({ status: "ok", message: "Healthpuck API is running" });
 });
 
 app.use("/api/users", userRoutes);
