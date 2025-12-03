@@ -15,7 +15,7 @@ import androidx.core.app.NotificationCompat;
 public class HeartRateForegroundService extends Service {
     private static final String CHANNEL_ID = "HeartRateMonitoringChannel";
     private static final int NOTIFICATION_ID = 1;
-    
+
     private PowerManager.WakeLock wakeLock;
     private final IBinder binder = new LocalBinder();
     private boolean isRunning = false;
@@ -30,31 +30,31 @@ public class HeartRateForegroundService extends Service {
     public void onCreate() {
         super.onCreate();
         createNotificationChannel();
-        
+
         // Acquire wake lock to keep CPU running when screen is off
         PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
         wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Healthpuck::HeartRateWakeLock");
     }
 
-  @Override
-  public int onStartCommand(Intent intent, int flags, int startId) {
-    if (intent != null && "UPDATE_NOTIFICATION".equals(intent.getAction())) {
-      String heartRate = intent.getStringExtra("heartRate");
-      if (heartRate != null) {
-        updateNotification(heartRate);
-      }
-      return START_STICKY;
-    }
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        if (intent != null && "UPDATE_NOTIFICATION".equals(intent.getAction())) {
+            String heartRate = intent.getStringExtra("heartRate");
+            if (heartRate != null) {
+                updateNotification(heartRate);
+            }
+            return START_STICKY;
+        }
 
-    if (!isRunning) {
-      startForeground(NOTIFICATION_ID, createNotification());
-      if (wakeLock != null && !wakeLock.isHeld()) {
-        wakeLock.acquire();
-      }
-      isRunning = true;
+        if (!isRunning) {
+            startForeground(NOTIFICATION_ID, createNotification());
+            if (wakeLock != null && !wakeLock.isHeld()) {
+                wakeLock.acquire();
+            }
+            isRunning = true;
+        }
+        return START_STICKY; // Restart if killed by system
     }
-    return START_STICKY; // Restart if killed by system
-  }
 
     @Override
     public void onDestroy() {
@@ -73,13 +73,12 @@ public class HeartRateForegroundService extends Service {
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(
-                CHANNEL_ID,
-                "Pulsövervakning",
-                NotificationManager.IMPORTANCE_LOW
-            );
+                    CHANNEL_ID,
+                    "Pulsövervakning",
+                    NotificationManager.IMPORTANCE_LOW);
             channel.setDescription("Övervakar puls i bakgrunden");
             channel.setShowBadge(false);
-            
+
             NotificationManager manager = getSystemService(NotificationManager.class);
             if (manager != null) {
                 manager.createNotificationChannel(channel);
@@ -90,33 +89,40 @@ public class HeartRateForegroundService extends Service {
     private Notification createNotification() {
         Intent notificationIntent = new Intent(this, MainActivity.class);
         PendingIntent pendingIntent = PendingIntent.getActivity(
-            this,
-            0,
-            notificationIntent,
-            PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT
-        );
+                this,
+                0,
+                notificationIntent,
+                PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
 
         return new NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Pulsövervakning")
-            .setContentText("Övervakar puls i bakgrunden")
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentIntent(pendingIntent)
-            .setOngoing(true)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setCategory(NotificationCompat.CATEGORY_SERVICE)
-            .build();
+                .setContentTitle("Pulsövervakning")
+                .setContentText("Övervakar puls i bakgrunden")
+                .setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setContentIntent(pendingIntent)
+                .setOngoing(true)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setCategory(NotificationCompat.CATEGORY_SERVICE)
+                .build();
     }
 
     public void updateNotification(String heartRate) {
+        Intent notificationIntent = new Intent(this, MainActivity.class);
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+                this,
+                0,
+                notificationIntent,
+                PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Pulsövervakning")
-            .setContentText("Nuvarande puls: " + heartRate + " BPM")
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setOngoing(true)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setCategory(NotificationCompat.CATEGORY_SERVICE)
-            .build();
-        
+                .setContentTitle("Pulsövervakning")
+                .setContentText("Nuvarande puls: " + heartRate + " BPM")
+                .setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setContentIntent(pendingIntent)
+                .setOngoing(true)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setCategory(NotificationCompat.CATEGORY_SERVICE)
+                .build();
+
         NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         if (manager != null) {
             manager.notify(NOTIFICATION_ID, notification);
@@ -127,4 +133,3 @@ public class HeartRateForegroundService extends Service {
         return isRunning;
     }
 }
-
