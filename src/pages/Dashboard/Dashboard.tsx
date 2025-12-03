@@ -617,7 +617,7 @@ const DashboardPage: React.FC = () => {
         </div>
         {patient && (
           <div className={styles.patientBadge}>
-            <span>Patient</span>
+            <span>Omsorgstagare</span>
             <strong>{patient.name}</strong>
           </div>
         )}
