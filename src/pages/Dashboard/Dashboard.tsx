@@ -904,7 +904,13 @@ const HeartRateDisplay: React.FC<HeartRateDisplayProps> = ({
       {data.message && <p className={styles.heartRateMessage}>{data.message}</p>}
       {data.timestamp && (
         <p className={styles.heartRateTimestamp}>
-          Uppdaterad: {new Date(data.timestamp).toLocaleTimeString()}
+          Uppdaterad:{" "}
+          {new Date(data.timestamp).toLocaleTimeString("sv-SE", {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            timeZone: "Europe/Stockholm",
+          })}
         </p>
       )}
     </div>
