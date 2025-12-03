@@ -74,10 +74,10 @@ public class HeartRateForegroundService extends Service {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(
                 CHANNEL_ID,
-                "Heart Rate Monitoring",
+                "Pulsövervakning",
                 NotificationManager.IMPORTANCE_LOW
             );
-            channel.setDescription("Monitoring heart rate in the background");
+            channel.setDescription("Övervakar puls i bakgrunden");
             channel.setShowBadge(false);
             
             NotificationManager manager = getSystemService(NotificationManager.class);
@@ -97,8 +97,8 @@ public class HeartRateForegroundService extends Service {
         );
 
         return new NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Heart Rate Monitoring")
-            .setContentText("Monitoring heart rate in the background")
+            .setContentTitle("Pulsövervakning")
+            .setContentText("Övervakar puls i bakgrunden")
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
@@ -109,8 +109,8 @@ public class HeartRateForegroundService extends Service {
 
     public void updateNotification(String heartRate) {
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Heart Rate Monitoring")
-            .setContentText("Current heart rate: " + heartRate + " BPM")
+            .setContentTitle("Pulsövervakning")
+            .setContentText("Nuvarande puls: " + heartRate + " BPM")
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)

@@ -76,14 +76,14 @@ export const MonitorScreen: React.FC<MonitorScreenProps> = ({onLogout}) => {
       const enabled = await bluetoothService.checkBluetoothEnabled();
       if (!enabled) {
         Alert.alert(
-          'Bluetooth Disabled',
-          'Please enable Bluetooth to use this app',
+          'Bluetooth inaktiverat',
+          'Vänligen aktivera Bluetooth för att använda denna app',
           [{text: 'OK'}],
         );
       }
       updateConnectionState();
     } catch (error: any) {
-      Alert.alert('Error', `Failed to initialize Bluetooth: ${error.message}`);
+      Alert.alert('Fel', `Kunde inte initiera Bluetooth: ${error.message}`);
     }
   };
 
@@ -115,8 +115,8 @@ export const MonitorScreen: React.FC<MonitorScreenProps> = ({onLogout}) => {
     const hasPermission = await requestPermissions();
     if (!hasPermission) {
       Alert.alert(
-        'Permission Required',
-        'Bluetooth permissions are required to scan for devices',
+        'Behörighet krävs',
+        'Bluetooth-behörigheter krävs för att söka efter enheter',
       );
       return;
     }
@@ -130,12 +130,15 @@ export const MonitorScreen: React.FC<MonitorScreenProps> = ({onLogout}) => {
 
       if (foundDevices.length === 0) {
         Alert.alert(
-          'No Devices Found',
-          'No Whoop devices found. Make sure your device is nearby and powered on.',
+          'Inga enheter hittades',
+          'Inga Whoop-enheter hittades. Se till att din enhet är i närheten och påslagen.',
         );
       }
     } catch (error: any) {
-      Alert.alert('Scan Error', error.message || 'Failed to scan for devices');
+      Alert.alert(
+        'Sökningsfel',
+        error.message || 'Kunde inte söka efter enheter',
+      );
     } finally {
       setIsScanning(false);
     }
@@ -147,12 +150,12 @@ export const MonitorScreen: React.FC<MonitorScreenProps> = ({onLogout}) => {
       await bluetoothService.connect(device.id);
       setSelectedDevice(device);
       updateConnectionState();
-      Alert.alert('Connected', `Connected to ${device.name}`);
+      Alert.alert('Ansluten', `Ansluten till ${device.name}`);
     } catch (error: any) {
       setConnectionState('error');
       Alert.alert(
-        'Connection Failed',
-        error.message || 'Failed to connect to device',
+        'Anslutning misslyckades',
+        error.message || 'Kunde inte ansluta till enheten',
       );
       updateConnectionState();
     }
@@ -160,7 +163,7 @@ export const MonitorScreen: React.FC<MonitorScreenProps> = ({onLogout}) => {
 
   const startMonitoring = async () => {
     if (!bluetoothService.isConnected()) {
-      Alert.alert('Not Connected', 'Please connect to a device first');
+      Alert.alert('Inte ansluten', 'Vänligen anslut till en enhet först');
       return;
     }
 
@@ -197,7 +200,7 @@ export const MonitorScreen: React.FC<MonitorScreenProps> = ({onLogout}) => {
       setIsMonitoring(true);
       updateConnectionState();
     } catch (error: any) {
-      Alert.alert('Error', `Failed to start monitoring: ${error.message}`);
+      Alert.alert('Fel', `Kunde inte starta övervakning: ${error.message}`);
     }
   };
 
@@ -236,10 +239,10 @@ export const MonitorScreen: React.FC<MonitorScreenProps> = ({onLogout}) => {
   };
 
   const handleLogout = async () => {
-    Alert.alert('Logout', 'Are you sure you want to logout?', [
-      {text: 'Cancel', style: 'cancel'},
+    Alert.alert('Logga ut', 'Är du säker på att du vill logga ut?', [
+      {text: 'Avbryt', style: 'cancel'},
       {
-        text: 'Logout',
+        text: 'Logga ut',
         style: 'destructive',
         onPress: async () => {
           await stopMonitoring();
@@ -264,6 +267,19 @@ export const MonitorScreen: React.FC<MonitorScreenProps> = ({onLogout}) => {
     }
   };
 
+  const getConnectionStatusText = () => {
+    switch (connectionState) {
+      case 'connected':
+        return 'Ansluten';
+      case 'connecting':
+        return 'Ansluter';
+      case 'error':
+        return 'Fel';
+      default:
+        return 'Frånkopplad';
+    }
+  };
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
@@ -272,7 +288,7 @@ export const MonitorScreen: React.FC<MonitorScreenProps> = ({onLogout}) => {
           {user && <Text style={styles.headerSubtitle}>{user.name}</Text>}
         </View>
         <TouchableOpacity onPress={handleLogout}>
-          <Text style={styles.logoutButton}>Logout</Text>
+          <Text style={styles.logoutButton}>Logga ut</Text>
         </TouchableOpacity>
       </View>
 
@@ -286,17 +302,14 @@ export const MonitorScreen: React.FC<MonitorScreenProps> = ({onLogout}) => {
                 {backgroundColor: getConnectionStatusColor()},
               ]}
             />
-            <Text style={styles.statusText}>
-              {connectionState.charAt(0).toUpperCase() +
-                connectionState.slice(1)}
-            </Text>
+            <Text style={styles.statusText}>{getConnectionStatusText()}</Text>
           </View>
           {selectedDevice && (
             <Text style={styles.deviceName}>{selectedDevice.name}</Text>
           )}
           {uploadQueueSize > 0 && (
             <Text style={styles.queueText}>
-              {uploadQueueSize} reading(s) queued for upload
+              {uploadQueueSize} avläsning(ar) i kö för uppladdning
             </Text>
           )}
         </View>
@@ -309,13 +322,13 @@ export const MonitorScreen: React.FC<MonitorScreenProps> = ({onLogout}) => {
               <Text style={styles.heartRateLabel}>BPM</Text>
             </>
           ) : (
-            <Text style={styles.noDataText}>No heart rate data</Text>
+            <Text style={styles.noDataText}>Ingen pulsdata</Text>
           )}
         </View>
 
         {/* Device Selection */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Devices</Text>
+          <Text style={styles.sectionTitle}>Enheter</Text>
           <TouchableOpacity
             style={styles.button}
             onPress={scanForDevices}
@@ -323,7 +336,7 @@ export const MonitorScreen: React.FC<MonitorScreenProps> = ({onLogout}) => {
             {isScanning ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.buttonText}>Scan for Devices</Text>
+              <Text style={styles.buttonText}>Sök efter enheter</Text>
             )}
           </TouchableOpacity>
 
@@ -349,24 +362,24 @@ export const MonitorScreen: React.FC<MonitorScreenProps> = ({onLogout}) => {
         {/* Monitoring Controls */}
         {bluetoothService.isConnected() && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Monitoring</Text>
+            <Text style={styles.sectionTitle}>Övervakning</Text>
             {!isMonitoring ? (
               <TouchableOpacity
                 style={styles.buttonPrimary}
                 onPress={startMonitoring}>
-                <Text style={styles.buttonText}>Start Monitoring</Text>
+                <Text style={styles.buttonText}>Starta övervakning</Text>
               </TouchableOpacity>
             ) : (
               <TouchableOpacity
                 style={styles.buttonDanger}
                 onPress={stopMonitoring}>
-                <Text style={styles.buttonText}>Stop Monitoring</Text>
+                <Text style={styles.buttonText}>Stoppa övervakning</Text>
               </TouchableOpacity>
             )}
             <TouchableOpacity
               style={styles.buttonSecondary}
               onPress={disconnect}>
-              <Text style={styles.buttonText}>Disconnect</Text>
+              <Text style={styles.buttonText}>Koppla från</Text>
             </TouchableOpacity>
           </View>
         )}

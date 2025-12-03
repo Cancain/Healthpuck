@@ -23,7 +23,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({onLoginSuccess}) => {
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
-      Alert.alert('Error', 'Please enter both email and password');
+      Alert.alert('Fel', 'Vänligen ange både e-post och lösenord');
       return;
     }
 
@@ -32,7 +32,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({onLoginSuccess}) => {
       await authService.login(email.trim(), password);
       onLoginSuccess();
     } catch (error: any) {
-      Alert.alert('Login Failed', error.message || 'Invalid credentials');
+      Alert.alert(
+        'Inloggning misslyckades',
+        error.message || 'Ogiltiga inloggningsuppgifter',
+      );
     } finally {
       setLoading(false);
     }
@@ -44,12 +47,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({onLoginSuccess}) => {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={styles.content}>
         <Text style={styles.title}>Healthpuck</Text>
-        <Text style={styles.subtitle}>Heart Rate Monitor</Text>
+        <Text style={styles.subtitle}>Pulsmätare</Text>
 
         <View style={styles.form}>
           <TextInput
             style={styles.input}
-            placeholder="Email"
+            placeholder="E-post"
             placeholderTextColor="#999"
             value={email}
             onChangeText={setEmail}
@@ -61,7 +64,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({onLoginSuccess}) => {
 
           <TextInput
             style={styles.input}
-            placeholder="Password"
+            placeholder="Lösenord"
             placeholderTextColor="#999"
             value={password}
             onChangeText={setPassword}
@@ -78,7 +81,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({onLoginSuccess}) => {
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.buttonText}>Login</Text>
+              <Text style={styles.buttonText}>Logga in</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -118,6 +121,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 16,
     fontSize: 16,
+    color: '#333',
     marginBottom: 16,
     borderWidth: 1,
     borderColor: '#ddd',
