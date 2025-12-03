@@ -1,7 +1,7 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc, gte } from "drizzle-orm";
 
 import { db } from "../db";
-import { alerts, medicationCheckIns } from "../db/schema";
+import { alerts, medicationCheckIns, heartRateReadings } from "../db/schema";
 import type { Alert } from "../db/schema";
 import { ensureWhoopAccessTokenForPatient } from "./whoopSync";
 import { WhoopClient } from "./whoopClient";
@@ -62,6 +62,123 @@ async function evaluateWhoopMetric(
   patientId: number,
 ): Promise<{ currentValue: number | null; error?: string }> {
   try {
+    let metricValue: number | null = null;
+
+    const metricPath = alert.metricPath.toLowerCase();
+
+    // For heart rate, check cached/database readings first (no Whoop connection required)
+    if (metricPath === "heart_rate" || metricPath === "heartrate") {
+      // First, check cached heart rate (from recent Bluetooth/API readings)
+      const cachedHeartRate = whoopRateLimiter.getCachedHeartRate(patientId);
+      if (cachedHeartRate && cachedHeartRate.heartRate !== null) {
+        metricValue = cachedHeartRate.heartRate;
+      }
+
+      // If no cached value, check database for recent readings (within last 5 minutes)
+      if (metricValue === null) {
+        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+        const recentReadings = await db
+          .select()
+          .from(heartRateReadings)
+          .where(
+            and(
+              eq(heartRateReadings.patientId, patientId),
+              gte(heartRateReadings.timestamp, fiveMinutesAgo),
+            ),
+          )
+          .orderBy(desc(heartRateReadings.timestamp))
+          .limit(1);
+
+        if (recentReadings.length > 0) {
+          metricValue = recentReadings[0].heartRate;
+        }
+      }
+
+      // Fall back to Whoop API data if no recent readings available
+      if (metricValue === null) {
+        const rateLimitCheck = whoopRateLimiter.canMakeRequest();
+        if (!rateLimitCheck.allowed) {
+          return {
+            currentValue: null,
+            error: `Rate limit exceeded: ${rateLimitCheck.reason}. Please wait before retrying.`,
+          };
+        }
+
+        let accessToken: string;
+        try {
+          const tokenResult = await ensureWhoopAccessTokenForPatient(patientId);
+          accessToken = tokenResult.accessToken;
+        } catch (error: any) {
+          if (error.message === "No Whoop connection found for patient") {
+            return {
+              currentValue: null,
+              error:
+                "No Whoop connection found for patient and no recent heart rate readings available",
+            };
+          }
+          throw error;
+        }
+
+        const end = new Date();
+        const start = new Date(end.getTime() - 24 * 60 * 60 * 1000);
+
+        let cycles = whoopRateLimiter.getCachedCycles(patientId);
+        if (!cycles) {
+          cycles = await whoopClient.fetchCycles(accessToken, start, end);
+          whoopRateLimiter.cacheCycles(patientId, cycles);
+        }
+        const cycleArray = Array.isArray(cycles)
+          ? cycles
+          : (cycles as any)?.records || (cycles as any)?.data || [];
+
+        if (cycleArray.length > 0 && cycleArray[0].recovery) {
+          const hr =
+            cycleArray[0].recovery.score?.resting_heart_rate ||
+            cycleArray[0].recovery.score?.heart_rate ||
+            cycleArray[0].recovery.resting_heart_rate ||
+            cycleArray[0].recovery.heart_rate;
+
+          if (typeof hr === "number" && hr > 0 && isFinite(hr)) {
+            metricValue = hr;
+          }
+        }
+
+        if (metricValue === null) {
+          let workouts = whoopRateLimiter.getCachedWorkouts(patientId);
+          if (!workouts) {
+            workouts = await whoopClient.fetchWorkouts(accessToken, start, end);
+            whoopRateLimiter.cacheWorkouts(patientId, workouts);
+          }
+          const workoutArray = Array.isArray(workouts)
+            ? workouts
+            : (workouts as any)?.records || (workouts as any)?.data || [];
+
+          for (const workout of workoutArray) {
+            const hr =
+              workout.score?.average_heart_rate ||
+              workout.score?.max_heart_rate ||
+              workout.score?.heart_rate ||
+              workout.heart_rate ||
+              workout.hr ||
+              workout.average_heart_rate ||
+              workout.avg_heart_rate ||
+              workout.max_heart_rate ||
+              workout.heartRate ||
+              workout.averageHeartRate ||
+              workout.maxHeartRate;
+
+            if (typeof hr === "number" && hr > 0 && isFinite(hr)) {
+              metricValue = hr;
+              break;
+            }
+          }
+        }
+      }
+
+      return { currentValue: metricValue };
+    }
+
+    // For other metrics, require Whoop connection
     const rateLimitCheck = whoopRateLimiter.canMakeRequest();
     if (!rateLimitCheck.allowed) {
       return {
@@ -87,63 +204,9 @@ async function evaluateWhoopMetric(
     const end = new Date();
     const start = new Date(end.getTime() - 24 * 60 * 60 * 1000);
 
-    let metricValue: number | null = null;
+    metricValue = null;
 
-    const metricPath = alert.metricPath.toLowerCase();
-
-    if (metricPath === "heart_rate" || metricPath === "heartrate") {
-      let cycles = whoopRateLimiter.getCachedCycles(patientId);
-      if (!cycles) {
-        cycles = await whoopClient.fetchCycles(accessToken, start, end);
-        whoopRateLimiter.cacheCycles(patientId, cycles);
-      }
-      const cycleArray = Array.isArray(cycles)
-        ? cycles
-        : (cycles as any)?.records || (cycles as any)?.data || [];
-
-      if (cycleArray.length > 0 && cycleArray[0].recovery) {
-        const hr =
-          cycleArray[0].recovery.score?.resting_heart_rate ||
-          cycleArray[0].recovery.score?.heart_rate ||
-          cycleArray[0].recovery.resting_heart_rate ||
-          cycleArray[0].recovery.heart_rate;
-
-        if (typeof hr === "number" && hr > 0 && isFinite(hr)) {
-          metricValue = hr;
-        }
-      }
-
-      if (metricValue === null) {
-        let workouts = whoopRateLimiter.getCachedWorkouts(patientId);
-        if (!workouts) {
-          workouts = await whoopClient.fetchWorkouts(accessToken, start, end);
-          whoopRateLimiter.cacheWorkouts(patientId, workouts);
-        }
-        const workoutArray = Array.isArray(workouts)
-          ? workouts
-          : (workouts as any)?.records || (workouts as any)?.data || [];
-
-        for (const workout of workoutArray) {
-          const hr =
-            workout.score?.average_heart_rate ||
-            workout.score?.max_heart_rate ||
-            workout.score?.heart_rate ||
-            workout.heart_rate ||
-            workout.hr ||
-            workout.average_heart_rate ||
-            workout.avg_heart_rate ||
-            workout.max_heart_rate ||
-            workout.heartRate ||
-            workout.averageHeartRate ||
-            workout.maxHeartRate;
-
-          if (typeof hr === "number" && hr > 0 && isFinite(hr)) {
-            metricValue = hr;
-            break;
-          }
-        }
-      }
-    } else if (metricPath.startsWith("recovery")) {
+    if (metricPath.startsWith("recovery")) {
       let cycles = whoopRateLimiter.getCachedCycles(patientId);
       if (!cycles) {
         cycles = await whoopClient.fetchCycles(accessToken, start, end);
