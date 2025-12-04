@@ -6,12 +6,7 @@ import Logo from "../Logo/Logo";
 import styles from "./Header.module.css";
 import { useAuth } from "../../auth/AuthContext";
 
-interface HeaderProps {
-  onLoginClick?: () => void;
-  onGetStartedClick?: () => void;
-}
-
-const Header: React.FC<HeaderProps> = ({ onLoginClick, onGetStartedClick }) => {
+const Header: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const { user, logout } = useAuth();
@@ -21,24 +16,25 @@ const Header: React.FC<HeaderProps> = ({ onLoginClick, onGetStartedClick }) => {
     setIsMenuOpen(!isMenuOpen);
   };
 
-  const handleLoginClick = () => {
-    setIsMenuOpen(false);
-    onLoginClick?.();
-  };
-
-  const handleGetStartedClick = () => {
-    setIsMenuOpen(false);
-    onGetStartedClick?.();
-  };
-
   const handleLogoutClick = async () => {
     setIsMenuOpen(false);
     await logout();
+    navigate("/");
   };
 
   const handleSettingsClick = () => {
     setIsMenuOpen(false);
-    navigate("/settings");
+    navigate("/settings/alerts");
+  };
+
+  const handleLoginClick = () => {
+    setIsMenuOpen(false);
+    navigate("/login");
+  };
+
+  const handleRegisterClick = () => {
+    setIsMenuOpen(false);
+    navigate("/register");
   };
 
   const handleLogoClick = () => {
@@ -85,10 +81,10 @@ const Header: React.FC<HeaderProps> = ({ onLoginClick, onGetStartedClick }) => {
               </>
             ) : (
               <>
-                <Button variant="secondary" onClick={onLoginClick}>
+                <Button variant="secondary" onClick={handleLoginClick}>
                   Logga in
                 </Button>
-                <Button variant="primary" onClick={onGetStartedClick}>
+                <Button variant="primary" onClick={handleRegisterClick}>
                   Skaffa nu!
                 </Button>
               </>
@@ -108,7 +104,11 @@ const Header: React.FC<HeaderProps> = ({ onLoginClick, onGetStartedClick }) => {
             <div className={styles.dropdown}>
               {user ? (
                 <>
-                  <Link className={styles.userLink} to="/dashboard">
+                  <Link
+                    className={styles.userLink}
+                    to="/dashboard"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
                     {user.name}
                   </Link>
                   <Button variant="secondary" onClick={handleSettingsClick}>
@@ -123,7 +123,7 @@ const Header: React.FC<HeaderProps> = ({ onLoginClick, onGetStartedClick }) => {
                   <Button variant="secondary" onClick={handleLoginClick}>
                     Logga in
                   </Button>
-                  <Button variant="primary" onClick={handleGetStartedClick}>
+                  <Button variant="primary" onClick={handleRegisterClick}>
                     Skaffa nu!
                   </Button>
                 </>

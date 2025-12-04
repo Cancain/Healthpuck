@@ -1,5 +1,4 @@
-import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
-import { useEffect } from "react";
+import { Routes, Route, Navigate } from "react-router-dom";
 
 import Header from "./components/Header/Header";
 import Hero from "./components/Hero/Hero";
@@ -11,42 +10,20 @@ import SettingsPage from "./pages/Settings/Settings";
 import { AuthProvider } from "./auth/AuthContext";
 import RequireAuth from "./auth/RequireAuth";
 
+function NotFound() {
+  return (
+    <div style={{ padding: "2rem", textAlign: "center" }}>
+      <h1>404 - Sidan hittades inte</h1>
+      <p>Sidan du söker finns inte.</p>
+    </div>
+  );
+}
+
 function App() {
-  const navigate = useNavigate();
-  const location = useLocation();
-
-  const handleLoginClick = () => {
-    navigate("/login");
-  };
-
-  const handleGetStartedClick = () => {
-    navigate("/register");
-  };
-
-  useEffect(() => {
-    const navigateToSettings = (query: string) => {
-      if (location.pathname !== "/settings") {
-        navigate(`/settings${query}`, { replace: true });
-      }
-    };
-
-    const hash = window.location.hash;
-    if (hash.startsWith("#/settings")) {
-      const questionMarkIndex = hash.indexOf("?");
-      const query = questionMarkIndex !== -1 ? hash.substring(questionMarkIndex) : "";
-      navigateToSettings(query);
-      return;
-    }
-
-    if (location.search.includes("tab=")) {
-      navigateToSettings(location.search);
-    }
-  }, [location.pathname, location.search, navigate]);
-
   return (
     <AuthProvider>
       <div className={styles.app}>
-        <Header onLoginClick={handleLoginClick} onGetStartedClick={handleGetStartedClick} />
+        <Header />
         <Routes>
           <Route path="/" element={<Hero />} />
           <Route path="/login" element={<LoginPage />} />
@@ -63,10 +40,20 @@ function App() {
             path="/settings"
             element={
               <RequireAuth>
+                <Navigate to="/settings/alerts" replace />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/settings/:tab"
+            element={
+              <RequireAuth>
                 <SettingsPage />
               </RequireAuth>
             }
           />
+          <Route path="/404" element={<NotFound />} />
+          <Route path="*" element={<Navigate to="/404" replace />} />
         </Routes>
       </div>
     </AuthProvider>

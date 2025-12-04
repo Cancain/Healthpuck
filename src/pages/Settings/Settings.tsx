@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 import Button from "../../components/Button/Button";
 import styles from "./Settings.module.css";
@@ -64,19 +64,19 @@ interface Alert {
 const SettingsPage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<"users" | "medications" | "whoop" | "alerts">(() => {
-    const params = new URLSearchParams(location.search);
-    const tabParam = params.get("tab");
-    if (
-      tabParam === "medications" ||
-      tabParam === "whoop" ||
-      tabParam === "users" ||
-      tabParam === "alerts"
-    ) {
-      return tabParam as "users" | "medications" | "whoop" | "alerts";
+  const { tab } = useParams<{ tab?: string }>();
+
+  // Validate tab parameter and redirect if invalid
+  useEffect(() => {
+    if (tab && tab !== "users" && tab !== "medications" && tab !== "whoop" && tab !== "alerts") {
+      navigate("/settings/alerts", { replace: true });
     }
-    return "alerts";
-  });
+  }, [tab, navigate]);
+
+  const activeTab: "users" | "medications" | "whoop" | "alerts" =
+    tab === "users" || tab === "medications" || tab === "whoop" || tab === "alerts"
+      ? tab
+      : "alerts";
   const [patients, setPatients] = useState<Patient[]>([]);
   const [patientUsers, setPatientUsers] = useState<Record<number, PatientUser[]>>({});
   const [medications, setMedications] = useState<Record<number, Medication[]>>({});
@@ -196,11 +196,6 @@ const SettingsPage: React.FC = () => {
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    const tabParam = params.get("tab");
-    if (tabParam === "whoop" || tabParam === "medications" || tabParam === "users") {
-      setActiveTab(tabParam as "users" | "medications" | "whoop");
-    }
-
     let shouldReplace = false;
 
     const whoopResult = params.get("whoop");
@@ -220,9 +215,18 @@ const SettingsPage: React.FC = () => {
       shouldReplace = true;
     }
 
-    if (tabParam) {
+    // Handle legacy tab query param - redirect to route
+    const tabParam = params.get("tab");
+    if (
+      tabParam === "whoop" ||
+      tabParam === "medications" ||
+      tabParam === "users" ||
+      tabParam === "alerts"
+    ) {
       params.delete("tab");
-      shouldReplace = true;
+      const search = params.toString();
+      navigate(`/settings/${tabParam}${search ? `?${search}` : ""}`, { replace: true });
+      return;
     }
 
     if (shouldReplace) {
@@ -999,25 +1003,25 @@ const SettingsPage: React.FC = () => {
       <div className={styles.tabs}>
         <button
           className={activeTab === "users" ? styles.tabActive : styles.tab}
-          onClick={() => setActiveTab("users")}
+          onClick={() => navigate("/settings/users")}
         >
           Användare
         </button>
         <button
           className={activeTab === "medications" ? styles.tabActive : styles.tab}
-          onClick={() => setActiveTab("medications")}
+          onClick={() => navigate("/settings/medications")}
         >
           Mediciner
         </button>
         <button
           className={activeTab === "alerts" ? styles.tabActive : styles.tab}
-          onClick={() => setActiveTab("alerts")}
+          onClick={() => navigate("/settings/alerts")}
         >
           Varningar
         </button>
         <button
           className={activeTab === "whoop" ? styles.tabActive : styles.tab}
-          onClick={() => setActiveTab("whoop")}
+          onClick={() => navigate("/settings/whoop")}
         >
           Whoop
         </button>
@@ -1668,7 +1672,9 @@ const SettingsPage: React.FC = () => {
                     </div>
 
                     <div className={styles.field}>
-                      <label htmlFor="alertPriority">Prioritet *</label>
+                      <label className={styles.fieldLabel} htmlFor="alertPriority">
+                        Prioritet *
+                      </label>
                       <select
                         id="alertPriority"
                         value={alertFormData.priority}
@@ -1690,8 +1696,9 @@ const SettingsPage: React.FC = () => {
                     </div>
 
                     <div className={styles.field}>
-                      <label>
+                      <label className={styles.fieldLabel}>
                         <input
+                          className={styles.checkbox}
                           type="checkbox"
                           checked={alertFormData.enabled}
                           onChange={(e) =>
@@ -1794,7 +1801,7 @@ const SettingsPage: React.FC = () => {
                   för att logga in och godkänna åtkomst.
                 </p>
               </div>
-              <div style={{ display: "flex", gap: "0.5rem", alignItems: "flex-start" }}>
+              <div className={styles.whoopActions}>
                 {whoopStatus?.connected && (
                   <Button
                     variant="secondary"
@@ -1871,25 +1878,13 @@ const SettingsPage: React.FC = () => {
             )}
 
             {patients.some((p) => p.role === "patient") && (
-              <div
-                style={{ marginTop: "2rem", paddingTop: "2rem", borderTop: "1px solid #e0e0e0" }}
-              >
-                <h3 className={styles.sectionTitle} style={{ marginBottom: "1rem" }}>
-                  Bluetooth-anslutning
-                </h3>
-                <p className={styles.whoopDescription} style={{ marginBottom: "1rem" }}>
+              <div className={styles.bluetoothSection}>
+                <h3 className={styles.sectionTitle}>Bluetooth-anslutning</h3>
+                <p className={styles.whoopDescription}>
                   Anslut direkt till Whoop-enheten via Bluetooth för realtidsdata om hjärtfrekvens.
                 </p>
                 {!bluetoothConnected ? (
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: "0.5rem",
-                      alignItems: "center",
-                      marginBottom: "1rem",
-                      flexWrap: "wrap",
-                    }}
-                  >
+                  <div className={styles.bluetoothButtons}>
                     <Button
                       onClick={handleBluetoothConnect}
                       disabled={connectingBluetooth || !whoopBluetooth.isSupported()}
@@ -1911,14 +1906,7 @@ const SettingsPage: React.FC = () => {
                       {connectingBluetooth ? "Ansluter..." : "Använd simulerad enhet"}
                     </Button>
                     {!whoopBluetooth.isSupported() && (
-                      <p
-                        style={{
-                          color: "#666",
-                          fontSize: "0.9rem",
-                          width: "100%",
-                          marginTop: "0.5rem",
-                        }}
-                      >
+                      <p className={styles.bluetoothHint}>
                         Web Bluetooth är inte tillgängligt. Kontrollera att:
                         <br />
                         • Du använder Chrome eller Edge
@@ -1929,18 +1917,11 @@ const SettingsPage: React.FC = () => {
                     )}
                   </div>
                 ) : (
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: "0.5rem",
-                      alignItems: "center",
-                      marginBottom: "1rem",
-                    }}
-                  >
+                  <div className={styles.bluetoothStatus}>
                     <Button variant="secondary" onClick={handleBluetoothDisconnect}>
                       Koppla från Bluetooth
                     </Button>
-                    <span style={{ color: "#666" }}>
+                    <span className={styles.bluetoothStatusText}>
                       {whoopBluetooth.isMockMode() ? "Simulerad enhet ansluten" : "Enhet ansluten"}
                     </span>
                   </div>
@@ -1953,9 +1934,7 @@ const SettingsPage: React.FC = () => {
                     </strong>
                   </div>
                 )}
-                {bluetoothError && (
-                  <p style={{ color: "red", marginTop: "0.5rem" }}>{bluetoothError}</p>
-                )}
+                {bluetoothError && <p className={styles.bluetoothError}>{bluetoothError}</p>}
               </div>
             )}
           </div>
