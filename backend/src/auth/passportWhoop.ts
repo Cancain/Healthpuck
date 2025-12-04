@@ -1,6 +1,7 @@
 import passport from "passport";
 import { Strategy as OAuth2Strategy } from "passport-oauth2";
 import type { Request } from "express";
+import { eq } from "drizzle-orm";
 
 import { db } from "../db";
 import { whoopConnections } from "../db/schema";
@@ -66,25 +67,22 @@ const whoopStrategy = new OAuth2Strategy(
 
       let result;
       try {
-        result = await db
-          .insert(whoopConnections)
-          .values({
-            patientId,
-            whoopUserId,
-            accessToken,
-            refreshToken,
-            tokenType: params?.token_type ?? "Bearer",
-            scope: params?.scope ?? null,
-            expiresAt: expiresAt ?? new Date(),
-            refreshTokenExpiresAt: null,
-            lastSyncedAt: null,
-            connectedByUserId: userId,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          })
-          .onConflictDoUpdate({
-            target: whoopConnections.patientId,
-            set: {
+        const existingByWhoopUserId = await db
+          .select()
+          .from(whoopConnections)
+          .where(eq(whoopConnections.whoopUserId, whoopUserId))
+          .limit(1);
+
+        if (existingByWhoopUserId.length > 0) {
+          const existing = existingByWhoopUserId[0];
+          console.log(
+            `[Whoop OAuth] Found existing connection with whoopUserId=${whoopUserId} for patientId=${existing.patientId}, updating to patientId=${patientId}`,
+          );
+
+          result = await db
+            .update(whoopConnections)
+            .set({
+              patientId,
               whoopUserId,
               accessToken,
               refreshToken,
@@ -94,9 +92,42 @@ const whoopStrategy = new OAuth2Strategy(
               refreshTokenExpiresAt: null,
               connectedByUserId: userId,
               updatedAt: new Date(),
-            },
-          })
-          .returning();
+            })
+            .where(eq(whoopConnections.whoopUserId, whoopUserId))
+            .returning();
+        } else {
+          result = await db
+            .insert(whoopConnections)
+            .values({
+              patientId,
+              whoopUserId,
+              accessToken,
+              refreshToken,
+              tokenType: params?.token_type ?? "Bearer",
+              scope: params?.scope ?? null,
+              expiresAt: expiresAt ?? new Date(),
+              refreshTokenExpiresAt: null,
+              lastSyncedAt: null,
+              connectedByUserId: userId,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            })
+            .onConflictDoUpdate({
+              target: whoopConnections.patientId,
+              set: {
+                whoopUserId,
+                accessToken,
+                refreshToken,
+                tokenType: params?.token_type ?? "Bearer",
+                scope: params?.scope ?? null,
+                expiresAt: expiresAt ?? new Date(),
+                refreshTokenExpiresAt: null,
+                connectedByUserId: userId,
+                updatedAt: new Date(),
+              },
+            })
+            .returning();
+        }
 
         console.log(
           `[Whoop OAuth] Connection saved successfully: id=${result[0]?.id}, patientId=${result[0]?.patientId}`,
