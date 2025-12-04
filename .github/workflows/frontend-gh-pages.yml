@@ -52,9 +52,9 @@ jobs:
           touch docs/.nojekyll
 
           # Restore or create CNAME file for custom domain
+          if [ -f CNAME.bak ]; then
             cp CNAME.bak docs/CNAME
             rm CNAME.bak
-            mv docs/CNAME.bak docs/CNAME
           else
             echo "app.healthpuck.se" > docs/CNAME
           fi
