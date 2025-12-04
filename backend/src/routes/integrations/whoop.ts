@@ -31,6 +31,40 @@ const ERROR_REDIRECT_URL =
   process.env.WHOOP_CONNECT_REDIRECT_ERROR ||
   `${removeTrailingSlash(frontendBase)}/settings?tab=whoop`;
 
+router.get("/connect-url", authenticate, async (req: Request, res: Response) => {
+  const userId = getUserIdFromRequest(req);
+  if (!userId) {
+    return res.status(401).json({ error: "Not authenticated" });
+  }
+
+  try {
+    const { patientId } = await getPatientContextForUser(userId);
+    const state = serializeState({ userId, patientId });
+
+    const oauthBase = (
+      process.env.WHOOP_OAUTH_BASE_URL || "https://api.prod.whoop.com/oauth/oauth2"
+    ).replace(/\/$/, "");
+    const clientId = process.env.WHOOP_CLIENT_ID;
+    const callbackURL = process.env.WHOOP_REDIRECT_URI;
+
+    if (!clientId || !callbackURL) {
+      return res.status(500).json({ error: "Whoop OAuth not configured" });
+    }
+
+    const authorizeUrl = new URL(`${oauthBase}/auth`);
+    authorizeUrl.searchParams.set("response_type", "code");
+    authorizeUrl.searchParams.set("client_id", clientId);
+    authorizeUrl.searchParams.set("redirect_uri", callbackURL);
+    authorizeUrl.searchParams.set("scope", scopeList.join(" "));
+    authorizeUrl.searchParams.set("state", state);
+
+    return res.json({ url: authorizeUrl.toString() });
+  } catch (error) {
+    console.error("Unable to determine patient for Whoop connect", error);
+    return res.status(500).json({ error: "Unable to determine patient context" });
+  }
+});
+
 router.get("/connect", authenticate, async (req: Request, res: Response, next: NextFunction) => {
   const userId = getUserIdFromRequest(req);
   if (!userId) {

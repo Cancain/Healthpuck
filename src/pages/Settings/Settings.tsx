@@ -236,31 +236,31 @@ const SettingsPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.search, navigate, fetchWhoopStatus]);
 
-  const handleWhoopConnect = () => {
+  const handleWhoopConnect = async () => {
     setWhoopError(null);
     setConnectingWhoop(true);
 
-    const isFirefox = navigator.userAgent.toLowerCase().indexOf("firefox") > -1;
+    try {
+      const response = await fetch(`${API_BASE}/api/integrations/whoop/connect-url`, {
+        method: "GET",
+        credentials: "include",
+      });
 
-    if (isFirefox) {
-      const iframe = document.createElement("iframe");
-      iframe.style.display = "none";
-      iframe.src = `${API_BASE}/health`;
-      document.body.appendChild(iframe);
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || "Kunde inte hämta Whoop-anslutnings-URL");
+      }
 
-      iframe.onload = () => {
-        setTimeout(() => {
-          document.body.removeChild(iframe);
-          window.location.href = `${API_BASE}/api/integrations/whoop/connect`;
-        }, 100);
-      };
-
-      iframe.onerror = () => {
-        document.body.removeChild(iframe);
-        window.location.href = `${API_BASE}/api/integrations/whoop/connect`;
-      };
-    } else {
-      window.location.href = `${API_BASE}/api/integrations/whoop/connect`;
+      const data = await response.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error("Ingen URL mottagen från servern");
+      }
+    } catch (error) {
+      console.error("Error connecting to Whoop:", error);
+      setWhoopError(error instanceof Error ? error.message : "Kunde inte ansluta till Whoop");
+      setConnectingWhoop(false);
     }
   };
 
