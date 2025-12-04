@@ -49,7 +49,8 @@ app.use(
         callback(null, origin);
       } else {
         console.warn(`CORS: Rejected origin "${origin}". Allowed origins:`, allowedOrigins);
-        callback(new Error("Not allowed by CORS"));
+        // Return false instead of error to properly reject without causing 500
+        callback(null, false);
       }
     },
     credentials: true,
@@ -64,6 +65,15 @@ app.use(passport.initialize());
 
 app.get("/health", (req: Request, res: Response) => {
   res.json({ status: "ok", message: "Healthpuck API is running" });
+});
+
+// Debug endpoint to check CORS configuration (remove in production if needed)
+app.get("/health/cors", (req: Request, res: Response) => {
+  res.json({
+    allowedOrigins,
+    currentOrigin: req.headers.origin || "none",
+    isAllowed: req.headers.origin ? allowedOrigins.includes(req.headers.origin) : false,
+  });
 });
 
 app.use("/api/users", userRoutes);
