@@ -236,10 +236,33 @@ const SettingsPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.search, navigate, fetchWhoopStatus]);
 
-  const handleWhoopConnect = () => {
+  const handleWhoopConnect = async () => {
     setWhoopError(null);
     setConnectingWhoop(true);
-    window.location.href = `${API_BASE}/api/integrations/whoop/connect`;
+
+    try {
+      // First verify we're authenticated by checking the /me endpoint
+      const meResponse = await fetch(`${API_BASE}/api/auth/me`, {
+        credentials: "include",
+      });
+
+      if (!meResponse.ok) {
+        throw new Error("Du är inte inloggad. Vänligen logga in igen.");
+      }
+
+      // Create a form and submit it to ensure cookies are sent with the request
+      // This works better than window.location.href for cross-domain requests
+      const form = document.createElement("form");
+      form.method = "GET";
+      form.action = `${API_BASE}/api/integrations/whoop/connect`;
+      form.style.display = "none";
+      document.body.appendChild(form);
+      form.submit();
+    } catch (error) {
+      console.error("Error connecting to Whoop:", error);
+      setWhoopError(error instanceof Error ? error.message : "Kunde inte ansluta till Whoop");
+      setConnectingWhoop(false);
+    }
   };
 
   const handleWhoopDisconnect = async () => {
