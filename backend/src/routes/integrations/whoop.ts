@@ -38,6 +38,7 @@ router.get("/connect-url", authenticate, async (req: Request, res: Response) => 
 
   try {
     const { patientId } = await getPatientContextForUser(userId);
+    console.log(`[Whoop Connect URL] Generating URL for userId=${userId}, patientId=${patientId}`);
     const state = serializeState({ userId, patientId });
 
     const oauthBase = (
@@ -119,10 +120,14 @@ router.get(
     }
   },
   (req: Request, res: Response, next: NextFunction) => {
-    console.log(`[Whoop Callback] Processing callback, state:`, req.whoopState);
+    const stateInfo = req.whoopState
+      ? `userId=${req.whoopState.userId}, patientId=${req.whoopState.patientId}`
+      : "missing";
+    console.log(`[Whoop Callback] Processing callback, state: ${stateInfo}`);
     passport.authenticate("whoop", { session: false }, (err: any, _user: any, info: any) => {
       if (err) {
         console.error("[Whoop Callback] Error during authentication:", err);
+        console.error("[Whoop Callback] Error stack:", err?.stack);
         const redirectUrl = buildRedirect(ERROR_REDIRECT_URL, {
           whoop_error:
             err instanceof Error
@@ -132,7 +137,10 @@ router.get(
         return res.redirect(303, redirectUrl);
       }
 
-      console.log(`[Whoop Callback] Success! info:`, info);
+      const infoStr = info
+        ? `whoopUserId=${info.whoopUserId || "none"}, patientId=${info.patientId || "none"}`
+        : "none";
+      console.log(`[Whoop Callback] Success! info: ${infoStr}`);
       const redirectUrl = buildRedirect(SUCCESS_REDIRECT_URL, {
         whoop: "connected",
         whoopUserId: info?.whoopUserId ? String(info.whoopUserId) : undefined,
@@ -154,13 +162,22 @@ router.get("/status", authenticate, async (req: Request, res: Response) => {
     const { patientId, patientName } = await getPatientContextForUser(userId);
     console.log(`[Whoop Status] Checking for connection: userId=${userId}, patientId=${patientId}`);
 
+    const allConnections = await db.select().from(whoopConnections);
+    console.log(
+      `[Whoop Status] All connections in DB:`,
+      allConnections.map((c) => `patientId=${c.patientId}, id=${c.id}`).join(", ") || "none",
+    );
+
     const [connection] = await db
       .select()
       .from(whoopConnections)
       .where(eq(whoopConnections.patientId, patientId))
       .limit(1);
 
-    console.log(`[Whoop Status] Connection found:`, connection ? `id=${connection.id}` : "none");
+    console.log(
+      `[Whoop Status] Connection found for patientId=${patientId}:`,
+      connection ? `id=${connection.id}` : "none",
+    );
 
     if (!connection) {
       return res.json({ connected: false, patientId, patientName });

@@ -64,25 +64,12 @@ const whoopStrategy = new OAuth2Strategy(
         `[Whoop OAuth] Saving connection for patientId=${patientId}, userId=${userId}, whoopUserId=${whoopUserId}`,
       );
 
-      const result = await db
-        .insert(whoopConnections)
-        .values({
-          patientId,
-          whoopUserId,
-          accessToken,
-          refreshToken,
-          tokenType: params?.token_type ?? "Bearer",
-          scope: params?.scope ?? null,
-          expiresAt: expiresAt ?? new Date(),
-          refreshTokenExpiresAt: null,
-          lastSyncedAt: null,
-          connectedByUserId: userId,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .onConflictDoUpdate({
-          target: whoopConnections.patientId,
-          set: {
+      let result;
+      try {
+        result = await db
+          .insert(whoopConnections)
+          .values({
+            patientId,
             whoopUserId,
             accessToken,
             refreshToken,
@@ -90,13 +77,34 @@ const whoopStrategy = new OAuth2Strategy(
             scope: params?.scope ?? null,
             expiresAt: expiresAt ?? new Date(),
             refreshTokenExpiresAt: null,
+            lastSyncedAt: null,
             connectedByUserId: userId,
+            createdAt: new Date(),
             updatedAt: new Date(),
-          },
-        })
-        .returning();
+          })
+          .onConflictDoUpdate({
+            target: whoopConnections.patientId,
+            set: {
+              whoopUserId,
+              accessToken,
+              refreshToken,
+              tokenType: params?.token_type ?? "Bearer",
+              scope: params?.scope ?? null,
+              expiresAt: expiresAt ?? new Date(),
+              refreshTokenExpiresAt: null,
+              connectedByUserId: userId,
+              updatedAt: new Date(),
+            },
+          })
+          .returning();
 
-      console.log(`[Whoop OAuth] Connection saved:`, result[0]?.id);
+        console.log(
+          `[Whoop OAuth] Connection saved successfully: id=${result[0]?.id}, patientId=${result[0]?.patientId}`,
+        );
+      } catch (dbError) {
+        console.error(`[Whoop OAuth] Database error saving connection:`, dbError);
+        throw dbError;
+      }
 
       done(null, { userId }, { whoopUserId, scope: params?.scope, expiresAt, patientId });
     } catch (error) {
