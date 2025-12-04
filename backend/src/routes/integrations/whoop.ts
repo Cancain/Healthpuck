@@ -119,9 +119,10 @@ router.get(
     }
   },
   (req: Request, res: Response, next: NextFunction) => {
+    console.log(`[Whoop Callback] Processing callback, state:`, req.whoopState);
     passport.authenticate("whoop", { session: false }, (err: any, _user: any, info: any) => {
       if (err) {
-        console.error("Whoop callback error", err);
+        console.error("[Whoop Callback] Error during authentication:", err);
         const redirectUrl = buildRedirect(ERROR_REDIRECT_URL, {
           whoop_error:
             err instanceof Error
@@ -131,11 +132,13 @@ router.get(
         return res.redirect(303, redirectUrl);
       }
 
+      console.log(`[Whoop Callback] Success! info:`, info);
       const redirectUrl = buildRedirect(SUCCESS_REDIRECT_URL, {
         whoop: "connected",
         whoopUserId: info?.whoopUserId ? String(info.whoopUserId) : undefined,
         patientId: info?.patientId ? String(info.patientId) : undefined,
       });
+      console.log(`[Whoop Callback] Redirecting to:`, redirectUrl);
       return res.redirect(303, redirectUrl);
     })(req, res, next);
   },
@@ -149,11 +152,15 @@ router.get("/status", authenticate, async (req: Request, res: Response) => {
 
   try {
     const { patientId, patientName } = await getPatientContextForUser(userId);
+    console.log(`[Whoop Status] Checking for connection: userId=${userId}, patientId=${patientId}`);
+
     const [connection] = await db
       .select()
       .from(whoopConnections)
       .where(eq(whoopConnections.patientId, patientId))
       .limit(1);
+
+    console.log(`[Whoop Status] Connection found:`, connection ? `id=${connection.id}` : "none");
 
     if (!connection) {
       return res.json({ connected: false, patientId, patientName });

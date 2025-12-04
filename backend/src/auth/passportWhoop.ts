@@ -60,7 +60,11 @@ const whoopStrategy = new OAuth2Strategy(
 
       const whoopUserId = String(profile?.user_id ?? "");
 
-      await db
+      console.log(
+        `[Whoop OAuth] Saving connection for patientId=${patientId}, userId=${userId}, whoopUserId=${whoopUserId}`,
+      );
+
+      const result = await db
         .insert(whoopConnections)
         .values({
           patientId,
@@ -89,7 +93,10 @@ const whoopStrategy = new OAuth2Strategy(
             connectedByUserId: userId,
             updatedAt: new Date(),
           },
-        });
+        })
+        .returning();
+
+      console.log(`[Whoop OAuth] Connection saved:`, result[0]?.id);
 
       done(null, { userId }, { whoopUserId, scope: params?.scope, expiresAt, patientId });
     } catch (error) {
