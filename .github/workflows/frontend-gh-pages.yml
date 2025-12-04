@@ -51,6 +51,11 @@ jobs:
           # Create .nojekyll file to disable Jekyll processing
           touch docs/.nojekyll
 
+          # Copy index.html to 404.html for SPA routing support on GitHub Pages
+          # When a route doesn't exist, GitHub Pages will serve 404.html,
+          # which will load the React app and let React Router handle the routing
+          cp docs/index.html docs/404.html
+
           # Restore or create CNAME file for custom domain
           if [ -f CNAME.bak ]; then
             cp CNAME.bak docs/CNAME
