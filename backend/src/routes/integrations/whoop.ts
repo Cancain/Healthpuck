@@ -94,34 +94,22 @@ router.get(
     const stateParam = req.query.state as string | undefined;
     if (!stateParam) {
       const redirectUrl = buildRedirect(ERROR_REDIRECT_URL, {
-        whoop: "error",
         whoop_error: "Missing state parameter",
-      });
-      return res.redirect(303, redirectUrl);
-    }
-
-    const userId = getUserIdFromRequest(req);
-    if (!userId) {
-      const redirectUrl = buildRedirect(ERROR_REDIRECT_URL, {
-        whoop: "error",
-        whoop_error: "Not authenticated",
       });
       return res.redirect(303, redirectUrl);
     }
 
     try {
       const parsedState = parseAndValidateState(stateParam);
-      if (parsedState.userId !== userId) {
-        throw new Error("OAuth state user mismatch");
-      }
+      const userId = parsedState.userId;
+      const patientId = parsedState.patientId;
 
-      await assertUserHasAccessToPatient(userId, parsedState.patientId);
+      await assertUserHasAccessToPatient(userId, patientId);
       req.whoopState = { ...parsedState, userId };
       next();
     } catch (error) {
       console.error("Invalid Whoop state", error);
       const redirectUrl = buildRedirect(ERROR_REDIRECT_URL, {
-        whoop: "error",
         whoop_error:
           error instanceof Error
             ? error.message.slice(0, 250)
@@ -135,7 +123,6 @@ router.get(
       if (err) {
         console.error("Whoop callback error", err);
         const redirectUrl = buildRedirect(ERROR_REDIRECT_URL, {
-          whoop: "error",
           whoop_error:
             err instanceof Error
               ? err.message.slice(0, 250)
