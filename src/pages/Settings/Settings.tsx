@@ -236,32 +236,31 @@ const SettingsPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.search, navigate, fetchWhoopStatus]);
 
-  const handleWhoopConnect = async () => {
+  const handleWhoopConnect = () => {
     setWhoopError(null);
     setConnectingWhoop(true);
 
-    try {
-      // First verify we're authenticated by checking the /me endpoint
-      const meResponse = await fetch(`${API_BASE}/api/auth/me`, {
-        credentials: "include",
-      });
+    const isFirefox = navigator.userAgent.toLowerCase().indexOf("firefox") > -1;
 
-      if (!meResponse.ok) {
-        throw new Error("Du är inte inloggad. Vänligen logga in igen.");
-      }
+    if (isFirefox) {
+      const iframe = document.createElement("iframe");
+      iframe.style.display = "none";
+      iframe.src = `${API_BASE}/health`;
+      document.body.appendChild(iframe);
 
-      // Create a form and submit it to ensure cookies are sent with the request
-      // This works better than window.location.href for cross-domain requests
-      const form = document.createElement("form");
-      form.method = "GET";
-      form.action = `${API_BASE}/api/integrations/whoop/connect`;
-      form.style.display = "none";
-      document.body.appendChild(form);
-      form.submit();
-    } catch (error) {
-      console.error("Error connecting to Whoop:", error);
-      setWhoopError(error instanceof Error ? error.message : "Kunde inte ansluta till Whoop");
-      setConnectingWhoop(false);
+      iframe.onload = () => {
+        setTimeout(() => {
+          document.body.removeChild(iframe);
+          window.location.href = `${API_BASE}/api/integrations/whoop/connect`;
+        }, 100);
+      };
+
+      iframe.onerror = () => {
+        document.body.removeChild(iframe);
+        window.location.href = `${API_BASE}/api/integrations/whoop/connect`;
+      };
+    } else {
+      window.location.href = `${API_BASE}/api/integrations/whoop/connect`;
     }
   };
 
