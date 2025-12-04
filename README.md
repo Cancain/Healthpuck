@@ -2,6 +2,8 @@
 
 A comprehensive health monitoring application for patients and caregivers, featuring medication tracking, Whoop device integration, and intelligent alerting.
 
+🌐 **Live Site**: [https://app.healthpuck.se](https://app.healthpuck.se)
+
 ## Overview
 
 Healthpuck is a full-stack health management platform that enables:
@@ -216,7 +218,7 @@ Required variables:
 - `APP_ENV=development`
 - `DATABASE_URL=http://127.0.0.1:8080` (or your Turso URL)
 - `TURSO_AUTH_TOKEN` (only if using Turso-hosted database)
-- `CORS_ORIGIN=http://localhost:3000`
+- `CORS_ORIGIN=http://localhost:3000` (development)
 - `JWT_SECRET=$(openssl rand -base64 32)`
 - `JWT_EXPIRES_IN=7d`
 - `WHOOP_CLIENT_ID` (from Whoop developer portal)
@@ -399,6 +401,7 @@ The project uses Husky for git hooks. Pre-commit hooks will:
 ### Health
 
 - `GET /health` - Health check
+- `GET /health/cors` - Check CORS configuration (shows allowed origins)
 
 ### WebSocket
 
@@ -435,20 +438,51 @@ fly secrets set \
   TURSO_AUTH_TOKEN=<token> \
   JWT_SECRET=<random> \
   JWT_EXPIRES_IN=7d \
-  CORS_ORIGIN=https://<frontend-domain> \
+  CORS_ORIGIN=https://app.healthpuck.se \
   WHOOP_CLIENT_ID=<id> \
   WHOOP_CLIENT_SECRET=<secret> \
-  WHOOP_REDIRECT_URI=https://<api-domain>/api/integrations/whoop/callback
+  WHOOP_REDIRECT_URI=https://backend-hidden-butterfly-2266.fly.dev/api/integrations/whoop/callback
+```
+
+**Note**: For multiple frontend origins, separate them with commas in `CORS_ORIGIN`:
+
+```bash
+CORS_ORIGIN=https://app.healthpuck.se,https://example.com
 ```
 
 ### Frontend (GitHub Pages)
 
-The frontend is configured for GitHub Pages deployment:
+The frontend is deployed to GitHub Pages and served at `https://app.healthpuck.se`.
+
+#### Deployment
+
+The frontend is automatically deployed via GitHub Actions when changes are pushed to `main`:
 
 ```bash
 npm run build
 npm run deploy
 ```
+
+Or simply push to `main` - the `.github/workflows/frontend-gh-pages.yml` workflow will handle the deployment.
+
+#### Custom Domain Setup
+
+1. **DNS Configuration**: Point your domain's DNS to GitHub Pages by adding 4 A records:
+   - `185.199.108.153`
+   - `185.199.109.153`
+   - `185.199.110.153`
+   - `185.199.111.153`
+
+2. **GitHub Pages Settings**:
+   - Go to repository Settings → Pages
+   - Add your custom domain (e.g., `app.healthpuck.se`)
+   - Enable "Enforce HTTPS"
+
+3. **CNAME File**: The deployment workflow automatically creates/updates `docs/CNAME` with your custom domain.
+
+4. **Backend CORS**: Make sure the backend `CORS_ORIGIN` secret includes your frontend domain.
+
+For detailed DNS setup instructions, see `docs/DOMAIN_SETUP.md`.
 
 ### Database (Turso)
 
@@ -482,7 +516,7 @@ DATABASE_URL=libsql://<db>.turso.io TURSO_AUTH_TOKEN=<token> bun run db:migrate
 1. Register an application at [Whoop Developer Portal](https://developer.whoop.com)
 2. Configure redirect URI:
    - Development: `http://localhost:3001/api/integrations/whoop/callback`
-   - Production: `https://<your-api-domain>/api/integrations/whoop/callback`
+   - Production: `https://backend-hidden-butterfly-2266.fly.dev/api/integrations/whoop/callback`
 3. Request scopes: `offline`, `read:profile`, `read:recovery`, `read:cycles`, `read:sleep`, `read:workout`, `read:body_measurement`
 4. Add credentials to environment variables
 
