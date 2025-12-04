@@ -422,6 +422,7 @@ const SettingsPage: React.FC = () => {
       fetchAlerts();
     }
     if (activeTab === "whoop") {
+      fetchWhoopStatus();
       const isConnected = whoopBluetooth.isConnected();
       setBluetoothConnected(isConnected);
     }

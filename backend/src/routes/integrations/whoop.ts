@@ -26,10 +26,9 @@ const frontendBase =
   "http://localhost:3000";
 const SUCCESS_REDIRECT_URL =
   process.env.WHOOP_CONNECT_REDIRECT_SUCCESS ||
-  `${removeTrailingSlash(frontendBase)}/settings?tab=whoop`;
+  `${removeTrailingSlash(frontendBase)}/settings/whoop`;
 const ERROR_REDIRECT_URL =
-  process.env.WHOOP_CONNECT_REDIRECT_ERROR ||
-  `${removeTrailingSlash(frontendBase)}/settings?tab=whoop`;
+  process.env.WHOOP_CONNECT_REDIRECT_ERROR || `${removeTrailingSlash(frontendBase)}/settings/whoop`;
 
 router.get("/connect-url", authenticate, async (req: Request, res: Response) => {
   const userId = getUserIdFromRequest(req);
