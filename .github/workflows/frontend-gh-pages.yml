@@ -34,6 +34,14 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+          # Preserve CNAME file if it exists (backup outside docs/ to survive deletion)
+          if [ -f docs/CNAME ]; then
+            cp docs/CNAME CNAME.bak
+          elif [ -f CNAME ]; then
+            # If CNAME exists in root (created by GitHub), preserve it
+            cp CNAME CNAME.bak
+          fi
+
           # Remove existing docs directory if it exists
           rm -rf docs
 
@@ -43,8 +51,17 @@ jobs:
           # Create .nojekyll file to disable Jekyll processing
           touch docs/.nojekyll
 
+          # Restore or create CNAME file for custom domain
+            cp CNAME.bak docs/CNAME
+            rm CNAME.bak
+            mv docs/CNAME.bak docs/CNAME
+          else
+            echo "app.healthpuck.se" > docs/CNAME
+          fi
+
           # Commit and push (skip hooks since these are build artifacts)
           git add docs/.nojekyll
+          git add docs/CNAME
           git add docs
           if git diff --staged --quiet; then
             echo "No changes to deploy"
