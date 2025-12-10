@@ -1,6 +1,6 @@
 # Healthpuck Mobile App
 
-React Native Android app for monitoring heart rate via Bluetooth and uploading data to the backend.
+React Native app (Android & iOS) for monitoring heart rate via Bluetooth and uploading data to the backend.
 
 ## Features
 
@@ -14,10 +14,21 @@ React Native Android app for monitoring heart rate via Bluetooth and uploading d
 
 ### Prerequisites
 
+**Common:**
+
 - Node.js 18+
 - React Native CLI
+
+**Android:**
+
 - Android Studio with Android SDK
 - Android device or emulator with Bluetooth support
+
+**iOS (macOS only):**
+
+- macOS with Xcode installed
+- CocoaPods (`sudo gem install cocoapods`)
+- Apple Developer Account (free account works for development)
 
 ### Installation
 
@@ -28,7 +39,14 @@ cd mobile
 npm install
 ```
 
-2. For Android, install pods (if using CocoaPods):
+2. For iOS, install CocoaPods dependencies:
+
+```bash
+cd ios
+pod install
+```
+
+3. For Android, clean build:
 
 ```bash
 cd android
@@ -49,15 +67,16 @@ export const API_BASE_URL = 'http://YOUR_BACKEND_URL:3001';
 npm start
 ```
 
-2. Run on Android:
+2. Run on Android or iOS:
 
 ```bash
-npm run android
+npm run android  # For Android
+npm run ios       # For iOS (macOS only)
 ```
 
-## Android Permissions
+## Platform Permissions
 
-The app requires the following permissions:
+### Android Permissions
 
 - Bluetooth and Bluetooth Admin
 - Bluetooth Scan and Connect (Android 12+)
@@ -65,15 +84,23 @@ The app requires the following permissions:
 - Foreground Service
 - Wake Lock (for background monitoring)
 
+### iOS Permissions
+
+- Bluetooth Always (`NSBluetoothAlwaysUsageDescription`)
+- Bluetooth Peripheral (legacy, iOS 12 and earlier)
+- Background Modes: Bluetooth LE accessories (`bluetooth-central`)
+
 ## Background Monitoring
 
-The app uses an Android foreground service to continue monitoring heart rate when:
+The app continues monitoring heart rate when:
 
 - The app is backgrounded
 - The screen is locked
 - The device goes to sleep
 
-A persistent notification is shown while monitoring is active.
+**Android**: Uses a foreground service with persistent notification.
+
+**iOS**: Uses `bluetooth-central` background mode (configured in Info.plist). Note: iOS may suspend background BLE if the app is killed by the system.
 
 ## Development
 
@@ -82,6 +109,7 @@ A persistent notification is shown while monitoring is active.
 ```
 mobile/
 ├── android/          # Android native code
+├── ios/              # iOS native code
 ├── src/
 │   ├── screens/      # UI screens
 │   ├── services/     # Business logic services
@@ -94,7 +122,7 @@ mobile/
 - `auth.ts` - Authentication and user management
 - `api.ts` - Backend API client with offline queue
 - `bluetooth.ts` - BLE device connection and heart rate monitoring
-- `backgroundService.ts` - Android foreground service wrapper
+- `backgroundService.ts` - Platform-specific background service (Android foreground service, iOS background BLE)
 
 ## Troubleshooting
 
@@ -115,3 +143,19 @@ mobile/
 - Verify API_BASE_URL in config.ts
 - Check network connectivity
 - Review backend CORS settings
+
+## iOS Setup
+
+For detailed iOS setup instructions, see:
+
+- `SETUP.md` - General setup guide with iOS section
+- `ios/README.md` - Comprehensive iOS-specific guide
+
+Quick iOS setup:
+
+1. Install CocoaPods: `sudo gem install cocoapods`
+2. Generate Xcode project (on macOS): See `SETUP.md` for details
+3. Install pods: `cd ios && pod install`
+4. Open workspace: `open Healthpuck.xcworkspace`
+5. Configure signing and capabilities in Xcode
+6. Run: `npm run ios`

@@ -17,9 +17,22 @@ export interface BackgroundServiceInterface {
 }
 
 class BackgroundService implements BackgroundServiceInterface {
+  private isIOSBackgroundActive: boolean = false;
+
   async startService(): Promise<void> {
+    if (Platform.OS === 'ios') {
+      // iOS handles background BLE through UIBackgroundModes (bluetooth-central)
+      // The app must be configured in Info.plist with bluetooth-central background mode
+      // BLE will continue to work in background automatically if properly configured
+      this.isIOSBackgroundActive = true;
+      console.log(
+        'iOS background BLE monitoring enabled (configured via Info.plist)',
+      );
+      return;
+    }
+
     if (Platform.OS !== 'android') {
-      console.warn('Background service only available on Android');
+      console.warn('Background service only available on Android and iOS');
       return;
     }
 
@@ -38,6 +51,12 @@ class BackgroundService implements BackgroundServiceInterface {
   }
 
   async stopService(): Promise<void> {
+    if (Platform.OS === 'ios') {
+      this.isIOSBackgroundActive = false;
+      console.log('iOS background BLE monitoring disabled');
+      return;
+    }
+
     if (Platform.OS !== 'android' || !HeartRateForegroundService) {
       return;
     }
@@ -51,6 +70,13 @@ class BackgroundService implements BackgroundServiceInterface {
   }
 
   async updateNotification(heartRate: string): Promise<void> {
+    if (Platform.OS === 'ios') {
+      // iOS doesn't use foreground service notifications like Android
+      // Background BLE continues automatically, but we can't update notifications
+      // Consider using local notifications if needed
+      return;
+    }
+
     if (Platform.OS !== 'android' || !HeartRateForegroundService) {
       return;
     }
@@ -63,6 +89,10 @@ class BackgroundService implements BackgroundServiceInterface {
   }
 
   async isServiceRunning(): Promise<boolean> {
+    if (Platform.OS === 'ios') {
+      return this.isIOSBackgroundActive;
+    }
+
     if (Platform.OS !== 'android' || !HeartRateForegroundService) {
       return false;
     }
