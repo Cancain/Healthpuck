@@ -1,4 +1,5 @@
 const {getDefaultConfig, mergeConfig} = require('@react-native/metro-config');
+const path = require('path');
 
 /**
  * Metro configuration
@@ -6,6 +7,19 @@ const {getDefaultConfig, mergeConfig} = require('@react-native/metro-config');
  *
  * @type {import('metro-config').MetroConfig}
  */
-const config = {};
+const defaultConfig = getDefaultConfig(__dirname);
 
-module.exports = mergeConfig(getDefaultConfig(__dirname), config);
+const config = {
+  watchFolders: [
+    path.resolve(__dirname, 'node_modules/@babel/runtime'),
+  ],
+  resolver: {
+    extraNodeModules: {
+      '@babel/runtime': path.resolve(__dirname, 'node_modules/@babel/runtime'),
+    },
+    // Ensure @babel/runtime is not blocked
+    blockList: defaultConfig.resolver?.blockList || [],
+  },
+};
+
+module.exports = mergeConfig(defaultConfig, config);

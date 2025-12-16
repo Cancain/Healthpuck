@@ -1,0 +1,14 @@
+{
+  "ignore_dirs": [
+    ".git",
+    "ios/Pods",
+    "android/.gradle",
+    "android/app/build",
+    "ios/build"
+  ],
+  "ignore": [
+    "**/node_modules/**",
+    "!**/node_modules/@babel/runtime/**"
+  ]
+}
+
