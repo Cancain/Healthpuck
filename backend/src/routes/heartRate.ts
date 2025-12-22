@@ -138,11 +138,8 @@ router.get("/", authenticate, async (req: Request, res: Response) => {
 
     if (whoopConnection) {
       try {
+        const { accessToken } = await ensureWhoopAccessTokenForPatient(context.patientId);
         const whoopClient = WhoopClient.create();
-        const { accessToken } = await ensureWhoopAccessTokenForPatient(
-          context.patientId,
-          whoopClient,
-        );
         const end = new Date();
         const start = new Date(end.getTime() - 24 * 60 * 60 * 1000);
 
