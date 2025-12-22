@@ -4,19 +4,21 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import {authService} from '../services/auth';
+import {useNavigation} from '@react-navigation/native';
+import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import {useAuth} from '../contexts/AuthContext';
+import type {AuthStackParamList} from '../navigation/types';
 
-interface LoginScreenProps {
-  onLoginSuccess: () => void;
-}
+type NavigationProp = NativeStackNavigationProp<AuthStackParamList>;
 
-export const LoginScreen: React.FC<LoginScreenProps> = ({onLoginSuccess}) => {
+export const LoginScreen: React.FC = () => {
+  const navigation = useNavigation<NavigationProp>();
+  const {login} = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -29,8 +31,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({onLoginSuccess}) => {
 
     setLoading(true);
     try {
-      await authService.login(email.trim(), password);
-      onLoginSuccess();
+      await login(email.trim(), password);
     } catch (error: any) {
       Alert.alert(
         'Inloggning misslyckades',
@@ -43,15 +44,31 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({onLoginSuccess}) => {
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={{flex: 1, backgroundColor: '#f5f5f5'}}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <View style={styles.content}>
-        <Text style={styles.title}>Healthpuck</Text>
-        <Text style={styles.subtitle}>Pulsmätare</Text>
-
-        <View style={styles.form}>
+      <View style={{flex: 1, justifyContent: 'center', padding: 20}}>
+        <Text
+          style={{
+            fontSize: 32,
+            fontWeight: 'bold',
+            color: '#333',
+            textAlign: 'center',
+            marginBottom: 8,
+          }}>
+          Healthpuck
+        </Text>
+        <View style={{width: '100%'}}>
           <TextInput
-            style={styles.input}
+            style={{
+              backgroundColor: '#fff',
+              borderRadius: 8,
+              padding: 16,
+              fontSize: 16,
+              color: '#333',
+              marginBottom: 16,
+              borderWidth: 1,
+              borderColor: '#ddd',
+            }}
             placeholder="E-post"
             placeholderTextColor="#999"
             value={email}
@@ -63,7 +80,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({onLoginSuccess}) => {
           />
 
           <TextInput
-            style={styles.input}
+            style={{
+              backgroundColor: '#fff',
+              borderRadius: 8,
+              padding: 16,
+              fontSize: 16,
+              color: '#333',
+              marginBottom: 16,
+              borderWidth: 1,
+              borderColor: '#ddd',
+            }}
             placeholder="Lösenord"
             placeholderTextColor="#999"
             value={password}
@@ -75,70 +101,37 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({onLoginSuccess}) => {
           />
 
           <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
+            style={[
+              {
+                backgroundColor: '#007AFF',
+                borderRadius: 8,
+                padding: 16,
+                alignItems: 'center',
+                marginTop: 8,
+              },
+              loading && {opacity: 0.6},
+            ]}
             onPress={handleLogin}
             disabled={loading}>
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.buttonText}>Logga in</Text>
+              <Text style={{color: '#fff', fontSize: 16, fontWeight: '600'}}>
+                Logga in
+              </Text>
             )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={{marginTop: 16, alignItems: 'center'}}
+            onPress={() => navigation.navigate('Register')}
+            disabled={loading}>
+            <Text style={{color: '#007AFF', fontSize: 14}}>
+              Har du inget konto? Registrera dig
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
     </KeyboardAvoidingView>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  content: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: 20,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#333',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 18,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 40,
-  },
-  form: {
-    width: '100%',
-  },
-  input: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 16,
-    fontSize: 16,
-    color: '#333',
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#ddd',
-  },
-  button: {
-    backgroundColor: '#007AFF',
-    borderRadius: 8,
-    padding: 16,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-});

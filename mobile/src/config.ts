@@ -5,6 +5,7 @@ export const API_BASE_URL = __DEV__
 
 export const API_ENDPOINTS = {
   LOGIN: '/api/auth/login',
+  REGISTER: '/api/auth/register',
   ME: '/api/auth/me',
   HEART_RATE: '/api/heart-rate',
 } as const;

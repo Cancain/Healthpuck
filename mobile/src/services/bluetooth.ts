@@ -27,7 +27,7 @@ export class BluetoothService {
   private connectionState: ConnectionState = 'disconnected';
   private heartRateCallback: HeartRateCallback | null = null;
   private isMonitoring: boolean = false;
-  private uploadInterval: NodeJS.Timeout | null = null;
+  private uploadInterval: ReturnType<typeof setInterval> | null = null;
 
   static getInstance(): BluetoothService {
     if (!BluetoothService.instance) {
@@ -96,7 +96,7 @@ export class BluetoothService {
       );
 
       // Wait for scan to complete
-      await new Promise(resolve => setTimeout(resolve, duration + 1000));
+      await new Promise<void>(resolve => setTimeout(resolve, duration + 1000));
 
       // Remove listener
       subscription.remove();

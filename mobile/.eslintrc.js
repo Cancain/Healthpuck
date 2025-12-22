@@ -4,6 +4,9 @@ module.exports = {
   parserOptions: {
     requireConfigFile: false,
   },
+  rules: {
+    'react-native/no-inline-styles': 'off',
+  },
   ignorePatterns: [
     'babel.config.js',
     'metro.config.js',

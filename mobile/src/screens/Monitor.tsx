@@ -2,7 +2,6 @@ import React, {useState, useEffect} from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   TouchableOpacity,
   ScrollView,
   Alert,
@@ -281,78 +280,159 @@ export const MonitorScreen: React.FC<MonitorScreenProps> = ({onLogout}) => {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
+    <ScrollView style={{flex: 1, backgroundColor: '#f5f5f5'}}>
+      <View
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: 20,
+          backgroundColor: '#fff',
+          borderBottomWidth: 1,
+          borderBottomColor: '#e0e0e0',
+        }}>
         <View>
-          <Text style={styles.headerTitle}>Healthpuck</Text>
-          {user && <Text style={styles.headerSubtitle}>{user.name}</Text>}
+          <Text style={{fontSize: 24, fontWeight: 'bold', color: '#333'}}>
+            Healthpuck
+          </Text>
+          {user && (
+            <Text style={{fontSize: 14, color: '#666', marginTop: 4}}>
+              {user.name}
+            </Text>
+          )}
         </View>
         <TouchableOpacity onPress={handleLogout}>
-          <Text style={styles.logoutButton}>Logga ut</Text>
+          <Text style={{color: '#F44336', fontSize: 16, fontWeight: '600'}}>
+            Logga ut
+          </Text>
         </TouchableOpacity>
       </View>
 
-      <View style={styles.content}>
+      <View style={{padding: 20}}>
         {/* Connection Status */}
-        <View style={styles.statusCard}>
-          <View style={styles.statusRow}>
+        <View
+          style={{
+            backgroundColor: '#fff',
+            borderRadius: 12,
+            padding: 16,
+            marginBottom: 20,
+          }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              marginBottom: 8,
+            }}>
             <View
               style={[
-                styles.statusIndicator,
+                {width: 12, height: 12, borderRadius: 6, marginRight: 8},
                 {backgroundColor: getConnectionStatusColor()},
               ]}
             />
-            <Text style={styles.statusText}>{getConnectionStatusText()}</Text>
+            <Text style={{fontSize: 16, fontWeight: '600', color: '#333'}}>
+              {getConnectionStatusText()}
+            </Text>
           </View>
           {selectedDevice && (
-            <Text style={styles.deviceName}>{selectedDevice.name}</Text>
+            <Text style={{fontSize: 14, color: '#666', marginTop: 4}}>
+              {selectedDevice.name}
+            </Text>
           )}
           {uploadQueueSize > 0 && (
-            <Text style={styles.queueText}>
+            <Text style={{fontSize: 12, color: '#FF9800', marginTop: 8}}>
               {uploadQueueSize} avläsning(ar) i kö för uppladdning
             </Text>
           )}
         </View>
 
         {/* Heart Rate Display */}
-        <View style={styles.heartRateCard}>
+        <View
+          style={{
+            backgroundColor: '#fff',
+            borderRadius: 12,
+            padding: 40,
+            alignItems: 'center',
+            marginBottom: 20,
+            borderWidth: 2,
+            borderColor: '#e0e0e0',
+          }}>
           {heartRate !== null ? (
             <>
-              <Text style={styles.heartRateValue}>{heartRate}</Text>
-              <Text style={styles.heartRateLabel}>BPM</Text>
+              <Text
+                style={{fontSize: 64, fontWeight: 'bold', color: '#F44336'}}>
+                {heartRate}
+              </Text>
+              <Text style={{fontSize: 18, color: '#666', marginTop: 8}}>
+                BPM
+              </Text>
             </>
           ) : (
-            <Text style={styles.noDataText}>Ingen pulsdata</Text>
+            <Text style={{fontSize: 18, color: '#999'}}>Ingen pulsdata</Text>
           )}
         </View>
 
         {/* Device Selection */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Enheter</Text>
+        <View style={{marginBottom: 24}}>
+          <Text
+            style={{
+              fontSize: 18,
+              fontWeight: '600',
+              color: '#333',
+              marginBottom: 12,
+            }}>
+            Enheter
+          </Text>
           <TouchableOpacity
-            style={styles.button}
+            style={{
+              backgroundColor: '#007AFF',
+              borderRadius: 8,
+              padding: 16,
+              alignItems: 'center',
+              marginBottom: 12,
+            }}
             onPress={scanForDevices}
             disabled={isScanning}>
             {isScanning ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.buttonText}>Sök efter enheter</Text>
+              <Text style={{color: '#fff', fontSize: 16, fontWeight: '600'}}>
+                Sök efter enheter
+              </Text>
             )}
           </TouchableOpacity>
 
           {devices.length > 0 && (
-            <View style={styles.deviceList}>
+            <View style={{marginTop: 12}}>
               {devices.map(device => (
                 <TouchableOpacity
                   key={device.id}
                   style={[
-                    styles.deviceItem,
-                    selectedDevice?.id === device.id &&
-                      styles.deviceItemSelected,
+                    {
+                      backgroundColor: '#fff',
+                      borderRadius: 8,
+                      padding: 16,
+                      marginBottom: 8,
+                      borderWidth: 1,
+                      borderColor: '#e0e0e0',
+                    },
+                    selectedDevice?.id === device.id && {
+                      borderColor: '#007AFF',
+                      borderWidth: 2,
+                    },
                   ]}
                   onPress={() => connectToDevice(device)}>
-                  <Text style={styles.deviceItemName}>{device.name}</Text>
-                  <Text style={styles.deviceItemRssi}>RSSI: {device.rssi}</Text>
+                  <Text
+                    style={{
+                      fontSize: 16,
+                      fontWeight: '600',
+                      color: '#333',
+                      marginBottom: 4,
+                    }}>
+                    {device.name}
+                  </Text>
+                  <Text style={{fontSize: 12, color: '#666'}}>
+                    RSSI: {device.rssi}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -361,25 +441,56 @@ export const MonitorScreen: React.FC<MonitorScreenProps> = ({onLogout}) => {
 
         {/* Monitoring Controls */}
         {bluetoothService.isConnected() && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Övervakning</Text>
+          <View style={{marginBottom: 24}}>
+            <Text
+              style={{
+                fontSize: 18,
+                fontWeight: '600',
+                color: '#333',
+                marginBottom: 12,
+              }}>
+              Övervakning
+            </Text>
             {!isMonitoring ? (
               <TouchableOpacity
-                style={styles.buttonPrimary}
+                style={{
+                  backgroundColor: '#4CAF50',
+                  borderRadius: 8,
+                  padding: 16,
+                  alignItems: 'center',
+                  marginBottom: 12,
+                }}
                 onPress={startMonitoring}>
-                <Text style={styles.buttonText}>Starta övervakning</Text>
+                <Text style={{color: '#fff', fontSize: 16, fontWeight: '600'}}>
+                  Starta övervakning
+                </Text>
               </TouchableOpacity>
             ) : (
               <TouchableOpacity
-                style={styles.buttonDanger}
+                style={{
+                  backgroundColor: '#F44336',
+                  borderRadius: 8,
+                  padding: 16,
+                  alignItems: 'center',
+                  marginBottom: 12,
+                }}
                 onPress={stopMonitoring}>
-                <Text style={styles.buttonText}>Stoppa övervakning</Text>
+                <Text style={{color: '#fff', fontSize: 16, fontWeight: '600'}}>
+                  Stoppa övervakning
+                </Text>
               </TouchableOpacity>
             )}
             <TouchableOpacity
-              style={styles.buttonSecondary}
+              style={{
+                backgroundColor: '#9E9E9E',
+                borderRadius: 8,
+                padding: 16,
+                alignItems: 'center',
+              }}
               onPress={disconnect}>
-              <Text style={styles.buttonText}>Koppla från</Text>
+              <Text style={{color: '#fff', fontSize: 16, fontWeight: '600'}}>
+                Koppla från
+              </Text>
             </TouchableOpacity>
           </View>
         )}
@@ -387,158 +498,3 @@ export const MonitorScreen: React.FC<MonitorScreenProps> = ({onLogout}) => {
     </ScrollView>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 4,
-  },
-  logoutButton: {
-    color: '#F44336',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  content: {
-    padding: 20,
-  },
-  statusCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 20,
-  },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  statusIndicator: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: 8,
-  },
-  statusText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-  },
-  deviceName: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 4,
-  },
-  queueText: {
-    fontSize: 12,
-    color: '#FF9800',
-    marginTop: 8,
-  },
-  heartRateCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 40,
-    alignItems: 'center',
-    marginBottom: 20,
-    borderWidth: 2,
-    borderColor: '#e0e0e0',
-  },
-  heartRateValue: {
-    fontSize: 64,
-    fontWeight: 'bold',
-    color: '#F44336',
-  },
-  heartRateLabel: {
-    fontSize: 18,
-    color: '#666',
-    marginTop: 8,
-  },
-  noDataText: {
-    fontSize: 18,
-    color: '#999',
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 12,
-  },
-  button: {
-    backgroundColor: '#007AFF',
-    borderRadius: 8,
-    padding: 16,
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  buttonPrimary: {
-    backgroundColor: '#4CAF50',
-    borderRadius: 8,
-    padding: 16,
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  buttonDanger: {
-    backgroundColor: '#F44336',
-    borderRadius: 8,
-    padding: 16,
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  buttonSecondary: {
-    backgroundColor: '#9E9E9E',
-    borderRadius: 8,
-    padding: 16,
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  deviceList: {
-    marginTop: 12,
-  },
-  deviceItem: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  deviceItemSelected: {
-    borderColor: '#007AFF',
-    borderWidth: 2,
-  },
-  deviceItemName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 4,
-  },
-  deviceItemRssi: {
-    fontSize: 12,
-    color: '#666',
-  },
-});

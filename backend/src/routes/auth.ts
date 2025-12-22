@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 
 import { db } from "../db";
 import { users } from "../db/schema";
-import { verifyPassword } from "../utils/hash";
+import { verifyPassword, hashPassword } from "../utils/hash";
 
 const router = Router();
 
@@ -17,6 +17,73 @@ function signJwt(payload: any) {
   }
   return (jwt.sign as any)(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN } as any);
 }
+
+router.post("/register", async (req: Request, res: Response) => {
+  try {
+    const { email, password, name } = req.body as {
+      email?: string;
+      password?: string;
+      name?: string;
+    };
+    if (!email || !password || !name) {
+      return res.status(400).json({ error: "Email, password, and name are required" });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: "Invalid email format" });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({ error: "Password must be at least 8 characters long" });
+    }
+
+    const existingUser = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    if (existingUser.length > 0) {
+      return res.status(409).json({ error: "En användare med denna e-post finns redan" });
+    }
+
+    const hashedPassword = await hashPassword(password);
+
+    let newUser;
+    try {
+      newUser = await db
+        .insert(users)
+        .values({
+          email,
+          name,
+          password: hashedPassword,
+        })
+        .returning();
+    } catch (dbError: any) {
+      if (
+        dbError?.code === 19 ||
+        dbError?.message?.includes("UNIQUE constraint") ||
+        dbError?.message?.includes("unique constraint")
+      ) {
+        return res.status(409).json({ error: "En användare med denna e-post finns redan" });
+      }
+      throw dbError;
+    }
+
+    const token = signJwt({ sub: String(newUser[0].id), email: newUser[0].email });
+
+    const isProd = (process.env.APP_ENV ?? process.env.NODE_ENV) === "production";
+    res.cookie("hp_token", token, {
+      httpOnly: true,
+      sameSite: isProd ? "none" : "lax",
+      secure: isProd,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: "/",
+    });
+
+    const { password: _pw, ...safe } = newUser[0] as any;
+    return res.status(201).json({ user: safe, token });
+  } catch (err) {
+    console.error("Registration error", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
 
 router.post("/login", async (req: Request, res: Response) => {
   try {

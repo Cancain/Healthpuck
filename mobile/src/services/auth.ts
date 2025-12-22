@@ -63,6 +63,46 @@ export class AuthService {
     }
   }
 
+  async register(
+    email: string,
+    password: string,
+    name: string,
+  ): Promise<LoginResponse> {
+    try {
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.REGISTER}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({email, password, name}),
+      });
+
+      if (!response.ok) {
+        const error = await response
+          .json()
+          .catch(() => ({error: 'Registration failed'}));
+        throw new Error(error.error || 'Registration failed');
+      }
+
+      const data: LoginResponse = await response.json();
+
+      if (!data.token) {
+        throw new Error('No token received from server');
+      }
+
+      await this.setToken(data.token);
+      await this.setUser(data.user);
+
+      this.currentToken = data.token;
+      this.currentUser = data.user;
+
+      return data;
+    } catch (error) {
+      console.error('Registration error:', error);
+      throw error;
+    }
+  }
+
   async logout(): Promise<void> {
     await AsyncStorage.multiRemove([TOKEN_KEY, USER_KEY]);
     this.currentToken = null;
