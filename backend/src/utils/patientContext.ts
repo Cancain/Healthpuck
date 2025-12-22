@@ -18,11 +18,15 @@ export async function getPatientContextForUser(userId: number): Promise<PatientC
     })
     .from(patientUsers)
     .innerJoin(patients, eq(patientUsers.patientId, patients.id))
-    .where(eq(patientUsers.userId, userId))
-    .limit(1);
+    .where(eq(patientUsers.userId, userId));
 
   if (result.length === 0) {
     throw new Error("User is not associated with a patient");
+  }
+
+  const patientRoleEntry = result.find((r) => r.role === "patient");
+  if (patientRoleEntry) {
+    return patientRoleEntry;
   }
 
   return result[0];

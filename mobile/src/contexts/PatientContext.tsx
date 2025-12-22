@@ -13,6 +13,7 @@ interface PatientContextType {
   isLoading: boolean;
   error: string | null;
   refreshPatient: () => Promise<void>;
+  isPatientRole: boolean;
 }
 
 const PatientContext = createContext<PatientContextType | undefined>(undefined);
@@ -23,20 +24,36 @@ export const PatientProvider: React.FC<{children: ReactNode}> = ({
   const [patient, setPatient] = useState<Patient | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isPatientRole, setIsPatientRole] = useState(false);
 
   const refreshPatient = async () => {
     try {
       setIsLoading(true);
       setError(null);
       const patients = await apiService.getPatients();
-      const mainPatient =
-        patients.find(p => p.role === 'patient') ?? patients[0] ?? null;
+      console.log(
+        '[PatientContext] Patients received:',
+        patients.map(p => ({id: p.id, name: p.name, role: p.role})),
+      );
+      const patientRolePatient = patients.find(p => p.role === 'patient');
+      const mainPatient = patientRolePatient ?? patients[0] ?? null;
       setPatient(mainPatient);
+      const hasPatientRole = !!patientRolePatient;
+      console.log(
+        '[PatientContext] isPatientRole:',
+        hasPatientRole,
+        'mainPatient:',
+        mainPatient
+          ? {id: mainPatient.id, name: mainPatient.name, role: mainPatient.role}
+          : null,
+      );
+      setIsPatientRole(hasPatientRole);
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : 'Failed to load patient';
       setError(errorMessage);
       setPatient(null);
+      setIsPatientRole(false);
     } finally {
       setIsLoading(false);
     }
@@ -53,6 +70,7 @@ export const PatientProvider: React.FC<{children: ReactNode}> = ({
         isLoading,
         error,
         refreshPatient,
+        isPatientRole,
       }}>
       {children}
     </PatientContext.Provider>

@@ -25,7 +25,7 @@ import {WhoopMetricsCard} from '../components/WhoopMetricsCard';
 
 export const DashboardScreen: React.FC = () => {
   const {user} = useAuth();
-  const {patient} = usePatient();
+  const {patient, isPatientRole} = usePatient();
   const [refreshing, setRefreshing] = useState(false);
   const [activeAlerts, setActiveAlerts] = useState<ActiveAlert[]>([]);
   const [alertsLoading, setAlertsLoading] = useState(false);
@@ -41,6 +41,10 @@ export const DashboardScreen: React.FC = () => {
   const [bluetoothConnected, setBluetoothConnected] = useState(false);
   const [isMonitoring, setIsMonitoring] = useState(false);
   const alertsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const heartRateIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
+    null,
+  );
+  const patientIdRef = useRef<number | undefined>(patient?.id);
 
   const loadActiveAlerts = async () => {
     try {
@@ -125,15 +129,30 @@ export const DashboardScreen: React.FC = () => {
     }
   };
 
+  const loadHeartRate = useCallback(async () => {
+    try {
+      const currentPatientId = patientIdRef.current;
+      const response = await apiService.getHeartRate(currentPatientId);
+      if (response.heartRate !== null && response.heartRate !== undefined) {
+        setHeartRate(response.heartRate);
+      }
+    } catch (error: any) {
+      if (!error.message?.includes('404')) {
+        console.error('Error loading heart rate:', error);
+      }
+    }
+  }, []);
+
   const loadData = useCallback(async () => {
     await Promise.all([
       loadActiveAlerts(),
       loadMedications(),
       loadCheckIns(),
       loadWhoopMetrics(),
+      loadHeartRate(),
     ]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [patient?.id]);
+  }, [loadHeartRate]);
 
   const startAlertsPolling = useCallback(() => {
     if (alertsIntervalRef.current) {
@@ -142,6 +161,27 @@ export const DashboardScreen: React.FC = () => {
     alertsIntervalRef.current = setInterval(() => {
       loadActiveAlerts();
     }, 30000);
+  }, []);
+
+  const startHeartRatePolling = useCallback(() => {
+    if (heartRateIntervalRef.current) {
+      clearInterval(heartRateIntervalRef.current);
+    }
+    heartRateIntervalRef.current = setInterval(() => {
+      const currentPatientId = patientIdRef.current;
+      apiService
+        .getHeartRate(currentPatientId)
+        .then(response => {
+          if (response.heartRate !== null && response.heartRate !== undefined) {
+            setHeartRate(response.heartRate);
+          }
+        })
+        .catch((error: any) => {
+          if (!error.message?.includes('404')) {
+            console.error('Error loading heart rate:', error);
+          }
+        });
+    }, 10000);
   }, []);
 
   const onRefresh = useCallback(async () => {
@@ -180,21 +220,37 @@ export const DashboardScreen: React.FC = () => {
   };
 
   useEffect(() => {
+    patientIdRef.current = patient?.id;
+  }, [patient?.id]);
+
+  useEffect(() => {
     loadData();
-    if (patient?.role === 'patient') {
+    if (isPatientRole) {
       setupBluetoothMonitoring();
     }
+  }, [isPatientRole, loadData]);
+
+  useEffect(() => {
     startAlertsPolling();
+    startHeartRatePolling();
     return () => {
       if (alertsIntervalRef.current) {
         clearInterval(alertsIntervalRef.current);
       }
+      if (heartRateIntervalRef.current) {
+        clearInterval(heartRateIntervalRef.current);
+      }
+    };
+  }, [startAlertsPolling, startHeartRatePolling]);
+
+  useEffect(() => {
+    return () => {
       if (isMonitoring) {
         bluetoothService.stopHeartRateMonitoring();
         backgroundService.stopService().catch(() => {});
       }
     };
-  }, [patient, isMonitoring, loadData, startAlertsPolling]);
+  }, [isMonitoring]);
 
   const latestCheckInByMedication = React.useMemo(() => {
     if (!checkIns) {

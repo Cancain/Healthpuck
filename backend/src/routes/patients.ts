@@ -105,23 +105,6 @@ router.post("/", authenticate, async (req: Request, res: Response) => {
 
     const patient = newPatient[0];
 
-    // Link caregiver who created the patient (check if already linked)
-    const existingCaregiverLink = await db
-      .select()
-      .from(patientUsers)
-      .where(and(eq(patientUsers.patientId, patient.id), eq(patientUsers.userId, userId)))
-      .limit(1);
-
-    if (existingCaregiverLink.length === 0) {
-      await db.insert(patientUsers).values({
-        patientId: patient.id,
-        userId: userId,
-        role: "caregiver",
-        acceptedAt: new Date(),
-      });
-    }
-
-    // Link patient user to the patient record (check if already linked)
     const existingPatientLink = await db
       .select()
       .from(patientUsers)
@@ -135,6 +118,28 @@ router.post("/", authenticate, async (req: Request, res: Response) => {
         role: "patient",
         acceptedAt: new Date(),
       });
+    } else if (existingPatientLink[0].role !== "patient") {
+      await db
+        .update(patientUsers)
+        .set({ role: "patient", acceptedAt: new Date() })
+        .where(and(eq(patientUsers.patientId, patient.id), eq(patientUsers.userId, patientUserId)));
+    }
+
+    if (userId !== patientUserId) {
+      const existingCaregiverLink = await db
+        .select()
+        .from(patientUsers)
+        .where(and(eq(patientUsers.patientId, patient.id), eq(patientUsers.userId, userId)))
+        .limit(1);
+
+      if (existingCaregiverLink.length === 0) {
+        await db.insert(patientUsers).values({
+          patientId: patient.id,
+          userId: userId,
+          role: "caregiver",
+          acceptedAt: new Date(),
+        });
+      }
     }
 
     return res.status(201).json(patient);

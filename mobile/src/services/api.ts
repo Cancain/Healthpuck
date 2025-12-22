@@ -373,8 +373,9 @@ export class ApiService {
     );
   }
 
-  async getHeartRate(): Promise<HeartRateResponse> {
-    return this.request<HeartRateResponse>('/api/heart-rate');
+  async getHeartRate(patientId?: number): Promise<HeartRateResponse> {
+    const query = patientId ? `?patientId=${patientId}` : '';
+    return this.request<HeartRateResponse>(`/api/heart-rate${query}`);
   }
 }
 

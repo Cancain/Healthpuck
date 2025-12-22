@@ -417,8 +417,77 @@ const DashboardPage: React.FC = () => {
     };
   }, [me, patient, handleHeartRateReading]);
 
+  const fetchInitialHeartRate = useCallback(async () => {
+    if (!patient) {
+      console.log("[Dashboard] No patient, skipping heart rate fetch");
+      return;
+    }
+
+    try {
+      console.log("[Dashboard] Fetching initial heart rate for patient:", patient.id);
+      setHeartRateState({ status: "loading" });
+      const res = await fetch(`${API_BASE}/api/heart-rate?patientId=${patient.id}`, {
+        credentials: "include",
+      });
+
+      console.log("[Dashboard] Heart rate response status:", res.status);
+
+      if (res.ok) {
+        const data = (await res.json()) as HeartRateResponse;
+        console.log("[Dashboard] Heart rate data received:", data);
+        if (data.heartRate !== null && data.heartRate !== undefined) {
+          lastValidHeartRateRef.current = data.heartRate;
+          setHeartRateState({
+            status: "loaded",
+            data: {
+              heartRate: data.heartRate,
+              cached: data.cached || false,
+              rateLimited: data.rateLimited || false,
+              timestamp: data.timestamp || Date.now(),
+              message: data.message,
+            },
+          });
+          console.log("[Dashboard] Heart rate set to:", data.heartRate);
+        } else {
+          console.log("[Dashboard] No heart rate data in response");
+          setHeartRateState({
+            status: "loaded",
+            data: {
+              heartRate: null,
+              cached: false,
+              rateLimited: false,
+            },
+          });
+        }
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        console.error("[Dashboard] Heart rate fetch failed:", res.status, errorData);
+        setHeartRateState({
+          status: "loaded",
+          data: {
+            heartRate: null,
+            cached: false,
+            rateLimited: false,
+          },
+        });
+      }
+    } catch (error) {
+      console.error("[Dashboard] Error fetching initial heart rate:", error);
+      setHeartRateState({
+        status: "loaded",
+        data: {
+          heartRate: null,
+          cached: false,
+          rateLimited: false,
+        },
+      });
+    }
+  }, [patient]);
+
   useEffect(() => {
     if (!me || !patient) return;
+
+    fetchInitialHeartRate();
 
     if (patient.role !== "caregiver") {
       return;
@@ -451,7 +520,7 @@ const DashboardPage: React.FC = () => {
         heartRateWebSocket.disconnect();
       });
     };
-  }, [me, patient, handleHeartRateReading]);
+  }, [me, patient, handleHeartRateReading, fetchInitialHeartRate]);
 
   const patientLoading = patientState.status === "loading";
   const patientError = patientState.status === "error" ? patientState.error : null;

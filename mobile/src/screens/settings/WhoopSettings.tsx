@@ -7,24 +7,174 @@ import {
   ActivityIndicator,
   ScrollView,
   Modal,
+  Platform,
 } from 'react-native';
+import {PermissionsAndroid} from 'react-native';
 import {WebView} from 'react-native-webview';
 import {apiService} from '../../services/api';
 import {usePatient} from '../../contexts/PatientContext';
+import {useAuth} from '../../contexts/AuthContext';
+import {bluetoothService, BluetoothDevice} from '../../services/bluetooth';
 import type {WhoopStatus} from '../../types/api';
 
 export const WhoopSettings: React.FC = () => {
-  const {patient} = usePatient();
+  const {patient, isPatientRole} = usePatient();
+  const {user} = useAuth();
   const [whoopStatus, setWhoopStatus] = useState<WhoopStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [oauthUrl, setOauthUrl] = useState<string | null>(null);
   const webViewRef = useRef<WebView>(null);
+  const [isScanning, setIsScanning] = useState(false);
+  const [bluetoothDevices, setBluetoothDevices] = useState<BluetoothDevice[]>(
+    [],
+  );
+  const [bluetoothConnected, setBluetoothConnected] = useState(false);
+  const [connectingDevice, setConnectingDevice] = useState<string | null>(null);
 
   useEffect(() => {
     loadWhoopStatus();
-  }, []);
+    const isUserThePatient =
+      patient?.email && user?.email && patient.email === user.email;
+    const shouldShowBluetooth =
+      isPatientRole || patient?.role === 'patient' || isUserThePatient;
+    console.log(
+      '[WhoopSettings] patient:',
+      patient
+        ? {
+            id: patient.id,
+            name: patient.name,
+            role: patient.role,
+            email: patient.email,
+          }
+        : null,
+      'user:',
+      user ? {id: user.id, email: user.email} : null,
+      'isUserThePatient:',
+      isUserThePatient,
+    );
+    if (shouldShowBluetooth) {
+      console.log('[WhoopSettings] Initializing Bluetooth for patient');
+      initializeBluetooth();
+      checkBluetoothConnection();
+    } else {
+      console.log(
+        '[WhoopSettings] Not initializing Bluetooth - isPatientRole:',
+        isPatientRole,
+        'patient role:',
+        patient?.role,
+        'isUserThePatient:',
+        isUserThePatient,
+      );
+    }
+  }, [patient, isPatientRole, user]);
+
+  const initializeBluetooth = async () => {
+    try {
+      await bluetoothService.initialize();
+    } catch (error: any) {
+      console.error('Failed to initialize Bluetooth:', error);
+    }
+  };
+
+  const checkBluetoothConnection = () => {
+    const connected = bluetoothService.isConnected();
+    setBluetoothConnected(connected);
+  };
+
+  const requestPermissions = async (): Promise<boolean> => {
+    if (Platform.OS !== 'android') {
+      return true;
+    }
+
+    try {
+      const granted = await PermissionsAndroid.requestMultiple([
+        PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+        PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+      ]);
+
+      return (
+        granted[PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN] ===
+          PermissionsAndroid.RESULTS.GRANTED &&
+        granted[PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT] ===
+          PermissionsAndroid.RESULTS.GRANTED
+      );
+    } catch (error) {
+      console.error('Permission error:', error);
+      return false;
+    }
+  };
+
+  const scanForDevices = async () => {
+    const hasPermission = await requestPermissions();
+    if (!hasPermission) {
+      Alert.alert(
+        'Behörighet krävs',
+        'Bluetooth-behörigheter krävs för att söka efter enheter',
+      );
+      return;
+    }
+
+    setIsScanning(true);
+    setBluetoothDevices([]);
+
+    try {
+      const enabled = await bluetoothService.checkBluetoothEnabled();
+      if (!enabled) {
+        Alert.alert(
+          'Bluetooth inaktiverat',
+          'Vänligen aktivera Bluetooth för att söka efter enheter',
+        );
+        return;
+      }
+
+      const foundDevices = await bluetoothService.scanForDevices(5000);
+      setBluetoothDevices(foundDevices);
+
+      if (foundDevices.length === 0) {
+        Alert.alert(
+          'Inga enheter hittades',
+          'Inga Whoop-enheter hittades. Se till att din enhet är i närheten och påslagen.',
+        );
+      }
+    } catch (error: any) {
+      Alert.alert(
+        'Sökningsfel',
+        error.message || 'Kunde inte söka efter enheter',
+      );
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
+  const connectToDevice = async (device: BluetoothDevice) => {
+    setConnectingDevice(device.id);
+    try {
+      await bluetoothService.connect(device.id);
+      setBluetoothConnected(true);
+      setBluetoothDevices([]);
+      Alert.alert('Lyckades', `Ansluten till ${device.name}`);
+    } catch (error: any) {
+      Alert.alert(
+        'Anslutningsfel',
+        error.message || 'Kunde inte ansluta till enheten',
+      );
+    } finally {
+      setConnectingDevice(null);
+    }
+  };
+
+  const disconnectBluetooth = async () => {
+    try {
+      await bluetoothService.disconnect();
+      setBluetoothConnected(false);
+      Alert.alert('Lyckades', 'Bluetooth-anslutning borttagen');
+    } catch (error: any) {
+      Alert.alert('Fel', error.message || 'Kunde inte koppla från enheten');
+    }
+  };
 
   const loadWhoopStatus = async () => {
     try {
@@ -428,7 +578,11 @@ export const WhoopSettings: React.FC = () => {
         </View>
       </View>
 
-      {patient?.role === 'patient' && (
+      {(() => {
+        const isUserThePatient =
+          patient?.email && user?.email && patient.email === user.email;
+        return isPatientRole || patient?.role === 'patient' || isUserThePatient;
+      })() && (
         <View
           style={{
             backgroundColor: '#fff',
@@ -445,10 +599,127 @@ export const WhoopSettings: React.FC = () => {
             }}>
             Bluetooth-anslutning
           </Text>
-          <Text style={{fontSize: 14, color: '#666', lineHeight: 20}}>
+          <Text
+            style={{
+              fontSize: 14,
+              color: '#666',
+              lineHeight: 20,
+              marginBottom: 16,
+            }}>
             Anslut direkt till Whoop-enheten via Bluetooth för realtidsdata om
-            hjärtfrekvens. Gå till Dashboard för att ansluta.
+            hjärtfrekvens.
           </Text>
+
+          {bluetoothConnected ? (
+            <View>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  marginBottom: 12,
+                }}>
+                <View
+                  style={{
+                    width: 12,
+                    height: 12,
+                    borderRadius: 6,
+                    backgroundColor: '#4CAF50',
+                    marginRight: 8,
+                  }}
+                />
+                <Text style={{fontSize: 14, color: '#333'}}>Ansluten</Text>
+              </View>
+              <TouchableOpacity
+                style={{
+                  backgroundColor: '#9E9E9E',
+                  borderRadius: 6,
+                  padding: 12,
+                  alignItems: 'center',
+                }}
+                onPress={disconnectBluetooth}>
+                <Text style={{color: '#fff', fontSize: 16, fontWeight: '600'}}>
+                  Koppla från
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View>
+              <TouchableOpacity
+                style={{
+                  backgroundColor: '#007AFF',
+                  borderRadius: 6,
+                  padding: 12,
+                  alignItems: 'center',
+                  marginBottom: 12,
+                }}
+                onPress={scanForDevices}
+                disabled={isScanning}>
+                {isScanning ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text
+                    style={{color: '#fff', fontSize: 16, fontWeight: '600'}}>
+                    Sök efter enheter
+                  </Text>
+                )}
+              </TouchableOpacity>
+
+              {bluetoothDevices.length > 0 && (
+                <View style={{marginTop: 12}}>
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      fontWeight: '600',
+                      color: '#333',
+                      marginBottom: 8,
+                    }}>
+                    Hittade enheter:
+                  </Text>
+                  {bluetoothDevices.map(device => (
+                    <TouchableOpacity
+                      key={device.id}
+                      style={{
+                        backgroundColor: '#f5f5f5',
+                        borderRadius: 6,
+                        padding: 12,
+                        marginBottom: 8,
+                        flexDirection: 'row',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                      }}
+                      onPress={() => connectToDevice(device)}
+                      disabled={connectingDevice === device.id}>
+                      <View style={{flex: 1}}>
+                        <Text
+                          style={{
+                            fontSize: 14,
+                            fontWeight: '600',
+                            color: '#333',
+                          }}>
+                          {device.name}
+                        </Text>
+                        <Text style={{fontSize: 12, color: '#666'}}>
+                          Signal: {device.rssi} dBm
+                        </Text>
+                      </View>
+                      {connectingDevice === device.id ? (
+                        <ActivityIndicator size="small" color="#007AFF" />
+                      ) : (
+                        <Text
+                          style={{
+                            color: '#007AFF',
+                            fontSize: 14,
+                            fontWeight: '600',
+                          }}>
+                          Anslut
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
         </View>
       )}
 

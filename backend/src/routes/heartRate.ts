@@ -1,11 +1,14 @@
 import { Router, Request, Response } from "express";
+import { desc, eq } from "drizzle-orm";
 
 import { authenticate, getUserIdFromRequest } from "../middleware/auth";
-import { getPatientContextForUser } from "../utils/patientContext";
+import { getPatientContextForUser, assertUserHasAccessToPatient } from "../utils/patientContext";
 import { db } from "../db";
-import { heartRateReadings } from "../db/schema";
+import { heartRateReadings, whoopConnections, patientUsers, patients } from "../db/schema";
 import { whoopRateLimiter } from "../utils/whoopRateLimiter";
 import { broadcastHeartRateToCaregivers } from "../websocket/server";
+import { ensureWhoopAccessTokenForPatient } from "../utils/whoopSync";
+import { WhoopClient } from "../utils/whoopClient";
 
 const router = Router();
 
@@ -51,6 +54,161 @@ router.post("/", authenticate, async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("Error saving heart rate:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.get("/", authenticate, async (req: Request, res: Response) => {
+  try {
+    const userId = getUserIdFromRequest(req);
+    if (!userId) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    const requestedPatientId = req.query.patientId ? Number(req.query.patientId) : null;
+
+    let context: { patientId: number; patientName: string; role: string };
+    if (requestedPatientId) {
+      await assertUserHasAccessToPatient(userId, requestedPatientId);
+      const allAssociations = await db
+        .select({
+          patientId: patientUsers.patientId,
+          patientName: patients.name,
+          role: patientUsers.role,
+        })
+        .from(patientUsers)
+        .innerJoin(patients, eq(patientUsers.patientId, patients.id))
+        .where(eq(patientUsers.userId, userId));
+      const requested = allAssociations.find((a) => a.patientId === requestedPatientId);
+      if (!requested) {
+        return res.status(403).json({ error: "User does not have access to this patient" });
+      }
+      context = requested;
+    } else {
+      context = await getPatientContextForUser(userId);
+    }
+    console.log(
+      `[Heart Rate GET] userId=${userId}, patientId=${context.patientId}, role=${context.role}, requestedPatientId=${requestedPatientId}`,
+    );
+
+    const cached = whoopRateLimiter.getCachedHeartRate(context.patientId);
+    if (cached && cached.heartRate !== null) {
+      console.log(`[Heart Rate GET] Returning cached heart rate: ${cached.heartRate}`);
+      return res.json({
+        heartRate: cached.heartRate,
+        cached: true,
+        rateLimited: false,
+        timestamp: cached.timestamp,
+      });
+    }
+
+    const [latestReading] = await db
+      .select()
+      .from(heartRateReadings)
+      .where(eq(heartRateReadings.patientId, context.patientId))
+      .orderBy(desc(heartRateReadings.timestamp))
+      .limit(1);
+
+    console.log(
+      `[Heart Rate GET] Database query result:`,
+      latestReading
+        ? `found reading with heartRate=${latestReading.heartRate}`
+        : "no reading found",
+    );
+
+    if (latestReading) {
+      const heartRate = latestReading.heartRate;
+      const timestamp = latestReading.timestamp.getTime();
+
+      whoopRateLimiter.cacheHeartRate(context.patientId, heartRate);
+
+      return res.json({
+        heartRate,
+        cached: false,
+        rateLimited: false,
+        timestamp,
+      });
+    }
+
+    const [whoopConnection] = await db
+      .select()
+      .from(whoopConnections)
+      .where(eq(whoopConnections.patientId, context.patientId))
+      .limit(1);
+
+    if (whoopConnection) {
+      try {
+        const whoopClient = WhoopClient.create();
+        const { accessToken } = await ensureWhoopAccessTokenForPatient(
+          context.patientId,
+          whoopClient,
+        );
+        const end = new Date();
+        const start = new Date(end.getTime() - 24 * 60 * 60 * 1000);
+
+        const workouts = await whoopClient.fetchWorkouts(accessToken, start, end);
+        const workoutArray = Array.isArray(workouts)
+          ? workouts
+          : (workouts as any)?.records || (workouts as any)?.data || [];
+
+        let heartRate: number | null = null;
+
+        for (const workout of workoutArray) {
+          const hr =
+            workout.heartRate ||
+            workout.averageHeartRate ||
+            workout.maxHeartRate ||
+            workout.metrics?.heart_rate ||
+            workout.metrics?.average_heart_rate ||
+            workout.score?.metrics?.heart_rate;
+
+          if (typeof hr === "number" && hr > 0) {
+            heartRate = hr;
+            break;
+          }
+        }
+
+        if (heartRate === null) {
+          const recovery = await whoopClient.fetchRecovery(accessToken, start, end);
+          const recoveryArray = Array.isArray(recovery)
+            ? recovery
+            : (recovery as any)?.records || (recovery as any)?.data || [];
+
+          for (const rec of recoveryArray) {
+            const hr =
+              rec.score?.resting_heart_rate ||
+              rec.score?.heart_rate ||
+              rec.resting_heart_rate ||
+              rec.heart_rate;
+
+            if (typeof hr === "number" && hr > 0) {
+              heartRate = hr;
+              break;
+            }
+          }
+        }
+
+        if (heartRate !== null) {
+          whoopRateLimiter.cacheHeartRate(context.patientId, heartRate);
+          return res.json({
+            heartRate,
+            cached: false,
+            rateLimited: false,
+            timestamp: Date.now(),
+          });
+        }
+      } catch (error) {
+        console.error("[Heart Rate] Error fetching from Whoop:", error);
+      }
+    }
+
+    return res.json({
+      heartRate: null,
+      cached: false,
+      rateLimited: false,
+    });
+  } catch (error) {
+    console.error("Error fetching heart rate:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
