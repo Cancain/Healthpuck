@@ -16,6 +16,6 @@
     "noEmit": true,
     "jsx": "react-jsx"
   },
-  "include": ["src/**/*"],
-  "exclude": ["mobile", "node_modules", "build", "docs"]
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "exclude": ["mobile", "node_modules", "build", "docs", "**/Inputs/**"]
 }

@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useRef} from 'react';
 import {
   View,
   Text,
@@ -6,8 +6,9 @@ import {
   Alert,
   ActivityIndicator,
   ScrollView,
-  Linking,
+  Modal,
 } from 'react-native';
+import {WebView} from 'react-native-webview';
 import {apiService} from '../../services/api';
 import {usePatient} from '../../contexts/PatientContext';
 import type {WhoopStatus} from '../../types/api';
@@ -18,6 +19,8 @@ export const WhoopSettings: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [oauthUrl, setOauthUrl] = useState<string | null>(null);
+  const webViewRef = useRef<WebView>(null);
 
   useEffect(() => {
     loadWhoopStatus();
@@ -40,44 +43,89 @@ export const WhoopSettings: React.FC = () => {
     setConnecting(true);
     try {
       const {url} = await apiService.getWhoopConnectUrl();
-      console.log('Opening Whoop URL:', url);
-
-      try {
-        const canOpen = await Linking.canOpenURL(url);
-        console.log('canOpenURL result:', canOpen);
-
-        if (canOpen) {
-          await Linking.openURL(url);
-        } else {
-          console.warn('canOpenURL returned false, attempting to open anyway');
-          try {
-            await Linking.openURL(url);
-          } catch (openError: any) {
-            console.error('Failed to open URL:', openError);
-            Alert.alert(
-              'Fel',
-              'Kunde inte öppna Whoop-anslutnings-URL. Kontrollera att en webbläsare är installerad.',
-            );
-          }
-        }
-      } catch (openError: any) {
-        console.error('Error opening URL:', openError);
-        Alert.alert(
-          'Fel',
-          `Kunde inte öppna Whoop-anslutnings-URL: ${
-            openError.message || 'Okänt fel'
-          }`,
-        );
-      }
+      console.log('Opening Whoop URL in WebView:', url);
+      setOauthUrl(url);
     } catch (error: any) {
       console.error('Error getting Whoop connect URL:', error);
       Alert.alert(
         'Fel',
         error.message || 'Kunde inte hämta Whoop-anslutnings-URL',
       );
-    } finally {
       setConnecting(false);
     }
+  };
+
+  const parseQueryParams = (url: string): Record<string, string> => {
+    const params: Record<string, string> = {};
+    const queryString = url.split('?')[1];
+    if (!queryString) {
+      return params;
+    }
+
+    const pairs = queryString.split('&');
+    for (const pair of pairs) {
+      const [key, value] = pair.split('=');
+      if (key && value) {
+        params[decodeURIComponent(key)] = decodeURIComponent(value);
+      }
+    }
+    return params;
+  };
+
+  const handleNavigationStateChange = async (navState: any) => {
+    const {url} = navState;
+    console.log('WebView navigation:', url);
+
+    if (url.includes('/api/integrations/whoop/callback')) {
+      webViewRef.current?.stopLoading();
+
+      try {
+        const params = parseQueryParams(url);
+        const code = params.code;
+        const state = params.state;
+        const error = params.error;
+
+        if (error) {
+          const errorDescription = params.error_description || 'Okänt fel';
+          setOauthUrl(null);
+          setConnecting(false);
+          Alert.alert(
+            'Fel',
+            `Whoop-anslutning misslyckades: ${errorDescription}`,
+          );
+          return;
+        }
+
+        if (code && state) {
+          setOauthUrl(null);
+
+          const redirectUri = url.split('?')[0];
+          try {
+            await apiService.exchangeWhoopCode(code, state, redirectUri);
+            Alert.alert('Lyckades', 'Whoop-anslutning etablerad');
+            await loadWhoopStatus();
+          } catch (exchangeError: any) {
+            console.error('Error exchanging Whoop code:', exchangeError);
+            Alert.alert(
+              'Fel',
+              exchangeError.message || 'Kunde inte slutföra Whoop-anslutning',
+            );
+          } finally {
+            setConnecting(false);
+          }
+        }
+      } catch (urlError) {
+        console.error('Error parsing callback URL:', urlError);
+        setOauthUrl(null);
+        setConnecting(false);
+        Alert.alert('Fel', 'Kunde inte tolka OAuth-svar');
+      }
+    }
+  };
+
+  const handleCloseWebView = () => {
+    setOauthUrl(null);
+    setConnecting(false);
   };
 
   const handleDisconnect = async () => {
@@ -403,6 +451,56 @@ export const WhoopSettings: React.FC = () => {
           </Text>
         </View>
       )}
+
+      <Modal
+        visible={!!oauthUrl}
+        animationType="slide"
+        onRequestClose={handleCloseWebView}>
+        <View style={{flex: 1}}>
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: 16,
+              backgroundColor: '#f5f5f5',
+              borderBottomWidth: 1,
+              borderBottomColor: '#e0e0e0',
+            }}>
+            <Text style={{fontSize: 18, fontWeight: '600'}}>
+              Anslut till Whoop
+            </Text>
+            <TouchableOpacity onPress={handleCloseWebView}>
+              <Text style={{fontSize: 16, color: '#007AFF'}}>Stäng</Text>
+            </TouchableOpacity>
+          </View>
+          {oauthUrl && (
+            <WebView
+              ref={webViewRef}
+              source={{uri: oauthUrl}}
+              onNavigationStateChange={handleNavigationStateChange}
+              onShouldStartLoadWithRequest={request => {
+                if (request.url.includes('/api/integrations/whoop/callback')) {
+                  handleNavigationStateChange({url: request.url});
+                  return false; // Prevent loading
+                }
+                return true; // Allow other navigation
+              }}
+              startInLoadingState={true}
+              renderLoading={() => (
+                <View
+                  style={{
+                    flex: 1,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                  }}>
+                  <ActivityIndicator size="large" color="#007AFF" />
+                </View>
+              )}
+            />
+          )}
+        </View>
+      </Modal>
     </ScrollView>
   );
 };

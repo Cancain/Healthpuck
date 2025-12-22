@@ -174,12 +174,6 @@ export const UsersSettings: React.FC = () => {
             marginBottom: 20,
           }}>
           <HPTextInput
-            placeholder="Lägg till ny omsorgstagare"
-            value={name}
-            onChangeText={setName}
-            editable={!creating}
-          />
-          <HPTextInput
             placeholder="Namn *"
             value={name}
             onChangeText={setName}

@@ -63,13 +63,11 @@ export class ApiService {
 
       if (!response.ok) {
         if (response.status === 401) {
-          // Token expired, try to refresh or logout
           await authService.logout();
           throw new Error('Authentication failed');
         }
 
         if (response.status === 429) {
-          // Rate limited - queue for later
           this.offlineQueue.push(reading);
           throw new Error('Rate limited');
         }
@@ -82,12 +80,10 @@ export class ApiService {
 
       const data: HeartRateResponse = await response.json();
 
-      // If upload successful, try to process offline queue
       await this.processOfflineQueue();
 
       return data;
     } catch (error: any) {
-      // If network error, queue for later
       if (
         error.message.includes('Network') ||
         error.message.includes('fetch')
@@ -119,7 +115,6 @@ export class ApiService {
           body: JSON.stringify(reading),
         });
       } catch (error) {
-        // If still failing, add back to queue
         this.offlineQueue.push(reading);
         break;
       }
@@ -350,7 +345,20 @@ export class ApiService {
   }
 
   async getWhoopConnectUrl(): Promise<{url: string}> {
-    return this.request<{url: string}>('/api/integrations/whoop/connect-url');
+    return this.request<{url: string}>(
+      '/api/integrations/whoop/connect-url?platform=mobile',
+    );
+  }
+
+  async exchangeWhoopCode(
+    code: string,
+    state: string,
+    redirectUri?: string,
+  ): Promise<void> {
+    return this.request<void>('/api/integrations/whoop/exchange-code', {
+      method: 'POST',
+      body: JSON.stringify({code, state, redirect_uri: redirectUri}),
+    });
   }
 
   async disconnectWhoop(): Promise<void> {

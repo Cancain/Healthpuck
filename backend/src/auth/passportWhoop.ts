@@ -27,6 +27,8 @@ if (!clientId || !clientSecret || !callbackURL) {
   throw new Error("Missing WHOOP OAuth environment configuration");
 }
 
+console.log(`[Whoop OAuth] Strategy configured with callbackURL: ${callbackURL}`);
+
 const whoopStrategy = new OAuth2Strategy(
   {
     authorizationURL: `${oauthBase}/auth`,
@@ -144,9 +146,53 @@ const whoopStrategy = new OAuth2Strategy(
   },
 );
 
-// Force OAuth2 token requests to use client_secret_post rather than HTTP Basic auth.
 const oauth2Client = (whoopStrategy as any)._oauth2 as any;
 const originalRequest = oauth2Client._request.bind(oauth2Client);
+const originalGetOAuthAccessToken = oauth2Client.getOAuthAccessToken.bind(oauth2Client);
+
+oauth2Client.getOAuthAccessToken = function (
+  code: string,
+  params: any,
+  callback: (error: any, accessToken?: string, refreshToken?: string, params?: any) => void,
+) {
+  console.log(`[Whoop OAuth] getOAuthAccessToken called with code: ${code?.substring(0, 20)}...`);
+  console.log(
+    `[Whoop OAuth] getOAuthAccessToken - OAuth2 client has _req: ${!!(oauth2Client as any)._req}`,
+  );
+  const req = (oauth2Client as any)._req as Request | undefined;
+  params = params || {};
+
+  if (req) {
+    let redirectUri: string;
+    if (req.query.redirect_uri) {
+      redirectUri = String(req.query.redirect_uri);
+    } else {
+      const protocol = req.protocol || "http";
+      const host = req.get("host") || "localhost:3001";
+      redirectUri = `${protocol}://${host}/api/integrations/whoop/callback`;
+    }
+    params.redirect_uri = redirectUri;
+    console.log(`[Whoop OAuth] getOAuthAccessToken - Using redirect_uri: ${redirectUri}`);
+    console.log(
+      `[Whoop OAuth] getOAuthAccessToken - params keys: ${Object.keys(params).join(", ")}`,
+    );
+  } else {
+    console.warn(
+      "[Whoop OAuth] No request object found in getOAuthAccessToken, using default callbackURL",
+    );
+    if (!params.redirect_uri) {
+      params.redirect_uri = callbackURL;
+      console.log(`[Whoop OAuth] Using default callbackURL: ${callbackURL}`);
+    }
+  }
+
+  if (!params.grant_type) {
+    params.grant_type = "authorization_code";
+  }
+
+  return originalGetOAuthAccessToken(code, params, callback);
+};
+
 oauth2Client._request = function (
   method: string,
   url: string,
@@ -155,12 +201,50 @@ oauth2Client._request = function (
   accessToken: string,
   callback: (error: any, data?: any, response?: any) => void,
 ) {
+  console.log(`[Whoop OAuth] _request called - URL: ${url}, method: ${method}`);
   if (url === `${oauthBase}/token`) {
-    // Remove any Authorization header added by default
     const { Authorization, authorization, ...restHeaders } = headers || {};
-    const augmentedBody = postBody
-      ? `${postBody}&client_id=${encodeURIComponent(clientId)}&client_secret=${encodeURIComponent(clientSecret)}`
+
+    let body = postBody || "";
+    console.log(`[Whoop OAuth] _request - Original body: ${body}`);
+    console.log(`[Whoop OAuth] _request - OAuth2 client has _req: ${!!(oauth2Client as any)._req}`);
+
+    const req = (oauth2Client as any)._req as Request | undefined;
+    if (req) {
+      let redirectUri: string | undefined;
+      if (req.query.redirect_uri) {
+        redirectUri = String(req.query.redirect_uri);
+      } else {
+        const protocol = req.protocol || "http";
+        const host = req.get("host") || "localhost:3001";
+        redirectUri = `${protocol}://${host}/api/integrations/whoop/callback`;
+      }
+
+      if (redirectUri) {
+        if (body.includes("redirect_uri=")) {
+          body = body.replace(
+            /redirect_uri=[^&]+/,
+            `redirect_uri=${encodeURIComponent(redirectUri)}`,
+          );
+          console.log(`[Whoop OAuth] Replaced redirect_uri in body: ${redirectUri}`);
+        } else {
+          body = body
+            ? `${body}&redirect_uri=${encodeURIComponent(redirectUri)}`
+            : `redirect_uri=${encodeURIComponent(redirectUri)}`;
+          console.log(`[Whoop OAuth] Added redirect_uri to body: ${redirectUri}`);
+        }
+      }
+    } else {
+      console.warn("[Whoop OAuth] No request object in _request, redirect_uri may be missing");
+    }
+
+    const augmentedBody = body
+      ? `${body}&client_id=${encodeURIComponent(clientId)}&client_secret=${encodeURIComponent(clientSecret)}`
       : `client_id=${encodeURIComponent(clientId)}&client_secret=${encodeURIComponent(clientSecret)}`;
+
+    console.log(
+      `[Whoop OAuth] Token request body (without secrets): ${augmentedBody.replace(/client_secret=[^&]+/, "client_secret=***")}`,
+    );
 
     return originalRequest(method, url, restHeaders, augmentedBody, accessToken, callback);
   }

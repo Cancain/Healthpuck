@@ -38,17 +38,35 @@ router.get("/connect-url", authenticate, async (req: Request, res: Response) => 
 
   try {
     const { patientId } = await getPatientContextForUser(userId);
-    console.log(`[Whoop Connect URL] Generating URL for userId=${userId}, patientId=${patientId}`);
+    const isMobile = req.query.platform === "mobile" || req.query.mobile === "true";
+    console.log(
+      `[Whoop Connect URL] Generating URL for userId=${userId}, patientId=${patientId}, mobile=${isMobile}`,
+    );
     const state = serializeState({ userId, patientId });
 
     const oauthBase = (
       process.env.WHOOP_OAUTH_BASE_URL || "https://api.prod.whoop.com/oauth/oauth2"
     ).replace(/\/$/, "");
     const clientId = process.env.WHOOP_CLIENT_ID;
-    const callbackURL = process.env.WHOOP_REDIRECT_URI;
+    const baseRedirectURI = process.env.WHOOP_REDIRECT_URI;
 
-    if (!clientId || !callbackURL) {
+    if (!clientId || !baseRedirectURI) {
       return res.status(500).json({ error: "Whoop OAuth not configured" });
+    }
+
+    let callbackURL = baseRedirectURI;
+    if (isMobile) {
+      const mobileRedirectURI = process.env.WHOOP_REDIRECT_URI_MOBILE;
+      if (mobileRedirectURI) {
+        callbackURL = mobileRedirectURI;
+      } else if (baseRedirectURI.includes("localhost")) {
+        callbackURL = baseRedirectURI;
+      } else {
+        const protocol = baseRedirectURI.startsWith("https") ? "https" : "http";
+        const host = "192.168.83.164:3001";
+        const path = "/api/integrations/whoop/callback";
+        callbackURL = `${protocol}://${host}${path}`;
+      }
     }
 
     const authorizeUrl = new URL(`${oauthBase}/auth`);
@@ -94,9 +112,20 @@ router.get(
   async (req: Request, res: Response, next: NextFunction) => {
     const stateParam = req.query.state as string | undefined;
     if (!stateParam) {
-      const redirectUrl = buildRedirect(ERROR_REDIRECT_URL, {
-        whoop_error: "Missing state parameter",
-      });
+      const isMobile =
+        req.query.mobile === "true" ||
+        /Mobile|Android|iPhone|iPad/i.test(req.get("user-agent") || "");
+
+      let redirectUrl: string;
+      if (isMobile) {
+        redirectUrl = buildRedirect("healthpuck://whoop/callback", {
+          whoop_error: "Missing state parameter",
+        });
+      } else {
+        redirectUrl = buildRedirect(ERROR_REDIRECT_URL, {
+          whoop_error: "Missing state parameter",
+        });
+      }
       return res.redirect(303, redirectUrl);
     }
 
@@ -110,12 +139,27 @@ router.get(
       next();
     } catch (error) {
       console.error("Invalid Whoop state", error);
-      const redirectUrl = buildRedirect(ERROR_REDIRECT_URL, {
-        whoop_error:
-          error instanceof Error
-            ? error.message.slice(0, 250)
-            : String(error ?? "Invalid state").slice(0, 250),
-      });
+
+      const isMobile =
+        req.query.mobile === "true" ||
+        /Mobile|Android|iPhone|iPad/i.test(req.get("user-agent") || "");
+
+      let redirectUrl: string;
+      if (isMobile) {
+        redirectUrl = buildRedirect("healthpuck://whoop/callback", {
+          whoop_error:
+            error instanceof Error
+              ? error.message.slice(0, 250)
+              : String(error ?? "Invalid state").slice(0, 250),
+        });
+      } else {
+        redirectUrl = buildRedirect(ERROR_REDIRECT_URL, {
+          whoop_error:
+            error instanceof Error
+              ? error.message.slice(0, 250)
+              : String(error ?? "Invalid state").slice(0, 250),
+        });
+      }
       return res.redirect(303, redirectUrl);
     }
   },
@@ -124,16 +168,52 @@ router.get(
       ? `userId=${req.whoopState.userId}, patientId=${req.whoopState.patientId}`
       : "missing";
     console.log(`[Whoop Callback] Processing callback, state: ${stateInfo}`);
+
+    const protocol = req.protocol || (req.secure ? "https" : "http");
+    const host = req.get("host") || req.get("x-forwarded-host") || "localhost:3001";
+    const callbackPath = "/api/integrations/whoop/callback";
+    const constructedRedirectUri = `${protocol}://${host}${callbackPath}`;
+
+    if (!req.query.redirect_uri) {
+      req.query.redirect_uri = constructedRedirectUri;
+    }
+    console.log(`[Whoop Callback] Using redirect_uri: ${req.query.redirect_uri}`);
+    console.log(`[Whoop Callback] Request URL: ${req.url}`);
+    console.log(`[Whoop Callback] Request query:`, JSON.stringify(req.query));
+
+    const oauth2Client = ((passport as any)._strategies.whoop as any)?._oauth2;
+    if (oauth2Client) {
+      (oauth2Client as any)._req = req;
+      console.log(`[Whoop Callback] Set request on OAuth2 client`);
+      console.log(`[Whoop Callback] OAuth2 client has _req: ${!!(oauth2Client as any)._req}`);
+    } else {
+      console.error("[Whoop Callback] OAuth2 client not found!");
+    }
+
     passport.authenticate("whoop", { session: false }, (err: any, _user: any, info: any) => {
       if (err) {
         console.error("[Whoop Callback] Error during authentication:", err);
         console.error("[Whoop Callback] Error stack:", err?.stack);
-        const redirectUrl = buildRedirect(ERROR_REDIRECT_URL, {
-          whoop_error:
-            err instanceof Error
-              ? err.message.slice(0, 250)
-              : String(err ?? "Unknown error").slice(0, 250),
-        });
+
+        const userAgent = req.get("user-agent") || "";
+        const isMobile = /Mobile|Android|iPhone|iPad/i.test(userAgent);
+
+        let redirectUrl: string;
+        if (isMobile) {
+          redirectUrl = buildRedirect("healthpuck://whoop/callback", {
+            whoop_error:
+              err instanceof Error
+                ? err.message.slice(0, 250)
+                : String(err ?? "Unknown error").slice(0, 250),
+          });
+        } else {
+          redirectUrl = buildRedirect(ERROR_REDIRECT_URL, {
+            whoop_error:
+              err instanceof Error
+                ? err.message.slice(0, 250)
+                : String(err ?? "Unknown error").slice(0, 250),
+          });
+        }
         return res.redirect(303, redirectUrl);
       }
 
@@ -141,16 +221,90 @@ router.get(
         ? `whoopUserId=${info.whoopUserId || "none"}, patientId=${info.patientId || "none"}`
         : "none";
       console.log(`[Whoop Callback] Success! info: ${infoStr}`);
-      const redirectUrl = buildRedirect(SUCCESS_REDIRECT_URL, {
-        whoop: "connected",
-        whoopUserId: info?.whoopUserId ? String(info.whoopUserId) : undefined,
-        patientId: info?.patientId ? String(info.patientId) : undefined,
-      });
+
+      const isMobile =
+        req.query.mobile === "true" ||
+        /Mobile|Android|iPhone|iPad/i.test(req.get("user-agent") || "");
+
+      let redirectUrl: string;
+      if (isMobile) {
+        redirectUrl = buildRedirect("healthpuck://whoop/callback", {
+          whoop: "connected",
+          whoopUserId: info?.whoopUserId ? String(info.whoopUserId) : undefined,
+          patientId: info?.patientId ? String(info.patientId) : undefined,
+        });
+      } else {
+        redirectUrl = buildRedirect(SUCCESS_REDIRECT_URL, {
+          whoop: "connected",
+          whoopUserId: info?.whoopUserId ? String(info.whoopUserId) : undefined,
+          patientId: info?.patientId ? String(info.patientId) : undefined,
+        });
+      }
       console.log(`[Whoop Callback] Redirecting to:`, redirectUrl);
       return res.redirect(303, redirectUrl);
     })(req, res, next);
   },
 );
+
+router.post("/exchange-code", authenticate, async (req: Request, res: Response) => {
+  const userId = getUserIdFromRequest(req);
+  if (!userId) {
+    return res.status(401).json({ error: "Not authenticated" });
+  }
+
+  const { code, state: stateParam, redirect_uri: redirectUriFromBody } = req.body;
+  if (!code || !stateParam) {
+    return res.status(400).json({ error: "Missing code or state" });
+  }
+
+  try {
+    const parsedState = parseAndValidateState(stateParam);
+    const patientId = parsedState.patientId;
+    await assertUserHasAccessToPatient(userId, patientId);
+    req.whoopState = { ...parsedState, userId };
+
+    const baseRedirectURI =
+      process.env.WHOOP_REDIRECT_URI || "http://localhost:3001/api/integrations/whoop/callback";
+    const redirectUri = redirectUriFromBody || baseRedirectURI;
+
+    const oauth2Client = ((passport as any)._strategies.whoop as any)?._oauth2;
+    if (oauth2Client) {
+      (oauth2Client as any)._req = req;
+      Object.defineProperty(req, "query", {
+        value: { code, state: stateParam, redirect_uri: redirectUri },
+        writable: true,
+        configurable: true,
+      });
+    }
+
+    return new Promise<void>((resolve, reject) => {
+      passport.authenticate("whoop", { session: false }, (err: any, _user: any, info: any) => {
+        if (err) {
+          console.error("[Whoop Exchange Code] Error during authentication:", err);
+          return res.status(500).json({
+            error: err.message || "Failed to exchange code for token",
+          });
+        }
+
+        const infoStr = info
+          ? `whoopUserId=${info.whoopUserId || "none"}, patientId=${info.patientId || "none"}`
+          : "none";
+        console.log(`[Whoop Exchange Code] Success! info: ${infoStr}`);
+
+        return res.json({
+          success: true,
+          whoopUserId: info?.whoopUserId,
+          patientId: info?.patientId,
+        });
+      })(req, res);
+    });
+  } catch (error) {
+    console.error("[Whoop Exchange Code] Error:", error);
+    return res.status(500).json({
+      error: error instanceof Error ? error.message : "Failed to exchange code",
+    });
+  }
+});
 
 router.get("/status", authenticate, async (req: Request, res: Response) => {
   const userId = getUserIdFromRequest(req);
@@ -591,6 +745,17 @@ function removeTrailingSlash(url: string) {
 }
 
 function buildRedirect(base: string, params: Record<string, string | undefined>): string {
+  if (base.includes("://") && !base.startsWith("http://") && !base.startsWith("https://")) {
+    const query = Object.entries(params)
+      .filter(([_, value]) => value !== undefined && value !== null && value !== "")
+      .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value as string)}`)
+      .join("&");
+    if (!query) {
+      return base;
+    }
+    return `${base}${base.includes("?") ? "&" : "?"}${query}`;
+  }
+
   try {
     const target = new URL(base);
     Object.entries(params).forEach(([key, value]) => {
