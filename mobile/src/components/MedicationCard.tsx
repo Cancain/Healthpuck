@@ -1,6 +1,7 @@
 import React, {useState} from 'react';
-import {View, Text, TouchableOpacity, TextInput} from 'react-native';
+import {View, Text, TouchableOpacity} from 'react-native';
 import type {Medication, CheckInItem} from '../types/api';
+import HPTextInput from './HPTextInput';
 
 interface MedicationCardProps {
   medication: Medication;
@@ -120,19 +121,8 @@ export const MedicationCard: React.FC<MedicationCardProps> = ({
           Inga check-ins registrerade ännu.
         </Text>
       )}
-      <TextInput
-        style={{
-          backgroundColor: '#f5f5f5',
-          borderRadius: 6,
-          padding: 12,
-          fontSize: 14,
-          color: '#333',
-          marginBottom: 12,
-          minHeight: 60,
-          textAlignVertical: 'top',
-        }}
+      <HPTextInput
         placeholder="Anteckning (valfritt)"
-        placeholderTextColor="#999"
         value={note}
         onChangeText={setNote}
         multiline

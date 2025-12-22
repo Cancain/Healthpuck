@@ -2,7 +2,6 @@ import React, {useState, useEffect} from 'react';
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   Alert as RNAlert,
   ActivityIndicator,
@@ -11,6 +10,7 @@ import {
 import {apiService} from '../../services/api';
 import {usePatient} from '../../contexts/PatientContext';
 import type {Alert} from '../../types/api';
+import HPTextInput from '../../components/HPTextInput';
 
 export const AlertsSettings: React.FC = () => {
   const {patient} = usePatient();
@@ -248,17 +248,7 @@ export const AlertsSettings: React.FC = () => {
             }}>
             {editingId ? 'Redigera varning' : 'Skapa ny varning'}
           </Text>
-          <TextInput
-            style={{
-              backgroundColor: '#f5f5f5',
-              borderRadius: 6,
-              padding: 12,
-              fontSize: 14,
-              color: '#333',
-              marginBottom: 12,
-              borderWidth: 1,
-              borderColor: '#ddd',
-            }}
+          <HPTextInput
             placeholder="Namn *"
             value={name}
             onChangeText={setName}
@@ -371,17 +361,7 @@ export const AlertsSettings: React.FC = () => {
                         : 'Välj operator'}
             </Text>
           </TouchableOpacity>
-          <TextInput
-            style={{
-              backgroundColor: '#f5f5f5',
-              borderRadius: 6,
-              padding: 12,
-              fontSize: 14,
-              color: '#333',
-              marginBottom: 12,
-              borderWidth: 1,
-              borderColor: '#ddd',
-            }}
+          <HPTextInput
             placeholder="Tröskelvärde *"
             value={thresholdValue}
             onChangeText={setThresholdValue}

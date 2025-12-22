@@ -2,7 +2,6 @@ import React, {useState} from 'react';
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   ActivityIndicator,
   Alert,
@@ -13,6 +12,7 @@ import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {useAuth} from '../contexts/AuthContext';
 import type {AuthStackParamList} from '../navigation/types';
+import HPTextInput from '../components/HPTextInput';
 
 type NavigationProp = NativeStackNavigationProp<AuthStackParamList>;
 
@@ -58,19 +58,8 @@ export const LoginScreen: React.FC = () => {
           Healthpuck
         </Text>
         <View style={{width: '100%'}}>
-          <TextInput
-            style={{
-              backgroundColor: '#fff',
-              borderRadius: 8,
-              padding: 16,
-              fontSize: 16,
-              color: '#333',
-              marginBottom: 16,
-              borderWidth: 1,
-              borderColor: '#ddd',
-            }}
+          <HPTextInput
             placeholder="E-post"
-            placeholderTextColor="#999"
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
@@ -79,19 +68,8 @@ export const LoginScreen: React.FC = () => {
             editable={!loading}
           />
 
-          <TextInput
-            style={{
-              backgroundColor: '#fff',
-              borderRadius: 8,
-              padding: 16,
-              fontSize: 16,
-              color: '#333',
-              marginBottom: 16,
-              borderWidth: 1,
-              borderColor: '#ddd',
-            }}
+          <HPTextInput
             placeholder="Lösenord"
-            placeholderTextColor="#999"
             value={password}
             onChangeText={setPassword}
             secureTextEntry

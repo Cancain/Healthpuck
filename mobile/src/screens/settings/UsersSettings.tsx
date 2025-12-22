@@ -2,7 +2,6 @@ import React, {useState, useEffect} from 'react';
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   Alert,
   ActivityIndicator,
@@ -11,6 +10,7 @@ import {
 import {apiService} from '../../services/api';
 import {usePatient} from '../../contexts/PatientContext';
 import type {Patient, PatientUser} from '../../types/api';
+import HPTextInput from '../../components/HPTextInput';
 
 export const UsersSettings: React.FC = () => {
   const {refreshPatient} = usePatient();
@@ -173,77 +173,32 @@ export const UsersSettings: React.FC = () => {
             padding: 16,
             marginBottom: 20,
           }}>
-          <Text
-            style={{
-              fontSize: 18,
-              fontWeight: '600',
-              color: '#333',
-              marginBottom: 16,
-            }}>
-            Lägg till ny omsorgstagare
-          </Text>
-          <TextInput
-            style={{
-              backgroundColor: '#f5f5f5',
-              borderRadius: 6,
-              padding: 12,
-              fontSize: 14,
-              color: '#333',
-              marginBottom: 12,
-              borderWidth: 1,
-              borderColor: '#ddd',
-            }}
+          <HPTextInput
+            placeholder="Lägg till ny omsorgstagare"
+            value={name}
+            onChangeText={setName}
+            editable={!creating}
+          />
+          <HPTextInput
             placeholder="Namn *"
             value={name}
             onChangeText={setName}
             editable={!creating}
           />
-          <TextInput
-            style={{
-              backgroundColor: '#f5f5f5',
-              borderRadius: 6,
-              padding: 12,
-              fontSize: 14,
-              color: '#333',
-              marginBottom: 12,
-              borderWidth: 1,
-              borderColor: '#ddd',
-            }}
+          <HPTextInput
             placeholder="E-post *"
             value={email}
             onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
             editable={!creating}
           />
-          <TextInput
-            style={{
-              backgroundColor: '#f5f5f5',
-              borderRadius: 6,
-              padding: 12,
-              fontSize: 14,
-              color: '#333',
-              marginBottom: 12,
-              borderWidth: 1,
-              borderColor: '#ddd',
-            }}
+          <HPTextInput
             placeholder="Lösenord (minst 8 tecken) *"
             value={password}
             onChangeText={setPassword}
             secureTextEntry
             editable={!creating}
           />
-          <TextInput
-            style={{
-              backgroundColor: '#f5f5f5',
-              borderRadius: 6,
-              padding: 12,
-              fontSize: 14,
-              color: '#333',
-              marginBottom: 12,
-              borderWidth: 1,
-              borderColor: '#ddd',
-            }}
+          <HPTextInput
             placeholder="Bekräfta lösenord *"
             value={confirmPassword}
             onChangeText={setConfirmPassword}
@@ -420,20 +375,7 @@ export const UsersSettings: React.FC = () => {
                   Bjud in omsorgsgivare
                 </Text>
                 <View style={{flexDirection: 'row', gap: 8}}>
-                  <TextInput
-                    style={[
-                      {
-                        backgroundColor: '#f5f5f5',
-                        borderRadius: 6,
-                        padding: 12,
-                        fontSize: 14,
-                        color: '#333',
-                        marginBottom: 12,
-                        borderWidth: 1,
-                        borderColor: '#ddd',
-                      },
-                      {flex: 1, marginBottom: 0},
-                    ]}
+                  <HPTextInput
                     placeholder="E-postadress"
                     value={inviteEmail[p.id] || ''}
                     onChangeText={text =>

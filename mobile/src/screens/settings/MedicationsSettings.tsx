@@ -2,7 +2,6 @@ import React, {useState, useEffect, useCallback} from 'react';
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   Alert,
   ActivityIndicator,
@@ -11,6 +10,7 @@ import {
 import {apiService} from '../../services/api';
 import {usePatient} from '../../contexts/PatientContext';
 import type {Medication} from '../../types/api';
+import HPTextInput from '../../components/HPTextInput';
 
 export const MedicationsSettings: React.FC = () => {
   const {patient} = usePatient();
@@ -207,68 +207,25 @@ export const MedicationsSettings: React.FC = () => {
             }}>
             {editingId ? 'Redigera medicin' : 'Lägg till ny medicin'}
           </Text>
-          <TextInput
-            style={{
-              backgroundColor: '#f5f5f5',
-              borderRadius: 6,
-              padding: 12,
-              fontSize: 14,
-              color: '#333',
-              marginBottom: 12,
-              borderWidth: 1,
-              borderColor: '#ddd',
-            }}
+          <HPTextInput
             placeholder="Namn *"
             value={name}
             onChangeText={setName}
             editable={!saving}
           />
-          <TextInput
-            style={{
-              backgroundColor: '#f5f5f5',
-              borderRadius: 6,
-              padding: 12,
-              fontSize: 14,
-              color: '#333',
-              marginBottom: 12,
-              borderWidth: 1,
-              borderColor: '#ddd',
-            }}
+          <HPTextInput
             placeholder="Dosering * (t.ex. 500mg)"
             value={dosage}
             onChangeText={setDosage}
             editable={!saving}
           />
-          <TextInput
-            style={{
-              backgroundColor: '#f5f5f5',
-              borderRadius: 6,
-              padding: 12,
-              fontSize: 14,
-              color: '#333',
-              marginBottom: 12,
-              borderWidth: 1,
-              borderColor: '#ddd',
-            }}
+          <HPTextInput
             placeholder="Frekvens * (t.ex. 2 gånger per dag)"
             value={frequency}
             onChangeText={setFrequency}
             editable={!saving}
           />
-          <TextInput
-            style={[
-              {
-                backgroundColor: '#f5f5f5',
-                borderRadius: 6,
-                padding: 12,
-                fontSize: 14,
-                color: '#333',
-                marginBottom: 12,
-                borderWidth: 1,
-                borderColor: '#ddd',
-              },
-              {minHeight: 80, textAlignVertical: 'top'},
-            ]}
+          <HPTextInput
             placeholder="Anteckningar"
             value={notes}
             onChangeText={setNotes}
