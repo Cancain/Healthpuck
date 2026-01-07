@@ -49,6 +49,15 @@ async function evaluateAlertsByPriority(priority: "high" | "mid" | "low") {
           console.log(
             `[Alert Scheduler] Alert ${alert.id} (${alert.name}) triggered for patient ${alert.patientId}`,
           );
+          try {
+            const { sendAlertNotification } = await import("./notificationService");
+            await sendAlertNotification(alert.id, alert.patientId, alert.name, alert.priority);
+          } catch (error) {
+            console.error(
+              `[Alert Scheduler] Failed to send notification for alert ${alert.id}:`,
+              error,
+            );
+          }
         }
 
         const currentActive = new Map<number, Date>();

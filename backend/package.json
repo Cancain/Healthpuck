@@ -26,6 +26,7 @@
     "drizzle-kit": "^0.18.1",
     "drizzle-orm": "^0.44.7",
     "express": "^5.1.0",
+    "firebase-admin": "^13.6.0",
     "jsonwebtoken": "^9.0.2",
     "passport": "^0.7.0",
     "passport-oauth2": "^1.8.0",

@@ -377,6 +377,76 @@ export class ApiService {
     const query = patientId ? `?patientId=${patientId}` : '';
     return this.request<HeartRateResponse>(`/api/heart-rate${query}`);
   }
+
+  async registerDeviceToken(
+    token: string,
+    platform: 'ios' | 'android',
+  ): Promise<{success: boolean; message: string}> {
+    return this.request<{success: boolean; message: string}>(
+      '/api/notifications/register',
+      {
+        method: 'POST',
+        body: JSON.stringify({token, platform}),
+      },
+    );
+  }
+
+  async unregisterDeviceToken(): Promise<{success: boolean; message: string}> {
+    const token = await this.getFCMToken();
+    if (!token) {
+      throw new Error('No FCM token available');
+    }
+    return this.request<{success: boolean; message: string}>(
+      '/api/notifications/unregister',
+      {
+        method: 'DELETE',
+        body: JSON.stringify({token}),
+      },
+    );
+  }
+
+  private async getFCMToken(): Promise<string | null> {
+    try {
+      const messagingModule = await import('@react-native-firebase/messaging');
+      return await messagingModule.default().getToken();
+    } catch {
+      return null;
+    }
+  }
+
+  async getNotificationPreferences(): Promise<{
+    id: number;
+    userId: number;
+    alertsEnabled: boolean;
+    highPriorityEnabled: boolean;
+    midPriorityEnabled: boolean;
+    lowPriorityEnabled: boolean;
+    createdAt: string;
+    updatedAt: string;
+  }> {
+    return this.request('/api/notifications/preferences');
+  }
+
+  async updateNotificationPreferences(preferences: {
+    alertsEnabled?: boolean;
+    highPriorityEnabled?: boolean;
+    midPriorityEnabled?: boolean;
+    lowPriorityEnabled?: boolean;
+  }): Promise<{
+    id: number;
+    userId: number;
+    alertsEnabled: boolean;
+    highPriorityEnabled: boolean;
+    midPriorityEnabled: boolean;
+    lowPriorityEnabled: boolean;
+    createdAt: string;
+    updatedAt: string;
+  }> {
+    return this.request('/api/notifications/preferences', {
+      method: 'PUT',
+      body: JSON.stringify(preferences),
+    });
+  }
 }
 
 export const apiService = ApiService.getInstance();

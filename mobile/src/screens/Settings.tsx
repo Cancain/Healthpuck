@@ -5,8 +5,9 @@ import {UsersSettings} from './settings/UsersSettings';
 import {MedicationsSettings} from './settings/MedicationsSettings';
 import {AlertsSettings} from './settings/AlertsSettings';
 import {WhoopSettings} from './settings/WhoopSettings';
+import {NotificationSettings} from './settings/NotificationSettings';
 
-type Tab = 'users' | 'medications' | 'alerts' | 'whoop';
+type Tab = 'users' | 'medications' | 'alerts' | 'whoop' | 'notifications';
 
 export const SettingsScreen: React.FC = () => {
   const {logout} = useAuth();
@@ -17,6 +18,7 @@ export const SettingsScreen: React.FC = () => {
     {id: 'medications', label: 'Mediciner'},
     {id: 'alerts', label: 'Varningar'},
     {id: 'whoop', label: 'Whoop'},
+    {id: 'notifications', label: 'Notifikationer'},
   ];
 
   const renderContent = () => {
@@ -29,6 +31,8 @@ export const SettingsScreen: React.FC = () => {
         return <AlertsSettings />;
       case 'whoop':
         return <WhoopSettings />;
+      case 'notifications':
+        return <NotificationSettings />;
       default:
         return null;
     }

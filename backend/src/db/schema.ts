@@ -232,5 +232,50 @@ export type WhoopConnection = typeof whoopConnections.$inferSelect;
 export type NewWhoopConnection = typeof whoopConnections.$inferInsert;
 export type Alert = typeof alerts.$inferSelect;
 export type NewAlert = typeof alerts.$inferInsert;
+export const deviceTokens = sqliteTable(
+  "device_tokens",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    token: text("token").notNull().unique(),
+    platform: text("platform", { enum: ["ios", "android"] }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+    updatedAt: integer("updated_at", { mode: "timestamp" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => ({
+    userTokenIdx: index("device_tokens_user_token_idx").on(table.userId, table.token),
+  }),
+);
+
+export const notificationPreferences = sqliteTable("notification_preferences", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" })
+    .unique(),
+  alertsEnabled: integer("alerts_enabled", { mode: "boolean" }).notNull().default(true),
+  highPriorityEnabled: integer("high_priority_enabled", { mode: "boolean" })
+    .notNull()
+    .default(true),
+  midPriorityEnabled: integer("mid_priority_enabled", { mode: "boolean" }).notNull().default(true),
+  lowPriorityEnabled: integer("low_priority_enabled", { mode: "boolean" }).notNull().default(true),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
 export type HeartRateReading = typeof heartRateReadings.$inferSelect;
 export type NewHeartRateReading = typeof heartRateReadings.$inferInsert;
+export type DeviceToken = typeof deviceTokens.$inferSelect;
+export type NewDeviceToken = typeof deviceTokens.$inferInsert;
+export type NotificationPreference = typeof notificationPreferences.$inferSelect;
+export type NewNotificationPreference = typeof notificationPreferences.$inferInsert;

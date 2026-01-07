@@ -1,5 +1,8 @@
-import React from 'react';
-import {NavigationContainer} from '@react-navigation/native';
+import React, {useEffect, useRef} from 'react';
+import {
+  NavigationContainer,
+  NavigationContainerRef,
+} from '@react-navigation/native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {useAuth} from '../contexts/AuthContext';
@@ -7,6 +10,7 @@ import {LoginScreen} from '../screens/Login';
 import {RegisterScreen} from '../screens/Register';
 import {DashboardScreen} from '../screens/Dashboard';
 import {SettingsScreen} from '../screens/Settings';
+import {notificationService} from '../services/notifications';
 import type {
   RootStackParamList,
   AuthStackParamList,
@@ -51,13 +55,30 @@ const MainNavigator = () => {
 
 export const AppNavigator = () => {
   const {isAuthenticated, isLoading} = useAuth();
+  const navigationRef =
+    useRef<NavigationContainerRef<RootStackParamList>>(null);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      notificationService.registerToken();
+      notificationService.setupNotificationHandlers();
+    } else {
+      notificationService.unregisterToken();
+    }
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (navigationRef.current) {
+      notificationService.setNavigationRef(navigationRef.current);
+    }
+  }, [isAuthenticated]);
 
   if (isLoading) {
     return null;
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <RootStack.Navigator screenOptions={{headerShown: false}}>
         {isAuthenticated ? (
           <RootStack.Screen name="Main" component={MainNavigator} />

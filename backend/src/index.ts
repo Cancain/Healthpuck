@@ -18,8 +18,10 @@ import checkInRoutes from "./routes/checkIns";
 import whoopIntegrationRoutes from "./routes/integrations/whoop";
 import alertRoutes from "./routes/alerts";
 import heartRateRoutes from "./routes/heartRate";
+import notificationRoutes from "./routes/notifications";
 import { startAlertScheduler } from "./utils/alertScheduler";
 import { setupWebSocketServer } from "./websocket/server";
+import { initializeFirebase } from "./utils/notificationService";
 
 // Prefer dotenv-safe when an example file exists to validate required env vars.
 // Fallback to plain dotenv if the example file is not present.
@@ -85,6 +87,7 @@ app.use("/api/check-ins", checkInRoutes);
 app.use("/api/integrations/whoop", whoopIntegrationRoutes);
 app.use("/api/alerts", alertRoutes);
 app.use("/api/heart-rate", heartRateRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 app.use((req: Request, res: Response) => {
   res.status(404).json({ error: "Route not found" });
@@ -98,6 +101,7 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 async function startServer() {
   try {
     await initializeDatabase();
+    initializeFirebase();
     const server = http.createServer(app);
     setupWebSocketServer(server);
     server.listen(PORT, () => {
