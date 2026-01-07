@@ -62,19 +62,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          declare -a secrets=()
           for key in APP_ENV DATABASE_URL TURSO_AUTH_TOKEN JWT_SECRET JWT_EXPIRES_IN CORS_ORIGIN; do
             value="${!key:-}"
             if [[ -n "$value" ]]; then
-              secrets+=("$key=$value")
+              echo "Setting secret: $key"
+              flyctl secrets set "$key=$value" --config fly.toml
             fi
           done
-          if [[ ${#secrets[@]} -gt 0 ]]; then
-            echo "Setting ${#secrets[@]} Fly secrets."
-            flyctl secrets set "${secrets[@]}" --config fly.toml
-          else
-            echo "No secrets provided; skipping."
-          fi
 
       - name: Deploy to Fly.io
         working-directory: backend
