@@ -138,3 +138,4 @@ open Healthpuck.xcworkspace
 - **App expires** after 7 days (free account) - just rebuild to extend
 - **Metro bundler** must be running for the app to work
 
+

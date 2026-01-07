@@ -69,3 +69,4 @@ After clicking the blue project icon:
 - [ ] Clicked "Signing & Capabilities" tab
 - [ ] Selected Team from dropdown
 
+
