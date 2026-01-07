@@ -378,6 +378,22 @@ router.get("/metrics", authenticate, async (req: Request, res: Response) => {
     ): Promise<T | null> => {
       try {
         const result = await fn();
+        if (result === null || result === undefined) {
+          return null;
+        }
+        if (Array.isArray(result) && result.length === 0) {
+          return null;
+        }
+        if (typeof result === "object" && !Array.isArray(result)) {
+          const records = (result as any).records;
+          const data = (result as any).data;
+          if (
+            (Array.isArray(records) && records.length === 0) ||
+            (Array.isArray(data) && data.length === 0)
+          ) {
+            return null;
+          }
+        }
         return result;
       } catch (error) {
         console.error(`Failed to fetch Whoop metric [${metricName}]:`, error);
@@ -396,6 +412,10 @@ router.get("/metrics", authenticate, async (req: Request, res: Response) => {
       const cycleArray = Array.isArray(cyclesData)
         ? cyclesData
         : cyclesData.records || cyclesData.data || [];
+
+      if (cycleArray.length === 0) {
+        return null;
+      }
 
       const recoveries = cycleArray.map((cycle: any) => cycle.recovery).filter(Boolean);
 
@@ -416,7 +436,7 @@ router.get("/metrics", authenticate, async (req: Request, res: Response) => {
       fetchWithFallback(() => whoopClient.fetchBodyMeasurement(accessToken), "bodyMeasurement"),
     ]);
 
-    res.json({
+    const response = {
       patientId,
       patientName,
       range: {
@@ -424,12 +444,14 @@ router.get("/metrics", authenticate, async (req: Request, res: Response) => {
         end: end.toISOString(),
         days: rangeDays,
       },
-      cycles,
-      recovery,
-      sleep,
-      workouts,
-      bodyMeasurement,
-    });
+      cycles: cycles ?? null,
+      recovery: recovery ?? null,
+      sleep: sleep ?? null,
+      workouts: workouts ?? null,
+      bodyMeasurement: bodyMeasurement ?? null,
+    };
+
+    res.json(response);
   } catch (error) {
     console.error("Whoop metrics error", error);
     if (error instanceof Error && error.message.includes("No Whoop connection")) {
