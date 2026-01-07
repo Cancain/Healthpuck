@@ -91,17 +91,7 @@ router.get("/", authenticate, async (req: Request, res: Response) => {
       `[Heart Rate GET] userId=${userId}, patientId=${context.patientId}, role=${context.role}, requestedPatientId=${requestedPatientId}`,
     );
 
-    const cached = whoopRateLimiter.getCachedHeartRate(context.patientId);
-    if (cached && cached.heartRate !== null) {
-      console.log(`[Heart Rate GET] Returning cached heart rate: ${cached.heartRate}`);
-      return res.json({
-        heartRate: cached.heartRate,
-        cached: true,
-        rateLimited: false,
-        timestamp: cached.timestamp,
-      });
-    }
-
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
     const [latestReading] = await db
       .select()
       .from(heartRateReadings)
@@ -112,16 +102,17 @@ router.get("/", authenticate, async (req: Request, res: Response) => {
     console.log(
       `[Heart Rate GET] Database query result:`,
       latestReading
-        ? `found reading with heartRate=${latestReading.heartRate}`
+        ? `found reading with heartRate=${latestReading.heartRate}, timestamp=${latestReading.timestamp.getTime()}`
         : "no reading found",
     );
 
-    if (latestReading) {
+    if (latestReading && latestReading.timestamp >= fiveMinutesAgo) {
       const heartRate = latestReading.heartRate;
       const timestamp = latestReading.timestamp.getTime();
 
       whoopRateLimiter.cacheHeartRate(context.patientId, heartRate);
 
+      console.log(`[Heart Rate GET] Returning recent database reading: ${heartRate}`);
       return res.json({
         heartRate,
         cached: false,
@@ -187,6 +178,7 @@ router.get("/", authenticate, async (req: Request, res: Response) => {
 
         if (heartRate !== null) {
           whoopRateLimiter.cacheHeartRate(context.patientId, heartRate);
+          console.log(`[Heart Rate GET] Returning fresh Whoop data: ${heartRate}`);
           return res.json({
             heartRate,
             cached: false,
@@ -197,6 +189,32 @@ router.get("/", authenticate, async (req: Request, res: Response) => {
       } catch (error) {
         console.error("[Heart Rate] Error fetching from Whoop:", error);
       }
+    }
+
+    if (latestReading) {
+      const heartRate = latestReading.heartRate;
+      const timestamp = latestReading.timestamp.getTime();
+
+      whoopRateLimiter.cacheHeartRate(context.patientId, heartRate);
+
+      console.log(`[Heart Rate GET] Returning older database reading: ${heartRate}`);
+      return res.json({
+        heartRate,
+        cached: false,
+        rateLimited: false,
+        timestamp,
+      });
+    }
+
+    const cached = whoopRateLimiter.getCachedHeartRate(context.patientId);
+    if (cached && cached.heartRate !== null) {
+      console.log(`[Heart Rate GET] Returning cached heart rate: ${cached.heartRate}`);
+      return res.json({
+        heartRate: cached.heartRate,
+        cached: true,
+        rateLimited: false,
+        timestamp: cached.timestamp,
+      });
     }
 
     return res.json({
