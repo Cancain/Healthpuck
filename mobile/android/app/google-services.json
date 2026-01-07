@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "873118989202",
+    "project_id": "healthpuck",
+    "storage_bucket": "healthpuck.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:873118989202:android:a909fb60a4ca8ddbca9f4b",
+        "android_client_info": {
+          "package_name": "com.healthpuck.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBENGBkbpV_i9p3gmpdTtExTndVbD-7eko"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

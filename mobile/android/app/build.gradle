@@ -45,6 +45,14 @@ dependencies {
     implementation("com.facebook.react:flipper-integration")
     implementation("androidx.core:core:1.12.0")
 
+    // Import the Firebase BoM
+    implementation(platform("com.google.firebase:firebase-bom:34.7.0"))
+    
+    // Firebase dependencies (for React Native Firebase compatibility)
+    // Note: React Native Firebase packages manage their own Firebase SDK versions,
+    // but adding the BoM ensures compatible versions across all Firebase libraries
+    implementation("com.google.firebase:firebase-messaging")
+
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")
     } else {
