@@ -1,21 +1,22 @@
 import React from 'react';
 import {TextInput, TextInputProps} from 'react-native';
+import {colors} from '../utils/theme';
 
 export default function HPTextInput({...props}: TextInputProps) {
   return (
     <TextInput
       style={{
-        backgroundColor: '#f5f5f5',
+        backgroundColor: colors.semantic.white,
         borderRadius: 6,
         padding: 12,
         fontSize: 14,
-        color: '#333',
+        color: colors.primary.dark,
         marginBottom: 12,
         borderWidth: 1,
-        borderColor: '#ddd',
+        borderColor: colors.primary.dark,
       }}
       {...props}
-      placeholderTextColor="#999"
+      placeholderTextColor={colors.device.iconGray}
     />
   );
 }

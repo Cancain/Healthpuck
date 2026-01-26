@@ -6,6 +6,7 @@ import {MedicationsSettings} from './settings/MedicationsSettings';
 import {AlertsSettings} from './settings/AlertsSettings';
 import {WhoopSettings} from './settings/WhoopSettings';
 import {NotificationSettings} from './settings/NotificationSettings';
+import {colors} from '../utils/theme';
 
 type Tab = 'users' | 'medications' | 'alerts' | 'whoop' | 'notifications';
 
@@ -39,7 +40,7 @@ export const SettingsScreen: React.FC = () => {
   };
 
   return (
-    <View style={{flex: 1, backgroundColor: '#f5f5f5'}}>
+    <View style={{flex: 1, backgroundColor: colors.primary.background}}>
       <View
         style={{
           backgroundColor: '#fff',
@@ -50,7 +51,12 @@ export const SettingsScreen: React.FC = () => {
           borderBottomWidth: 1,
           borderBottomColor: '#e0e0e0',
         }}>
-        <Text style={{fontSize: 24, fontWeight: 'bold', color: '#333'}}>
+        <Text
+          style={{
+            fontSize: 24,
+            fontWeight: 'bold',
+            color: colors.primary.dark,
+          }}>
           Inställningar
         </Text>
         <TouchableOpacity onPress={logout} style={{padding: 8}}>
@@ -77,13 +83,16 @@ export const SettingsScreen: React.FC = () => {
                 borderBottomWidth: 2,
                 borderBottomColor: 'transparent',
               },
-              activeTab === tab.id && {borderBottomColor: '#007AFF'},
+              activeTab === tab.id && {borderBottomColor: colors.primary.dark},
             ]}
             onPress={() => setActiveTab(tab.id)}>
             <Text
               style={[
                 {fontSize: 14, color: '#666', fontWeight: '500'},
-                activeTab === tab.id && {color: '#007AFF', fontWeight: '600'},
+                activeTab === tab.id && {
+                  color: colors.primary.dark,
+                  fontWeight: '600',
+                },
               ]}>
               {tab.label}
             </Text>

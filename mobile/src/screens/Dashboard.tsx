@@ -22,6 +22,7 @@ import {AlertCard} from '../components/AlertCard';
 import {HeartRateCard} from '../components/HeartRateCard';
 import {MedicationCard} from '../components/MedicationCard';
 import {WhoopMetricsCard} from '../components/WhoopMetricsCard';
+import {colors} from '../utils/theme';
 
 export const DashboardScreen: React.FC = () => {
   const {user} = useAuth();
@@ -319,7 +320,7 @@ export const DashboardScreen: React.FC = () => {
 
   return (
     <ScrollView
-      style={{flex: 1, backgroundColor: '#f5f5f5'}}
+      style={{flex: 1, backgroundColor: colors.primary.background}}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }>
@@ -335,13 +336,15 @@ export const DashboardScreen: React.FC = () => {
             style={{
               fontSize: 24,
               fontWeight: 'bold',
-              color: '#333',
+              color: colors.primary.dark,
               marginBottom: 4,
             }}>
             Välkommen, {user?.name || 'Användare'}
           </Text>
           {user?.email && (
-            <Text style={{fontSize: 14, color: '#666'}}>{user.email}</Text>
+            <Text style={{fontSize: 14, color: colors.primary.dark}}>
+              {user.email}
+            </Text>
           )}
         </View>
         {patient && (
@@ -352,12 +355,14 @@ export const DashboardScreen: React.FC = () => {
               backgroundColor: '#f0f0f0',
               borderRadius: 6,
             }}>
-            <Text style={{fontSize: 12, color: '#666'}}>Omsorgstagare</Text>
+            <Text style={{fontSize: 12, color: colors.primary.dark}}>
+              Omsorgstagare
+            </Text>
             <Text
               style={{
                 fontSize: 16,
                 fontWeight: '600',
-                color: '#333',
+                color: colors.primary.dark,
                 marginTop: 2,
               }}>
               {patient.name}
@@ -373,13 +378,18 @@ export const DashboardScreen: React.FC = () => {
             alignItems: 'center',
             marginBottom: 12,
           }}>
-          <Text style={{fontSize: 18, fontWeight: '600', color: '#333'}}>
+          <Text
+            style={{
+              fontSize: 18,
+              fontWeight: '600',
+              color: colors.primary.dark,
+            }}>
             Aktiva varningar
           </Text>
           {activeAlerts.length > 0 && (
             <View
               style={{
-                backgroundColor: '#007AFF',
+                backgroundColor: colors.primary.dark,
                 borderRadius: 12,
                 paddingHorizontal: 8,
                 paddingVertical: 4,
@@ -392,7 +402,7 @@ export const DashboardScreen: React.FC = () => {
           )}
         </View>
         {alertsLoading ? (
-          <ActivityIndicator size="small" color="#007AFF" />
+          <ActivityIndicator size="small" color={colors.primary.dark} />
         ) : activeAlerts.length > 0 ? (
           activeAlerts.map(activeAlert => (
             <AlertCard
@@ -423,12 +433,17 @@ export const DashboardScreen: React.FC = () => {
             alignItems: 'center',
             marginBottom: 12,
           }}>
-          <Text style={{fontSize: 18, fontWeight: '600', color: '#333'}}>
+          <Text
+            style={{
+              fontSize: 18,
+              fontWeight: '600',
+              color: colors.primary.dark,
+            }}>
             Whoop-status
           </Text>
         </View>
         {whoopLoading ? (
-          <ActivityIndicator size="small" color="#007AFF" />
+          <ActivityIndicator size="small" color={colors.primary.dark} />
         ) : whoopMetrics ? (
           <WhoopMetricsCard metrics={whoopMetrics} />
         ) : (
@@ -446,7 +461,12 @@ export const DashboardScreen: React.FC = () => {
             alignItems: 'center',
             marginBottom: 12,
           }}>
-          <Text style={{fontSize: 18, fontWeight: '600', color: '#333'}}>
+          <Text
+            style={{
+              fontSize: 18,
+              fontWeight: '600',
+              color: colors.primary.dark,
+            }}>
             Läkemedel & check-ins
           </Text>
         </View>

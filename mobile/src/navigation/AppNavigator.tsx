@@ -13,6 +13,7 @@ import {DashboardScreen} from '../screens/Dashboard';
 import {SettingsScreen} from '../screens/Settings';
 import {notificationService} from '../services/notifications';
 import {bluetoothMonitoringService} from '../services/bluetoothMonitoring';
+import {colors} from '../utils/theme';
 import type {
   RootStackParamList,
   AuthStackParamList,
@@ -38,8 +39,8 @@ const MainNavigator = () => {
       screenOptions={{
         headerShown: false,
         tabBarLabelStyle: {fontSize: 12},
-        tabBarActiveTintColor: '#007AFF',
-        tabBarInactiveTintColor: '#999',
+        tabBarActiveTintColor: colors.primary.dark,
+        tabBarInactiveTintColor: colors.device.iconGray,
       }}>
       <MainTab.Screen
         name="Dashboard"

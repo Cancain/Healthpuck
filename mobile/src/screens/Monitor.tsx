@@ -13,6 +13,7 @@ import {bluetoothService, BluetoothDevice} from '../services/bluetooth';
 import {apiService} from '../services/api';
 import {authService} from '../services/auth';
 import {backgroundService} from '../services/backgroundService';
+import {colors} from '../utils/theme';
 
 interface MonitorScreenProps {
   onLogout: () => void;
@@ -280,7 +281,7 @@ export const MonitorScreen: React.FC<MonitorScreenProps> = ({onLogout}) => {
   };
 
   return (
-    <ScrollView style={{flex: 1, backgroundColor: '#f5f5f5'}}>
+    <ScrollView style={{flex: 1, backgroundColor: colors.primary.background}}>
       <View
         style={{
           flexDirection: 'row',
@@ -292,11 +293,17 @@ export const MonitorScreen: React.FC<MonitorScreenProps> = ({onLogout}) => {
           borderBottomColor: '#e0e0e0',
         }}>
         <View>
-          <Text style={{fontSize: 24, fontWeight: 'bold', color: '#333'}}>
+          <Text
+            style={{
+              fontSize: 24,
+              fontWeight: 'bold',
+              color: colors.primary.dark,
+            }}>
             Healthpuck
           </Text>
           {user && (
-            <Text style={{fontSize: 14, color: '#666', marginTop: 4}}>
+            <Text
+              style={{fontSize: 14, color: colors.primary.dark, marginTop: 4}}>
               {user.name}
             </Text>
           )}
@@ -329,7 +336,12 @@ export const MonitorScreen: React.FC<MonitorScreenProps> = ({onLogout}) => {
                 {backgroundColor: getConnectionStatusColor()},
               ]}
             />
-            <Text style={{fontSize: 16, fontWeight: '600', color: '#333'}}>
+            <Text
+              style={{
+                fontSize: 16,
+                fontWeight: '600',
+                color: colors.primary.dark,
+              }}>
               {getConnectionStatusText()}
             </Text>
           </View>
@@ -377,14 +389,14 @@ export const MonitorScreen: React.FC<MonitorScreenProps> = ({onLogout}) => {
             style={{
               fontSize: 18,
               fontWeight: '600',
-              color: '#333',
+              color: colors.primary.dark,
               marginBottom: 12,
             }}>
             Enheter
           </Text>
           <TouchableOpacity
             style={{
-              backgroundColor: '#007AFF',
+              backgroundColor: colors.primary.dark,
               borderRadius: 8,
               padding: 16,
               alignItems: 'center',
@@ -393,9 +405,14 @@ export const MonitorScreen: React.FC<MonitorScreenProps> = ({onLogout}) => {
             onPress={scanForDevices}
             disabled={isScanning}>
             {isScanning ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={colors.semantic.white} />
             ) : (
-              <Text style={{color: '#fff', fontSize: 16, fontWeight: '600'}}>
+              <Text
+                style={{
+                  color: colors.semantic.white,
+                  fontSize: 16,
+                  fontWeight: '600',
+                }}>
                 Sök efter enheter
               </Text>
             )}
@@ -416,7 +433,7 @@ export const MonitorScreen: React.FC<MonitorScreenProps> = ({onLogout}) => {
                       borderColor: '#e0e0e0',
                     },
                     selectedDevice?.id === device.id && {
-                      borderColor: '#007AFF',
+                      borderColor: colors.primary.dark,
                       borderWidth: 2,
                     },
                   ]}
@@ -425,7 +442,7 @@ export const MonitorScreen: React.FC<MonitorScreenProps> = ({onLogout}) => {
                     style={{
                       fontSize: 16,
                       fontWeight: '600',
-                      color: '#333',
+                      color: colors.primary.dark,
                       marginBottom: 4,
                     }}>
                     {device.name}
@@ -446,7 +463,7 @@ export const MonitorScreen: React.FC<MonitorScreenProps> = ({onLogout}) => {
               style={{
                 fontSize: 18,
                 fontWeight: '600',
-                color: '#333',
+                color: colors.primary.dark,
                 marginBottom: 12,
               }}>
               Övervakning

@@ -14,6 +14,8 @@ import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {useAuth} from '../contexts/AuthContext';
 import type {AuthStackParamList} from '../navigation/types';
 import HPTextInput from '../components/HPTextInput';
+import {Logo} from '../components/Logo/Logo';
+import {colors} from '../utils/theme';
 
 type NavigationProp = NativeStackNavigationProp<AuthStackParamList>;
 
@@ -57,15 +59,18 @@ export const RegisterScreen: React.FC = () => {
 
   return (
     <KeyboardAvoidingView
-      style={{flex: 1, backgroundColor: '#f5f5f5'}}
+      style={{flex: 1, backgroundColor: colors.primary.background}}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView contentContainerStyle={{flexGrow: 1}}>
         <View style={{flex: 1, justifyContent: 'center', padding: 20}}>
+          <View style={{alignItems: 'center', marginBottom: 16}}>
+            <Logo size="large" />
+          </View>
           <Text
             style={{
               fontSize: 32,
               fontWeight: 'bold',
-              color: '#333',
+              color: colors.primary.dark,
               textAlign: 'center',
               marginBottom: 8,
             }}>
@@ -74,7 +79,7 @@ export const RegisterScreen: React.FC = () => {
           <Text
             style={{
               fontSize: 18,
-              color: '#666',
+              color: colors.primary.dark,
               textAlign: 'center',
               marginBottom: 40,
             }}>
@@ -123,7 +128,7 @@ export const RegisterScreen: React.FC = () => {
             <TouchableOpacity
               style={[
                 {
-                  backgroundColor: '#007AFF',
+                  backgroundColor: colors.primary.dark,
                   borderRadius: 8,
                   padding: 16,
                   alignItems: 'center',
@@ -134,9 +139,14 @@ export const RegisterScreen: React.FC = () => {
               onPress={handleRegister}
               disabled={loading}>
               {loading ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color={colors.semantic.white} />
               ) : (
-                <Text style={{color: '#fff', fontSize: 16, fontWeight: '600'}}>
+                <Text
+                  style={{
+                    color: colors.semantic.white,
+                    fontSize: 16,
+                    fontWeight: '600',
+                  }}>
                   Registrera
                 </Text>
               )}
@@ -146,7 +156,7 @@ export const RegisterScreen: React.FC = () => {
               style={{marginTop: 16, alignItems: 'center'}}
               onPress={() => navigation.navigate('Login')}
               disabled={loading}>
-              <Text style={{color: '#007AFF', fontSize: 14}}>
+              <Text style={{color: colors.primary.dark, fontSize: 14}}>
                 Har du redan ett konto? Logga in
               </Text>
             </TouchableOpacity>

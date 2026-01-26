@@ -1,5 +1,6 @@
 import React from 'react';
 import {View, Text} from 'react-native';
+import {colors} from '../utils/theme';
 
 interface HeartRateCardProps {
   heartRate: number | null;
@@ -23,7 +24,8 @@ export const HeartRateCard: React.FC<HeartRateCardProps> = ({
           alignItems: 'center',
           marginBottom: 12,
         }}>
-        <Text style={{fontSize: 16, fontWeight: '600', color: '#333'}}>
+        <Text
+          style={{fontSize: 16, fontWeight: '600', color: colors.primary.dark}}>
           Hjärtfrekvens
         </Text>
         {connected && !isReadOnly && (

@@ -1,6 +1,7 @@
 import React from 'react';
 import {View, Text, TouchableOpacity} from 'react-native';
 import type {ActiveAlert} from '../types/api';
+import {colors} from '../utils/theme';
 
 interface AlertCardProps {
   alert: ActiveAlert;
@@ -59,7 +60,7 @@ export const AlertCard: React.FC<AlertCardProps> = ({alert, onDismiss}) => {
             style={{
               fontSize: 16,
               fontWeight: '600',
-              color: '#333',
+              color: colors.primary.dark,
               marginRight: 8,
             }}>
             {alert.alert.name}
@@ -85,13 +86,13 @@ export const AlertCard: React.FC<AlertCardProps> = ({alert, onDismiss}) => {
           <Text style={{fontSize: 24, color: '#999', lineHeight: 24}}>×</Text>
         </TouchableOpacity>
       </View>
-      <Text style={{fontSize: 12, color: '#666', marginBottom: 8}}>
+      <Text style={{fontSize: 12, color: colors.primary.dark, marginBottom: 8}}>
         {formatDate(alert.triggeredAt)}
       </Text>
       <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 12}}>
-        <Text style={{fontSize: 14, color: '#666'}}>
+        <Text style={{fontSize: 14, color: colors.primary.dark}}>
           Nuvarande värde:{' '}
-          <Text style={{fontWeight: '600', color: '#333'}}>
+          <Text style={{fontWeight: '600', color: colors.primary.dark}}>
             {alert.currentValue}
           </Text>
         </Text>
