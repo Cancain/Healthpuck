@@ -33,7 +33,7 @@ if (fs.existsSync(examplePath)) {
 }
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3001;
 const CORS_ORIGIN = process.env.CORS_ORIGIN || "http://localhost:3000";
 const allowedOrigins = CORS_ORIGIN.split(",")
   .map((o) => o.trim())
