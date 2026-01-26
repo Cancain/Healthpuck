@@ -8,6 +8,10 @@ import { deviceTokens, notificationPreferences, patientUsers, alerts } from "../
 
 let firebaseApp: admin.app.App | null = null;
 
+type AlertNotificationCache = Map<number, Date>;
+const alertNotificationCache: AlertNotificationCache = new Map();
+const NOTIFICATION_COOLDOWN_MS = 5 * 60 * 1000;
+
 export function initializeFirebase() {
   if (firebaseApp) {
     return firebaseApp;
@@ -144,10 +148,11 @@ export async function sendFCMNotification(
     await admin.messaging().send(message);
     console.log(`[Notification Service] FCM notification sent successfully`);
     return true;
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const firebaseError = error as { code?: string; message?: string };
     if (
-      error.code === "messaging/invalid-registration-token" ||
-      error.code === "messaging/registration-token-not-registered"
+      firebaseError.code === "messaging/invalid-registration-token" ||
+      firebaseError.code === "messaging/registration-token-not-registered"
     ) {
       console.log(`[Notification Service] Invalid token, removing: ${token.substring(0, 20)}...`);
       try {
@@ -167,8 +172,8 @@ export async function sendFCMNotification(
       }
     } else {
       console.error("[Notification Service] Failed to send FCM notification:", error);
-      console.error("[Notification Service] Error code:", error.code);
-      console.error("[Notification Service] Error message:", error.message);
+      console.error("[Notification Service] Error code:", firebaseError.code);
+      console.error("[Notification Service] Error message:", firebaseError.message);
     }
     return false;
   }
@@ -180,6 +185,20 @@ export async function sendAlertNotification(
   alertName: string,
   priority: "high" | "mid" | "low",
 ): Promise<void> {
+  const lastNotificationSent = alertNotificationCache.get(alertId);
+  if (lastNotificationSent) {
+    const timeSinceLastNotification = Date.now() - lastNotificationSent.getTime();
+    if (timeSinceLastNotification < NOTIFICATION_COOLDOWN_MS) {
+      const remainingMinutes = Math.ceil(
+        (NOTIFICATION_COOLDOWN_MS - timeSinceLastNotification) / (60 * 1000),
+      );
+      console.log(
+        `[Notification Service] Alert ${alertId} (${alertName}) rate limited - last notification sent ${Math.floor(timeSinceLastNotification / 1000)}s ago, waiting ${remainingMinutes} more minute(s)`,
+      );
+      return;
+    }
+  }
+
   const [alert] = await db.select().from(alerts).where(eq(alerts.id, alertId)).limit(1);
 
   if (!alert) {
@@ -246,5 +265,12 @@ export async function sendAlertNotification(
   );
   if (invalidTokens.length > 0) {
     console.log(`[Notification Service] Invalid tokens removed: ${invalidTokens.join(", ")}`);
+  }
+
+  if (successCount > 0) {
+    alertNotificationCache.set(alertId, new Date());
+    console.log(
+      `[Notification Service] Alert ${alertId} notification sent, cooldown started (5 minutes)`,
+    );
   }
 }

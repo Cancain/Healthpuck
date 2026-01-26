@@ -1,6 +1,7 @@
 import {
   getMessaging,
   requestPermission,
+  hasPermission,
   getToken,
   deleteToken,
   onNotificationOpenedApp,
@@ -25,6 +26,20 @@ export interface NotificationPreferences {
 
 class NotificationService {
   private tokenRegistered = false;
+
+  async checkPermissionStatus(): Promise<number> {
+    try {
+      const messaging = getMessaging();
+      const authStatus = await hasPermission(messaging);
+      console.log(
+        `[Notifications] Current permission status: ${authStatus} (${AuthorizationStatus[authStatus]})`,
+      );
+      return authStatus;
+    } catch (error) {
+      console.error('[Notifications] Error checking permission status:', error);
+      return AuthorizationStatus.NOT_DETERMINED;
+    }
+  }
 
   async requestPermissions(): Promise<boolean> {
     try {
@@ -52,8 +67,8 @@ class NotificationService {
 
   async registerToken(): Promise<void> {
     try {
-      const hasPermission = await this.requestPermissions();
-      if (!hasPermission) {
+      const permissionGranted = await this.requestPermissions();
+      if (!permissionGranted) {
         console.log(
           '[Notifications] No permission, skipping token registration',
         );

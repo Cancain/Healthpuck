@@ -12,6 +12,8 @@
     "backend/dist/**",
     "build/**",
     "dist/**",
+    "docs/static/**",
+    "public/**",
     "node_modules/**"
   ],
   "settings": {

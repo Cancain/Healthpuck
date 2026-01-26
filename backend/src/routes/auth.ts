@@ -3,19 +3,20 @@ import jwt from "jsonwebtoken";
 import { eq } from "drizzle-orm";
 
 import { db } from "../db";
-import { users } from "../db/schema";
+import { users, type User } from "../db/schema";
 import { verifyPassword, hashPassword } from "../utils/hash";
 
 const router = Router();
 
-const JWT_SECRET = process.env.JWT_SECRET || "";
+const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "7d";
 
-function signJwt(payload: any) {
+function signJwt(payload: object): string {
   if (!JWT_SECRET) {
     throw new Error("JWT_SECRET is not set");
   }
-  return (jwt.sign as any)(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN } as any);
+  // @ts-expect-error - jsonwebtoken types are overly strict for expiresIn
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
 }
 
 router.post("/register", async (req: Request, res: Response) => {
@@ -55,11 +56,12 @@ router.post("/register", async (req: Request, res: Response) => {
           password: hashedPassword,
         })
         .returning();
-    } catch (dbError: any) {
+    } catch (dbError: unknown) {
+      const error = dbError as { code?: number; message?: string };
       if (
-        dbError?.code === 19 ||
-        dbError?.message?.includes("UNIQUE constraint") ||
-        dbError?.message?.includes("unique constraint")
+        error?.code === 19 ||
+        error?.message?.includes("UNIQUE constraint") ||
+        error?.message?.includes("unique constraint")
       ) {
         return res.status(409).json({ error: "En användare med denna e-post finns redan" });
       }
@@ -77,7 +79,7 @@ router.post("/register", async (req: Request, res: Response) => {
       path: "/",
     });
 
-    const { password: _pw, ...safe } = newUser[0] as any;
+    const { password: _pw, ...safe } = newUser[0] as User;
     return res.status(201).json({ user: safe, token });
   } catch (err) {
     console.error("Registration error", err);
@@ -119,7 +121,7 @@ router.post("/login", async (req: Request, res: Response) => {
       path: "/",
     });
 
-    const { password: _pw, ...safe } = user as any;
+    const { password: _pw, ...safe } = user as User;
     // Return token in response for mobile clients
     return res.json({ user: safe, token });
   } catch (err) {
@@ -180,7 +182,8 @@ router.post("/logout", (req: Request, res: Response) => {
       path: "/",
     });
     return res.status(204).send();
-  } catch (err) {
+  } catch (err: unknown) {
+    console.error("Logout error", err);
     return res.status(500).json({ error: "Internal server error" });
   }
 });

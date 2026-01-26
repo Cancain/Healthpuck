@@ -13,4 +13,6 @@ backend/**/*.js
 # Build outputs
 build/
 dist/
+docs/static/
+public/
 node_modules/
