@@ -11,6 +11,7 @@ import {useAuth} from '../contexts/AuthContext';
 import {usePatient} from '../contexts/PatientContext';
 import {apiService} from '../services/api';
 import {bluetoothMonitoringService} from '../services/bluetoothMonitoring';
+import {bluetoothService} from '../services/bluetooth';
 import type {
   ActiveAlert,
   Medication,
@@ -256,7 +257,7 @@ export const DashboardScreen: React.FC = () => {
       bluetoothMonitoringService.setHeartRateCallback(callback);
 
       const checkConnection = setInterval(() => {
-        const connected = bluetoothMonitoringService.isActive();
+        const connected = bluetoothService.isConnected();
         setBluetoothConnected(connected);
       }, 2000);
 
@@ -408,9 +409,6 @@ export const DashboardScreen: React.FC = () => {
       </View>
 
       <View style={{padding: 20, marginTop: 8}}>
-        <Text style={{fontSize: 18, fontWeight: '600', color: '#333'}}>
-          Hjärtfrekvens
-        </Text>
         <HeartRateCard
           heartRate={heartRate}
           connected={bluetoothConnected}
