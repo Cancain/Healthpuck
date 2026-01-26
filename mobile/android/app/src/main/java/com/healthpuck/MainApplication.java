@@ -1,6 +1,9 @@
 package com.healthpuck;
 
 import android.app.Application;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.os.Build;
 import com.facebook.react.PackageList;
 import com.facebook.react.ReactApplication;
 import com.facebook.react.ReactHost;
@@ -67,5 +70,25 @@ public class MainApplication extends Application implements ReactApplication {
   public void onCreate() {
     super.onCreate();
     SoLoader.init(this, false);
+    createNotificationChannels();
+  }
+
+  private void createNotificationChannels() {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      NotificationManager manager = getSystemService(NotificationManager.class);
+      if (manager == null) {
+        return;
+      }
+
+      NotificationChannel alertsChannel = new NotificationChannel(
+          "alerts",
+          "Varningar",
+          NotificationManager.IMPORTANCE_HIGH);
+      alertsChannel.setDescription("Varningar och notifikationer");
+      alertsChannel.enableLights(true);
+      alertsChannel.enableVibration(true);
+      alertsChannel.setShowBadge(true);
+      manager.createNotificationChannel(alertsChannel);
+    }
   }
 }

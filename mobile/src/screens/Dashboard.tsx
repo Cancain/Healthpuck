@@ -6,9 +6,6 @@ import {
   RefreshControl,
   ActivityIndicator,
   Alert,
-  TouchableOpacity,
-  AppState,
-  type AppStateStatus,
 } from 'react-native';
 import {useAuth} from '../contexts/AuthContext';
 import {usePatient} from '../contexts/PatientContext';
@@ -41,13 +38,6 @@ export const DashboardScreen: React.FC = () => {
   const [whoopLoading, setWhoopLoading] = useState(false);
   const [heartRate, setHeartRate] = useState<number | null>(null);
   const [bluetoothConnected, setBluetoothConnected] = useState(false);
-  const [sendingTestNotification, setSendingTestNotification] = useState(false);
-  const [notificationTimer, setNotificationTimer] = useState<number | null>(
-    null,
-  );
-  const [countdown, setCountdown] = useState<number | null>(null);
-  const [appState, setAppState] = useState(AppState.currentState);
-  const [scheduledDelay, setScheduledDelay] = useState<number | null>(null);
   const alertsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const heartRateIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
     null,
@@ -257,12 +247,13 @@ export const DashboardScreen: React.FC = () => {
 
   useEffect(() => {
     if (isPatientRole) {
-      bluetoothMonitoringService.setHeartRateCallback((hr: number) => {
+      const callback = (hr: number) => {
         console.log(
           `[Dashboard] Heart rate update from global service: ${hr} bpm`,
         );
         setHeartRate(hr);
-      });
+      };
+      bluetoothMonitoringService.setHeartRateCallback(callback);
 
       const checkConnection = setInterval(() => {
         const connected = bluetoothMonitoringService.isActive();
@@ -307,27 +298,6 @@ export const DashboardScreen: React.FC = () => {
     };
   }, [startAlertsPolling, startHeartRatePolling]);
 
-  useEffect(() => {
-    const subscription = AppState.addEventListener(
-      'change',
-      (nextAppState: AppStateStatus) => {
-        setAppState(nextAppState);
-      },
-    );
-
-    return () => {
-      subscription.remove();
-    };
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (notificationTimer) {
-        clearInterval(notificationTimer);
-      }
-    };
-  }, [notificationTimer]);
-
   const latestCheckInByMedication = React.useMemo(() => {
     if (!checkIns) {
       return new Map();
@@ -345,44 +315,6 @@ export const DashboardScreen: React.FC = () => {
     }
     return map;
   }, [checkIns]);
-
-  const handleSendTestNotification = async (delaySeconds: number = 0) => {
-    try {
-      setSendingTestNotification(true);
-      const result = await apiService.sendTestNotification(delaySeconds);
-
-      if (result.scheduled && delaySeconds > 0) {
-        setCountdown(delaySeconds);
-        setScheduledDelay(delaySeconds);
-        const interval = setInterval(() => {
-          setCountdown(prev => {
-            if (prev === null || prev <= 1) {
-              clearInterval(interval);
-              setCountdown(null);
-              setScheduledDelay(null);
-              return null;
-            }
-            return prev - 1;
-          });
-        }, 1000);
-        setNotificationTimer(interval as any);
-
-        Alert.alert(
-          'Test Notification Scheduled',
-          `Notification will be sent in ${delaySeconds} seconds. Put the app in background to test. The countdown may pause, but the notification will still be sent.`,
-        );
-      } else {
-        Alert.alert(
-          'Test Notification Sent',
-          result.message || `Sent to ${result.sent} device(s)`,
-        );
-      }
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to send test notification');
-    } finally {
-      setSendingTestNotification(false);
-    }
-  };
 
   return (
     <ScrollView
@@ -431,81 +363,6 @@ export const DashboardScreen: React.FC = () => {
             </Text>
           </View>
         )}
-        <View style={{marginTop: 12}}>
-          <Text
-            style={{
-              fontSize: 12,
-              color: '#666',
-              marginBottom: 8,
-              textAlign: 'center',
-            }}>
-            {scheduledDelay !== null
-              ? appState === 'background' || appState === 'inactive'
-                ? `Notification scheduled (${scheduledDelay}s). Countdown paused in background, but notification will still be sent!`
-                : `Notification scheduled: ${
-                    countdown !== null ? countdown : scheduledDelay
-                  }s remaining`
-              : '[TEST] Notification Testing'}
-          </Text>
-          <View
-            style={{
-              flexDirection: 'row',
-              gap: 8,
-            }}>
-            <TouchableOpacity
-              onPress={() => handleSendTestNotification(0)}
-              disabled={sendingTestNotification || countdown !== null}
-              style={{
-                flex: 1,
-                backgroundColor: '#4CAF50',
-                padding: 12,
-                borderRadius: 8,
-                alignItems: 'center',
-                opacity:
-                  sendingTestNotification || countdown !== null ? 0.6 : 1,
-              }}>
-              {sendingTestNotification && countdown === null ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Text style={{color: '#fff', fontWeight: '600', fontSize: 12}}>
-                  Send Now
-                </Text>
-              )}
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => handleSendTestNotification(5)}
-              disabled={sendingTestNotification || countdown !== null}
-              style={{
-                flex: 1,
-                backgroundColor: '#2196F3',
-                padding: 12,
-                borderRadius: 8,
-                alignItems: 'center',
-                opacity:
-                  sendingTestNotification || countdown !== null ? 0.6 : 1,
-              }}>
-              <Text style={{color: '#fff', fontWeight: '600', fontSize: 12}}>
-                5s Timer
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => handleSendTestNotification(10)}
-              disabled={sendingTestNotification || countdown !== null}
-              style={{
-                flex: 1,
-                backgroundColor: '#FF9800',
-                padding: 12,
-                borderRadius: 8,
-                alignItems: 'center',
-                opacity:
-                  sendingTestNotification || countdown !== null ? 0.6 : 1,
-              }}>
-              <Text style={{color: '#fff', fontWeight: '600', fontSize: 12}}>
-                10s Timer
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
       </View>
 
       <View style={{padding: 20, marginTop: 8}}>

@@ -45,7 +45,43 @@ router.post("/", authenticate, async (req: Request, res: Response) => {
 
     whoopRateLimiter.cacheHeartRate(context.patientId, heartRate);
 
+    console.log(
+      `[Heart Rate POST] Heart rate ${heartRate} bpm saved and cached for patient ${context.patientId}`,
+    );
+
     broadcastHeartRateToCaregivers(context.patientId, heartRate, timestamp.getTime());
+
+    try {
+      const { evaluateAllAlerts } = await import("../utils/alertEvaluator");
+      const { getActiveAlertsForPatient } = await import("../utils/alertScheduler");
+      const { sendAlertNotification } = await import("../utils/notificationService");
+
+      const previousActiveIds = new Set(getActiveAlertsForPatient(context.patientId));
+
+      const activeAlerts = await evaluateAllAlerts(context.patientId);
+
+      console.log(
+        `[Heart Rate POST] Evaluated alerts: ${activeAlerts.length} active, previous: ${previousActiveIds.size}`,
+      );
+
+      for (const activeAlert of activeAlerts) {
+        const alert = activeAlert.alert;
+        const isNewlyTriggered = !previousActiveIds.has(alert.id);
+
+        console.log(
+          `[Heart Rate POST] Alert ${alert.id} (${alert.name}): currentValue=${activeAlert.currentValue}, isActive=${activeAlert.isActive}, newlyTriggered=${isNewlyTriggered}`,
+        );
+
+        if (isNewlyTriggered) {
+          console.log(
+            `[Heart Rate POST] Newly triggered alert ${alert.id} (${alert.name}), sending notification`,
+          );
+          await sendAlertNotification(alert.id, context.patientId, alert.name, alert.priority);
+        }
+      }
+    } catch (error) {
+      console.error("[Heart Rate POST] Error evaluating alerts after upload:", error);
+    }
 
     res.json({
       success: true,

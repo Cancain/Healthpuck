@@ -3,7 +3,6 @@ import {
   requestPermission,
   getToken,
   deleteToken,
-  setBackgroundMessageHandler,
   onNotificationOpenedApp,
   getInitialNotification,
   onMessage,
@@ -35,6 +34,9 @@ class NotificationService {
         authStatus === AuthorizationStatus.AUTHORIZED ||
         authStatus === AuthorizationStatus.PROVISIONAL;
 
+      console.log(
+        `[Notifications] Permission status: ${authStatus} (${AuthorizationStatus[authStatus]})`,
+      );
       if (enabled) {
         console.log('[Notifications] Permission granted');
         return true;
@@ -50,10 +52,6 @@ class NotificationService {
 
   async registerToken(): Promise<void> {
     try {
-      if (this.tokenRegistered) {
-        return;
-      }
-
       const hasPermission = await this.requestPermissions();
       if (!hasPermission) {
         console.log(
@@ -72,14 +70,24 @@ class NotificationService {
       const platform = Platform.OS === 'ios' ? 'ios' : 'android';
       await apiService.registerDeviceToken(token, platform);
       this.tokenRegistered = true;
-      console.log('[Notifications] Token registered successfully');
+      console.log(
+        '[Notifications] Token registered successfully:',
+        token.substring(0, 20) + '...',
+      );
 
       onTokenRefresh(messaging, async newToken => {
-        console.log('[Notifications] Token refreshed');
+        console.log('[Notifications] Token refreshed, re-registering...');
+        this.tokenRegistered = false;
         await apiService.registerDeviceToken(newToken, platform);
+        this.tokenRegistered = true;
+        console.log(
+          '[Notifications] New token registered:',
+          newToken.substring(0, 20) + '...',
+        );
       });
     } catch (error) {
       console.error('[Notifications] Error registering token:', error);
+      this.tokenRegistered = false;
     }
   }
 
@@ -122,13 +130,6 @@ class NotificationService {
 
   setupNotificationHandlers(): void {
     const messaging = getMessaging();
-
-    setBackgroundMessageHandler(messaging, async remoteMessage => {
-      console.log(
-        '[Notifications] Background message received:',
-        remoteMessage,
-      );
-    });
 
     onNotificationOpenedApp(messaging, remoteMessage => {
       console.log('[Notifications] Notification opened app:', remoteMessage);

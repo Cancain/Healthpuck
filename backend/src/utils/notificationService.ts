@@ -132,12 +132,17 @@ export async function sendFCMNotification(
           aps: {
             sound: "default",
             badge: 1,
+            "content-available": 1,
           },
         },
       },
     };
 
+    console.log(
+      `[Notification Service] Sending FCM notification: title="${title}", body="${body}", channelId=alerts, platform=${message.android ? "android" : message.apns ? "ios" : "unknown"}`,
+    );
     await admin.messaging().send(message);
+    console.log(`[Notification Service] FCM notification sent successfully`);
     return true;
   } catch (error: any) {
     if (
@@ -145,9 +150,25 @@ export async function sendFCMNotification(
       error.code === "messaging/registration-token-not-registered"
     ) {
       console.log(`[Notification Service] Invalid token, removing: ${token.substring(0, 20)}...`);
-      await db.delete(deviceTokens).where(eq(deviceTokens.token, token));
+      try {
+        const [tokenRecord] = await db
+          .select({ userId: deviceTokens.userId })
+          .from(deviceTokens)
+          .where(eq(deviceTokens.token, token))
+          .limit(1);
+        if (tokenRecord) {
+          console.log(
+            `[Notification Service] Token belongs to user ${tokenRecord.userId}, removing invalid token`,
+          );
+        }
+        await db.delete(deviceTokens).where(eq(deviceTokens.token, token));
+      } catch (deleteError) {
+        console.error("[Notification Service] Error removing invalid token:", deleteError);
+      }
     } else {
       console.error("[Notification Service] Failed to send FCM notification:", error);
+      console.error("[Notification Service] Error code:", error.code);
+      console.error("[Notification Service] Error message:", error.message);
     }
     return false;
   }
@@ -190,17 +211,24 @@ export async function sendAlertNotification(
 
   let successCount = 0;
   let failCount = 0;
+  const invalidTokens: string[] = [];
 
   for (const userId of recipients) {
     const shouldSend = await shouldSendNotification(userId, priority);
     if (!shouldSend) {
+      console.log(
+        `[Notification Service] Skipping user ${userId} - notifications disabled for priority ${priority}`,
+      );
       continue;
     }
 
     const tokens = await getDeviceTokensForUser(userId);
     if (tokens.length === 0) {
+      console.log(`[Notification Service] No device tokens found for user ${userId}`);
       continue;
     }
+
+    console.log(`[Notification Service] Sending to user ${userId} (${tokens.length} token(s))`);
 
     for (const token of tokens) {
       const success = await sendFCMNotification(token, title, body, data);
@@ -208,11 +236,15 @@ export async function sendAlertNotification(
         successCount++;
       } else {
         failCount++;
+        invalidTokens.push(token.substring(0, 20) + "...");
       }
     }
   }
 
   console.log(
-    `[Notification Service] Sent ${successCount} notifications, ${failCount} failed for alert ${alertId}`,
+    `[Notification Service] Alert ${alertId}: Sent ${successCount} notifications, ${failCount} failed`,
   );
+  if (invalidTokens.length > 0) {
+    console.log(`[Notification Service] Invalid tokens removed: ${invalidTokens.join(", ")}`);
+  }
 }
