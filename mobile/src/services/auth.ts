@@ -29,7 +29,8 @@ export class AuthService {
 
   async login(email: string, password: string): Promise<LoginResponse> {
     try {
-      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.LOGIN}`, {
+      const url = `${API_BASE_URL}${API_ENDPOINTS.LOGIN}`;
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -57,8 +58,19 @@ export class AuthService {
       this.currentUser = data.user;
 
       return data;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Login error:', error);
+      if (
+        error.message?.includes('Network') ||
+        error.message?.includes('fetch') ||
+        error.name === 'NetworkError' ||
+        error.name === 'ConnectionError' ||
+        error.name === 'TypeError'
+      ) {
+        throw new Error(
+          `Cannot connect to server at ${API_BASE_URL}. Please check your internet connection and ensure the backend server is running.`,
+        );
+      }
       throw error;
     }
   }

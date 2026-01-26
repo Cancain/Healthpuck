@@ -1,5 +1,6 @@
 import {API_BASE_URL, API_ENDPOINTS} from '../config';
 import {authService} from './auth';
+import {getMessaging, getToken} from '@react-native-firebase/messaging';
 import type {
   User,
   Patient,
@@ -129,27 +130,54 @@ export class ApiService {
     endpoint: string,
     options: RequestInit = {},
   ): Promise<T> {
-    const headers = await this.getAuthHeaders();
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      ...options,
-      headers: {
-        ...headers,
-        ...options.headers,
-      },
-    });
+    try {
+      const headers = await this.getAuthHeaders();
+      const url = `${API_BASE_URL}${endpoint}`;
 
-    if (!response.ok) {
-      if (response.status === 401) {
-        await authService.logout();
-        throw new Error('Authentication failed');
+      const response = await fetch(url, {
+        ...options,
+        headers: {
+          ...headers,
+          ...options.headers,
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          await authService.logout();
+          throw new Error('Authentication failed');
+        }
+        let errorMessage = 'Request failed';
+        try {
+          const error = await response.json();
+          errorMessage = error.error || error.message || 'Request failed';
+        } catch {
+          errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        }
+        throw new Error(errorMessage);
       }
-      const error = await response
-        .json()
-        .catch(() => ({error: 'Request failed'}));
-      throw new Error(error.error || 'Request failed');
-    }
 
-    return response.json();
+      return response.json();
+    } catch (error: any) {
+      if (
+        error.message === 'Network request failed' ||
+        error.message?.includes('Network')
+      ) {
+        const networkError = new Error(
+          `Network error: Unable to connect to ${API_BASE_URL}. Please check your internet connection and ensure the backend server is running.`,
+        );
+        networkError.name = 'NetworkError';
+        throw networkError;
+      }
+      if (error.name === 'TypeError' && error.message?.includes('fetch')) {
+        const fetchError = new Error(
+          `Connection error: Could not reach ${API_BASE_URL}. Please verify the backend URL is correct and the server is running.`,
+        );
+        fetchError.name = 'ConnectionError';
+        throw fetchError;
+      }
+      throw error;
+    }
   }
 
   async getMe(): Promise<User> {
@@ -407,8 +435,8 @@ export class ApiService {
 
   private async getFCMToken(): Promise<string | null> {
     try {
-      const messagingModule = await import('@react-native-firebase/messaging');
-      return await messagingModule.default().getToken();
+      const messaging = getMessaging();
+      return await getToken(messaging);
     } catch {
       return null;
     }
@@ -446,6 +474,36 @@ export class ApiService {
       method: 'PUT',
       body: JSON.stringify(preferences),
     });
+  }
+
+  async sendTestNotification(delaySeconds: number = 0): Promise<{
+    success: boolean;
+    message: string;
+    sent?: number;
+    failed?: number;
+    scheduled?: boolean;
+    delaySeconds?: number;
+  }> {
+    try {
+      return await this.request<{
+        success: boolean;
+        message: string;
+        sent?: number;
+        failed?: number;
+        scheduled?: boolean;
+        delaySeconds?: number;
+      }>('/api/notifications/test', {
+        method: 'POST',
+        body: JSON.stringify({delay: delaySeconds}),
+      });
+    } catch (error: any) {
+      if (error.message?.includes('Firebase not configured')) {
+        throw new Error(
+          'Firebase is not configured on the backend. Please set FIREBASE_SERVICE_ACCOUNT_KEY environment variable. See FIREBASE_SETUP_GUIDE.md for setup instructions.',
+        );
+      }
+      throw error;
+    }
   }
 }
 

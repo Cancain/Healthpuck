@@ -30,10 +30,14 @@ export const initializeDatabase = async () => {
     // Check what migrations Drizzle thinks have been applied
     let appliedMigrations: any[] = [];
     try {
-      appliedMigrations = await db.all(
-        sql`SELECT id, hash, created_at FROM __drizzle_migrations ORDER BY created_at`,
-      );
-      console.log("Previously applied migrations:", appliedMigrations);
+      appliedMigrations = await db.all(sql`SELECT * FROM __drizzle_migrations ORDER BY created_at`);
+      const migrationIds = appliedMigrations
+        .map((m: any) => {
+          // Drizzle may use different column names, try common ones
+          return m.id || m.hash || m.tag || Object.values(m)[0];
+        })
+        .filter(Boolean);
+      console.log("Previously applied migrations:", migrationIds);
     } catch (err) {
       console.log("No migration tracking table found yet (first run)");
     }
@@ -52,30 +56,49 @@ export const initializeDatabase = async () => {
 
     // Check if all expected migrations were applied
     const recheckApplied = await db.all(
-      sql`SELECT id, hash, created_at FROM __drizzle_migrations ORDER BY created_at`,
+      sql`SELECT * FROM __drizzle_migrations ORDER BY created_at`,
     );
+    const recheckIds = recheckApplied
+      .map((m: any) => {
+        return m.id || m.hash || m.tag || Object.values(m)[0];
+      })
+      .filter(Boolean);
     console.log(
       `Migration check: ${appliedMigrations.length} -> ${recheckApplied.length} migrations recorded`,
     );
+    console.log("Applied migration IDs:", recheckIds);
 
-    // If migrations didn't run, try to manually execute them
-    if (
-      recheckApplied.length === appliedMigrations.length &&
-      recheckApplied.length < expectedMigrations.length
-    ) {
+    // Check if critical tables exist before trying to apply migrations
+    const checkTable = async (tableName: string): Promise<boolean> => {
+      try {
+        const result = await db.all(
+          sql`SELECT name FROM sqlite_master WHERE type='table' AND name=${tableName}`,
+        );
+        return result.length > 0;
+      } catch {
+        return false;
+      }
+    };
+
+    const deviceTokensExists = await checkTable("device_tokens");
+    const notificationPrefsExists = await checkTable("notification_preferences");
+
+    // Only apply migrations 0008 and 0009 if the tables don't exist
+    const migrationsToApply: string[] = [];
+    if (!deviceTokensExists && expectedMigrations.includes("0008_device_tokens")) {
+      migrationsToApply.push("0008_device_tokens");
+    }
+    if (!notificationPrefsExists && expectedMigrations.includes("0009_notification_preferences")) {
+      migrationsToApply.push("0009_notification_preferences");
+    }
+
+    if (migrationsToApply.length > 0) {
       console.warn(
-        "WARNING: Migrations may not have executed. Attempting to manually apply missing migrations...",
+        `WARNING: Found ${migrationsToApply.length} missing tables. Applying migrations: ${migrationsToApply.join(", ")}`,
       );
 
       // Try to manually execute the SQL files for missing migrations
-      for (let i = 0; i < expectedMigrations.length; i++) {
-        const migrationTag = expectedMigrations[i];
-        // Skip if we already have at least i+1 migrations applied
-        if (i < recheckApplied.length) {
-          console.log(`Migration ${migrationTag} appears to be applied, skipping manual execution`);
-          continue;
-        }
-
+      for (const migrationTag of migrationsToApply) {
         const migrationFile = path.join(migrationsFolder, `${migrationTag}.sql`);
         if (fs.existsSync(migrationFile)) {
           const migrationSQL = fs.readFileSync(migrationFile, "utf-8");
@@ -110,9 +133,16 @@ export const initializeDatabase = async () => {
                   console.log(
                     `  (Statement already applied, skipping: ${errorMsg.substring(0, 100)})`,
                   );
+                } else if (
+                  errorMsg.includes("no such column") ||
+                  errorMsg.includes("no such table")
+                ) {
+                  console.warn(
+                    `  (Skipping statement that references non-existent column/table: ${errorMsg.substring(0, 100)})`,
+                  );
                 } else {
                   console.error(`  Error executing statement:`, errorMsg);
-                  // Don't throw - continue with other statements
+                  throw err;
                 }
               }
             }
@@ -125,6 +155,7 @@ export const initializeDatabase = async () => {
       console.log("Re-running migrate to update tracking table...");
       try {
         await migrate(db, { migrationsFolder });
+        console.log("Migration tracking updated successfully");
       } catch (err) {
         console.log(
           "Note: migrate() may report errors if migrations were manually applied, this is expected",
@@ -140,6 +171,8 @@ export const initializeDatabase = async () => {
       "medications",
       "medication_intakes",
       "medication_check_ins",
+      "device_tokens",
+      "notification_preferences",
     ];
     const missingTables: string[] = [];
 

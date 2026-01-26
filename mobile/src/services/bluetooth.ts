@@ -186,14 +186,29 @@ export class BluetoothService {
       BleManager.addListener(
         'BleManagerDidUpdateValueForCharacteristic',
         data => {
+          console.log(
+            `[BluetoothService] Notification received: peripheral=${data.peripheral}, characteristic=${data.characteristic}, expectedPeripheral=${this.connectedDeviceId}`,
+          );
           if (
             data.peripheral === this.connectedDeviceId &&
             data.characteristic === HEART_RATE_MEASUREMENT_CHARACTERISTIC_UUID
           ) {
             const heartRate = this.parseHeartRate(data.value);
+            console.log(
+              '[BluetoothService] Parsed heart rate:',
+              heartRate + ' bpm',
+            );
             if (heartRate > 0 && heartRate < 300) {
               callback(heartRate);
+            } else {
+              console.log(
+                `[BluetoothService] Heart rate out of range: ${heartRate}`,
+              );
             }
+          } else {
+            console.log(
+              '[BluetoothService] Notification ignored - not matching device/characteristic',
+            );
           }
         },
       );
@@ -214,7 +229,9 @@ export class BluetoothService {
         console.log('Read not supported, relying on notifications');
       }
 
-      console.log('Heart rate monitoring started');
+      console.log(
+        `[BluetoothService] Heart rate monitoring started for device: ${this.connectedDeviceId}`,
+      );
     } catch (error) {
       this.isMonitoring = false;
       console.error('Error starting heart rate monitoring:', error);
@@ -287,6 +304,10 @@ export class BluetoothService {
 
   isConnected(): boolean {
     return this.connectionState === 'connected';
+  }
+
+  isMonitoringActive(): boolean {
+    return this.isMonitoring;
   }
 }
 

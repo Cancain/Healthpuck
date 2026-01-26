@@ -6,6 +6,9 @@ import {
   RefreshControl,
   ActivityIndicator,
   Alert,
+  TouchableOpacity,
+  AppState,
+  type AppStateStatus,
 } from 'react-native';
 import {useAuth} from '../contexts/AuthContext';
 import {usePatient} from '../contexts/PatientContext';
@@ -40,6 +43,14 @@ export const DashboardScreen: React.FC = () => {
   const [heartRate, setHeartRate] = useState<number | null>(null);
   const [bluetoothConnected, setBluetoothConnected] = useState(false);
   const [isMonitoring, setIsMonitoring] = useState(false);
+  const lastBluetoothUpdateRef = useRef<number | null>(null);
+  const [sendingTestNotification, setSendingTestNotification] = useState(false);
+  const [notificationTimer, setNotificationTimer] = useState<number | null>(
+    null,
+  );
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const [appState, setAppState] = useState(AppState.currentState);
+  const [scheduledDelay, setScheduledDelay] = useState<number | null>(null);
   const alertsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const heartRateIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
     null,
@@ -132,13 +143,27 @@ export const DashboardScreen: React.FC = () => {
   const loadHeartRate = useCallback(async () => {
     try {
       const currentPatientId = patientIdRef.current;
+      if (!currentPatientId) {
+        console.log('[Heart Rate] No patient ID available, skipping load');
+        return;
+      }
+      console.log(
+        `[Heart Rate] Loading heart rate for patient ${currentPatientId}`,
+      );
       const response = await apiService.getHeartRate(currentPatientId);
       if (response.heartRate !== null && response.heartRate !== undefined) {
+        console.log(
+          `[Heart Rate] Loaded: ${response.heartRate} bpm (cached: ${response.cached})`,
+        );
         setHeartRate(response.heartRate);
+      } else {
+        console.log('[Heart Rate] No heart rate data in response');
       }
     } catch (error: any) {
       if (!error.message?.includes('404')) {
-        console.error('Error loading heart rate:', error);
+        console.error('[Heart Rate] Error loading heart rate:', error);
+      } else {
+        console.log('[Heart Rate] No heart rate data found (404)');
       }
     }
   }, []);
@@ -169,16 +194,52 @@ export const DashboardScreen: React.FC = () => {
     }
     heartRateIntervalRef.current = setInterval(() => {
       const currentPatientId = patientIdRef.current;
+      if (!currentPatientId) {
+        console.log('[Heart Rate] No patient ID available, skipping poll');
+        return;
+      }
+      const lastBluetoothUpdate = lastBluetoothUpdateRef.current;
+      const timeSinceBluetoothUpdate = lastBluetoothUpdate
+        ? Date.now() - lastBluetoothUpdate
+        : Infinity;
+
       apiService
         .getHeartRate(currentPatientId)
         .then(response => {
           if (response.heartRate !== null && response.heartRate !== undefined) {
-            setHeartRate(response.heartRate);
+            const newHeartRate = response.heartRate;
+            const timestamp = response.timestamp || Date.now();
+            const ageMs = Date.now() - timestamp;
+            const ageSeconds = Math.floor(ageMs / 1000);
+
+            console.log(
+              `[Heart Rate] Poll result: ${newHeartRate} bpm (cached: ${
+                response.cached
+              }, age: ${ageSeconds}s, last BT update: ${Math.floor(
+                timeSinceBluetoothUpdate / 1000,
+              )}s ago)`,
+            );
+
+            if (timeSinceBluetoothUpdate < 5000) {
+              console.log(
+                `[Heart Rate] Skipping update - recent Bluetooth reading (${Math.floor(
+                  timeSinceBluetoothUpdate / 1000,
+                )}s ago)`,
+              );
+            } else if (ageSeconds < 30) {
+              setHeartRate(newHeartRate);
+            } else {
+              console.log(
+                `[Heart Rate] Backend data is ${ageSeconds}s old, keeping current value`,
+              );
+            }
+          } else {
+            console.log('[Heart Rate] No heart rate data available');
           }
         })
         .catch((error: any) => {
           if (!error.message?.includes('404')) {
-            console.error('Error loading heart rate:', error);
+            console.error('[Heart Rate] Error loading heart rate:', error);
           }
         });
     }, 10000);
@@ -190,34 +251,57 @@ export const DashboardScreen: React.FC = () => {
     setRefreshing(false);
   }, [loadData]);
 
-  const setupBluetoothMonitoring = async () => {
+  const setupBluetoothMonitoring = useCallback(async () => {
     try {
       await bluetoothService.initialize();
       const connected = bluetoothService.isConnected();
       setBluetoothConnected(connected);
 
-      if (connected) {
+      console.log(
+        `[Dashboard] Bluetooth setup: connected=${connected}, isMonitoring=${isMonitoring}`,
+      );
+
+      if (connected && !isMonitoring) {
         const handleHeartRate = async (hr: number) => {
+          console.log(`[Bluetooth] Heart rate received: ${hr} bpm`);
           setHeartRate(hr);
+          lastBluetoothUpdateRef.current = Date.now();
           try {
             await apiService.uploadHeartRate(hr, 'bluetooth');
+            console.log(
+              `[Bluetooth] Heart rate uploaded successfully: ${hr} bpm`,
+            );
           } catch (error) {
-            console.error('Failed to upload heart rate:', error);
+            console.error('[Bluetooth] Failed to upload heart rate:', error);
           }
         };
 
-        await bluetoothService.startHeartRateMonitoring(handleHeartRate);
-        setIsMonitoring(true);
         try {
-          await backgroundService.startService();
-        } catch (error) {
-          console.warn('Failed to start background service:', error);
+          await bluetoothService.startHeartRateMonitoring(handleHeartRate);
+          setIsMonitoring(true);
+          console.log('[Dashboard] Heart rate monitoring started');
+          try {
+            await backgroundService.startService();
+          } catch (error) {
+            console.warn('Failed to start background service:', error);
+          }
+        } catch (error: any) {
+          console.error(
+            '[Dashboard] Failed to start heart rate monitoring:',
+            error,
+          );
         }
+      } else if (connected && isMonitoring) {
+        console.log('[Dashboard] Already monitoring, skipping setup');
+      } else {
+        console.log(
+          '[Dashboard] Device not connected, cannot start monitoring',
+        );
       }
     } catch (error) {
       console.error('Error setting up Bluetooth:', error);
     }
-  };
+  }, [isMonitoring]);
 
   useEffect(() => {
     patientIdRef.current = patient?.id;
@@ -228,7 +312,48 @@ export const DashboardScreen: React.FC = () => {
     if (isPatientRole) {
       setupBluetoothMonitoring();
     }
-  }, [isPatientRole, loadData]);
+  }, [isPatientRole, loadData, setupBluetoothMonitoring]);
+
+  useEffect(() => {
+    if (isPatientRole) {
+      const checkConnection = setInterval(() => {
+        const connected = bluetoothService.isConnected();
+        const currentlyMonitoring = bluetoothService.isMonitoringActive();
+        if (connected !== bluetoothConnected) {
+          console.log(
+            `[Dashboard] Bluetooth connection state changed: ${bluetoothConnected} -> ${connected}`,
+          );
+          setBluetoothConnected(connected);
+        }
+        if (connected && !isMonitoring && !currentlyMonitoring) {
+          console.log(
+            '[Dashboard] Device connected but not monitoring, starting...',
+          );
+          setupBluetoothMonitoring();
+        }
+      }, 2000);
+
+      return () => clearInterval(checkConnection);
+    }
+  }, [
+    isPatientRole,
+    bluetoothConnected,
+    isMonitoring,
+    setupBluetoothMonitoring,
+  ]);
+
+  useEffect(() => {
+    if (patient?.id) {
+      console.log(
+        `[Heart Rate] Patient changed, restarting polling for patient ${patient.id}`,
+      );
+      if (heartRateIntervalRef.current) {
+        clearInterval(heartRateIntervalRef.current);
+      }
+      startHeartRatePolling();
+      loadHeartRate();
+    }
+  }, [patient?.id, startHeartRatePolling, loadHeartRate]);
 
   useEffect(() => {
     startAlertsPolling();
@@ -244,13 +369,29 @@ export const DashboardScreen: React.FC = () => {
   }, [startAlertsPolling, startHeartRatePolling]);
 
   useEffect(() => {
+    const subscription = AppState.addEventListener(
+      'change',
+      (nextAppState: AppStateStatus) => {
+        setAppState(nextAppState);
+      },
+    );
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
+  useEffect(() => {
     return () => {
       if (isMonitoring) {
         bluetoothService.stopHeartRateMonitoring();
         backgroundService.stopService().catch(() => {});
       }
+      if (notificationTimer) {
+        clearInterval(notificationTimer);
+      }
     };
-  }, [isMonitoring]);
+  }, [isMonitoring, notificationTimer]);
 
   const latestCheckInByMedication = React.useMemo(() => {
     if (!checkIns) {
@@ -269,6 +410,44 @@ export const DashboardScreen: React.FC = () => {
     }
     return map;
   }, [checkIns]);
+
+  const handleSendTestNotification = async (delaySeconds: number = 0) => {
+    try {
+      setSendingTestNotification(true);
+      const result = await apiService.sendTestNotification(delaySeconds);
+
+      if (result.scheduled && delaySeconds > 0) {
+        setCountdown(delaySeconds);
+        setScheduledDelay(delaySeconds);
+        const interval = setInterval(() => {
+          setCountdown(prev => {
+            if (prev === null || prev <= 1) {
+              clearInterval(interval);
+              setCountdown(null);
+              setScheduledDelay(null);
+              return null;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+        setNotificationTimer(interval as any);
+
+        Alert.alert(
+          'Test Notification Scheduled',
+          `Notification will be sent in ${delaySeconds} seconds. Put the app in background to test. The countdown may pause, but the notification will still be sent.`,
+        );
+      } else {
+        Alert.alert(
+          'Test Notification Sent',
+          result.message || `Sent to ${result.sent} device(s)`,
+        );
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to send test notification');
+    } finally {
+      setSendingTestNotification(false);
+    }
+  };
 
   return (
     <ScrollView
@@ -317,6 +496,81 @@ export const DashboardScreen: React.FC = () => {
             </Text>
           </View>
         )}
+        <View style={{marginTop: 12}}>
+          <Text
+            style={{
+              fontSize: 12,
+              color: '#666',
+              marginBottom: 8,
+              textAlign: 'center',
+            }}>
+            {scheduledDelay !== null
+              ? appState === 'background' || appState === 'inactive'
+                ? `Notification scheduled (${scheduledDelay}s). Countdown paused in background, but notification will still be sent!`
+                : `Notification scheduled: ${
+                    countdown !== null ? countdown : scheduledDelay
+                  }s remaining`
+              : '[TEST] Notification Testing'}
+          </Text>
+          <View
+            style={{
+              flexDirection: 'row',
+              gap: 8,
+            }}>
+            <TouchableOpacity
+              onPress={() => handleSendTestNotification(0)}
+              disabled={sendingTestNotification || countdown !== null}
+              style={{
+                flex: 1,
+                backgroundColor: '#4CAF50',
+                padding: 12,
+                borderRadius: 8,
+                alignItems: 'center',
+                opacity:
+                  sendingTestNotification || countdown !== null ? 0.6 : 1,
+              }}>
+              {sendingTestNotification && countdown === null ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={{color: '#fff', fontWeight: '600', fontSize: 12}}>
+                  Send Now
+                </Text>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => handleSendTestNotification(5)}
+              disabled={sendingTestNotification || countdown !== null}
+              style={{
+                flex: 1,
+                backgroundColor: '#2196F3',
+                padding: 12,
+                borderRadius: 8,
+                alignItems: 'center',
+                opacity:
+                  sendingTestNotification || countdown !== null ? 0.6 : 1,
+              }}>
+              <Text style={{color: '#fff', fontWeight: '600', fontSize: 12}}>
+                5s Timer
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => handleSendTestNotification(10)}
+              disabled={sendingTestNotification || countdown !== null}
+              style={{
+                flex: 1,
+                backgroundColor: '#FF9800',
+                padding: 12,
+                borderRadius: 8,
+                alignItems: 'center',
+                opacity:
+                  sendingTestNotification || countdown !== null ? 0.6 : 1,
+              }}>
+              <Text style={{color: '#fff', fontWeight: '600', fontSize: 12}}>
+                10s Timer
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </View>
 
       <View style={{padding: 20, marginTop: 8}}>

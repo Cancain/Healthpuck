@@ -7,6 +7,10 @@ node_modules/
 backend/.env
 backend/.env.local
 
+# Firebase service account (sensitive)
+backend/firebase-service-account.json
+**/firebase-service-account.json
+
 # SQLite databases
 *.db
 *.db-journal

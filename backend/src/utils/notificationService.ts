@@ -1,5 +1,7 @@
-import * as admin from "firebase-admin";
+import admin from "firebase-admin";
 import { eq } from "drizzle-orm";
+import fs from "fs";
+import path from "path";
 
 import { db } from "../db";
 import { deviceTokens, notificationPreferences, patientUsers, alerts } from "../db/schema";
@@ -24,7 +26,15 @@ export function initializeFirebase() {
     try {
       serviceAccount = JSON.parse(serviceAccountKey);
     } catch {
-      serviceAccount = require(serviceAccountKey);
+      const filePath = path.isAbsolute(serviceAccountKey)
+        ? serviceAccountKey
+        : path.resolve(process.cwd(), serviceAccountKey);
+      if (fs.existsSync(filePath)) {
+        const fileContent = fs.readFileSync(filePath, "utf-8");
+        serviceAccount = JSON.parse(fileContent);
+      } else {
+        throw new Error(`Firebase service account file not found: ${filePath}`);
+      }
     }
 
     firebaseApp = admin.initializeApp({

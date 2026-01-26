@@ -581,7 +581,26 @@ export const WhoopSettings: React.FC = () => {
       {(() => {
         const isUserThePatient =
           patient?.email && user?.email && patient.email === user.email;
-        return isPatientRole || patient?.role === 'patient' || isUserThePatient;
+        const shouldShow =
+          isPatientRole ||
+          patient?.role === 'patient' ||
+          isUserThePatient ||
+          !!patient;
+        if (!shouldShow) {
+          const p = patient;
+          console.log('[WhoopSettings] Bluetooth section HIDDEN:', {
+            isPatientRole,
+            patientRole: p ? p.role : null,
+            isUserThePatient,
+            hasPatient: !!p,
+            patientId: p ? p.id : null,
+            patientEmail: p ? p.email : null,
+            userEmail: user ? user.email : null,
+          });
+        } else {
+          console.log('[WhoopSettings] Bluetooth section VISIBLE');
+        }
+        return shouldShow;
       })() && (
         <View
           style={{

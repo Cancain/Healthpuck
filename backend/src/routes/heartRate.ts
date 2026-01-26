@@ -91,7 +91,6 @@ router.get("/", authenticate, async (req: Request, res: Response) => {
       `[Heart Rate GET] userId=${userId}, patientId=${context.patientId}, role=${context.role}, requestedPatientId=${requestedPatientId}`,
     );
 
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
     const [latestReading] = await db
       .select()
       .from(heartRateReadings)
@@ -102,17 +101,20 @@ router.get("/", authenticate, async (req: Request, res: Response) => {
     console.log(
       `[Heart Rate GET] Database query result:`,
       latestReading
-        ? `found reading with heartRate=${latestReading.heartRate}, timestamp=${latestReading.timestamp.getTime()}`
+        ? `found reading with heartRate=${latestReading.heartRate}, source=${latestReading.source}, timestamp=${latestReading.timestamp.getTime()}`
         : "no reading found",
     );
 
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
     if (latestReading && latestReading.timestamp >= fiveMinutesAgo) {
       const heartRate = latestReading.heartRate;
       const timestamp = latestReading.timestamp.getTime();
 
       whoopRateLimiter.cacheHeartRate(context.patientId, heartRate);
 
-      console.log(`[Heart Rate GET] Returning recent database reading: ${heartRate}`);
+      console.log(
+        `[Heart Rate GET] Returning recent database reading (${latestReading.source}): ${heartRate}`,
+      );
       return res.json({
         heartRate,
         cached: false,
@@ -185,6 +187,8 @@ router.get("/", authenticate, async (req: Request, res: Response) => {
             rateLimited: false,
             timestamp: Date.now(),
           });
+        } else {
+          console.log(`[Heart Rate GET] Whoop API returned no heart rate data`);
         }
       } catch (error) {
         console.error("[Heart Rate] Error fetching from Whoop:", error);

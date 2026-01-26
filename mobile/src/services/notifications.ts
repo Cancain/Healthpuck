@@ -1,4 +1,15 @@
-import messaging from '@react-native-firebase/messaging';
+import {
+  getMessaging,
+  requestPermission,
+  getToken,
+  deleteToken,
+  setBackgroundMessageHandler,
+  onNotificationOpenedApp,
+  getInitialNotification,
+  onMessage,
+  onTokenRefresh,
+  AuthorizationStatus,
+} from '@react-native-firebase/messaging';
 import {Platform, Alert} from 'react-native';
 import {apiService} from './api';
 
@@ -18,10 +29,11 @@ class NotificationService {
 
   async requestPermissions(): Promise<boolean> {
     try {
-      const authStatus = await messaging().requestPermission();
+      const messaging = getMessaging();
+      const authStatus = await requestPermission(messaging);
       const enabled =
-        authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-        authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+        authStatus === AuthorizationStatus.AUTHORIZED ||
+        authStatus === AuthorizationStatus.PROVISIONAL;
 
       if (enabled) {
         console.log('[Notifications] Permission granted');
@@ -50,7 +62,8 @@ class NotificationService {
         return;
       }
 
-      const token = await messaging().getToken();
+      const messaging = getMessaging();
+      const token = await getToken(messaging);
       if (!token) {
         console.log('[Notifications] No FCM token available');
         return;
@@ -61,7 +74,7 @@ class NotificationService {
       this.tokenRegistered = true;
       console.log('[Notifications] Token registered successfully');
 
-      messaging().onTokenRefresh(async newToken => {
+      onTokenRefresh(messaging, async newToken => {
         console.log('[Notifications] Token refreshed');
         await apiService.registerDeviceToken(newToken, platform);
       });
@@ -72,10 +85,27 @@ class NotificationService {
 
   async unregisterToken(): Promise<void> {
     try {
-      const token = await messaging().getToken();
+      const messaging = getMessaging();
+      const token = await getToken(messaging);
       if (token) {
-        await apiService.unregisterDeviceToken();
-        await messaging().deleteToken();
+        try {
+          await apiService.unregisterDeviceToken();
+        } catch (error: any) {
+          if (
+            error.message?.includes('Authentication failed') ||
+            error.message?.includes('Network') ||
+            error.message?.includes('Connection') ||
+            error.name === 'NetworkError' ||
+            error.name === 'ConnectionError'
+          ) {
+            console.log(
+              '[Notifications] Token unregister skipped (user logged out or network unavailable)',
+            );
+          } else {
+            throw error;
+          }
+        }
+        await deleteToken(messaging);
         this.tokenRegistered = false;
         console.log('[Notifications] Token unregistered');
       }
@@ -91,33 +121,33 @@ class NotificationService {
   }
 
   setupNotificationHandlers(): void {
-    messaging().setBackgroundMessageHandler(async remoteMessage => {
+    const messaging = getMessaging();
+
+    setBackgroundMessageHandler(messaging, async remoteMessage => {
       console.log(
         '[Notifications] Background message received:',
         remoteMessage,
       );
     });
 
-    messaging().onNotificationOpenedApp(remoteMessage => {
+    onNotificationOpenedApp(messaging, remoteMessage => {
       console.log('[Notifications] Notification opened app:', remoteMessage);
       this.handleNotificationNavigation(remoteMessage);
     });
 
-    messaging()
-      .getInitialNotification()
-      .then(remoteMessage => {
-        if (remoteMessage) {
-          console.log(
-            '[Notifications] App opened from notification:',
-            remoteMessage,
-          );
-          setTimeout(() => {
-            this.handleNotificationNavigation(remoteMessage);
-          }, 1000);
-        }
-      });
+    getInitialNotification(messaging).then(remoteMessage => {
+      if (remoteMessage) {
+        console.log(
+          '[Notifications] App opened from notification:',
+          remoteMessage,
+        );
+        setTimeout(() => {
+          this.handleNotificationNavigation(remoteMessage);
+        }, 1000);
+      }
+    });
 
-    messaging().onMessage(async remoteMessage => {
+    onMessage(messaging, async remoteMessage => {
       console.log(
         '[Notifications] Foreground message received:',
         remoteMessage,

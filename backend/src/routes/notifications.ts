@@ -1,17 +1,35 @@
 import { Router, Request, Response } from "express";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 import { authenticate, getUserIdFromRequest } from "../middleware/auth";
 import { db } from "../db";
 import { deviceTokens, notificationPreferences } from "../db/schema";
+import { sendFCMNotification, getDeviceTokensForUser } from "../utils/notificationService";
 
 const router = Router();
+
+async function checkTableExists(tableName: string): Promise<boolean> {
+  try {
+    const result = await db.all(
+      sql`SELECT name FROM sqlite_master WHERE type='table' AND name=${tableName}`,
+    );
+    return result.length > 0;
+  } catch {
+    return false;
+  }
+}
 
 router.post("/register", authenticate, async (req: Request, res: Response) => {
   try {
     const userId = getUserIdFromRequest(req);
     if (!userId) {
       return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    const tableExists = await checkTableExists("device_tokens");
+    if (!tableExists) {
+      console.error("device_tokens table does not exist. Run migrations.");
+      return res.status(500).json({ error: "Database not initialized. Please run migrations." });
     }
 
     const { token, platform } = req.body;
@@ -43,16 +61,44 @@ router.post("/register", authenticate, async (req: Request, res: Response) => {
       return res.json({ success: true, message: "Token updated" });
     }
 
-    await db.insert(deviceTokens).values({
-      userId,
-      token,
-      platform,
-    });
+    try {
+      await db.insert(deviceTokens).values({
+        userId,
+        token,
+        platform,
+      });
+    } catch (insertError: any) {
+      if (
+        insertError?.code === 19 ||
+        insertError?.message?.includes("UNIQUE constraint") ||
+        insertError?.message?.includes("unique constraint")
+      ) {
+        await db
+          .update(deviceTokens)
+          .set({
+            userId,
+            platform,
+            updatedAt: new Date(),
+          })
+          .where(eq(deviceTokens.token, token));
+        return res.json({ success: true, message: "Token updated" });
+      }
+      throw insertError;
+    }
 
     res.json({ success: true, message: "Token registered" });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error registering device token:", error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error("Error details:", {
+      message: error?.message,
+      code: error?.code,
+      stack: error?.stack,
+    });
+    const errorMessage =
+      process.env.NODE_ENV === "production"
+        ? "Internal server error"
+        : error?.message || "Internal server error";
+    res.status(500).json({ error: errorMessage });
   }
 });
 
@@ -61,6 +107,12 @@ router.delete("/unregister", authenticate, async (req: Request, res: Response) =
     const userId = getUserIdFromRequest(req);
     if (!userId) {
       return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    const tableExists = await checkTableExists("device_tokens");
+    if (!tableExists) {
+      console.error("device_tokens table does not exist. Run migrations.");
+      return res.status(500).json({ error: "Database not initialized. Please run migrations." });
     }
 
     const { token } = req.body;
@@ -72,9 +124,18 @@ router.delete("/unregister", authenticate, async (req: Request, res: Response) =
     await db.delete(deviceTokens).where(eq(deviceTokens.token, token));
 
     res.json({ success: true, message: "Token unregistered" });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error unregistering device token:", error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error("Error details:", {
+      message: error?.message,
+      code: error?.code,
+      stack: error?.stack,
+    });
+    const errorMessage =
+      process.env.NODE_ENV === "production"
+        ? "Internal server error"
+        : error?.message || "Internal server error";
+    res.status(500).json({ error: errorMessage });
   }
 });
 
@@ -169,6 +230,81 @@ router.put("/preferences", authenticate, async (req: Request, res: Response) => 
   } catch (error) {
     console.error("Error updating notification preferences:", error);
     res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post("/test", authenticate, async (req: Request, res: Response) => {
+  try {
+    const userId = getUserIdFromRequest(req);
+    if (!userId) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    if (!process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+      return res.status(503).json({
+        error: "Firebase not configured",
+        message:
+          "FIREBASE_SERVICE_ACCOUNT_KEY environment variable is not set. Please configure Firebase Admin SDK to enable push notifications. See FIREBASE_SETUP_GUIDE.md for instructions.",
+      });
+    }
+
+    const tokens = await getDeviceTokensForUser(userId);
+    if (tokens.length === 0) {
+      return res.status(400).json({ error: "No device tokens registered for this user" });
+    }
+
+    const { delay } = req.body;
+    const delayMs = delay && typeof delay === "number" && delay > 0 ? delay * 1000 : 0;
+
+    const sendNotification = async () => {
+      const title = "Test Notification";
+      const body =
+        delayMs > 0
+          ? `This is a scheduled test notification (sent after ${delayMs / 1000}s)`
+          : "This is a test notification from Healthpuck";
+      const data = {
+        type: "test",
+        timestamp: new Date().toISOString(),
+      };
+
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const token of tokens) {
+        const success = await sendFCMNotification(token, title, body, data);
+        if (success) {
+          successCount++;
+        } else {
+          failCount++;
+        }
+      }
+
+      return { successCount, failCount };
+    };
+
+    if (delayMs > 0) {
+      setTimeout(async () => {
+        await sendNotification();
+      }, delayMs);
+
+      res.json({
+        success: true,
+        message: `Test notification scheduled to send in ${delayMs / 1000} seconds`,
+        scheduled: true,
+        delaySeconds: delayMs / 1000,
+      });
+    } else {
+      const { successCount, failCount } = await sendNotification();
+      res.json({
+        success: true,
+        message: `Test notification sent to ${successCount} device(s), ${failCount} failed`,
+        sent: successCount,
+        failed: failCount,
+      });
+    }
+  } catch (error: any) {
+    console.error("Error sending test notification:", error);
+    res.status(500).json({ error: error?.message || "Internal server error" });
   }
 });
 
