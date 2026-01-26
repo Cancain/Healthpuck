@@ -13,8 +13,7 @@ import {
 import {useAuth} from '../contexts/AuthContext';
 import {usePatient} from '../contexts/PatientContext';
 import {apiService} from '../services/api';
-import {bluetoothService} from '../services/bluetooth';
-import {backgroundService} from '../services/backgroundService';
+import {bluetoothMonitoringService} from '../services/bluetoothMonitoring';
 import type {
   ActiveAlert,
   Medication,
@@ -42,8 +41,6 @@ export const DashboardScreen: React.FC = () => {
   const [whoopLoading, setWhoopLoading] = useState(false);
   const [heartRate, setHeartRate] = useState<number | null>(null);
   const [bluetoothConnected, setBluetoothConnected] = useState(false);
-  const [isMonitoring, setIsMonitoring] = useState(false);
-  const lastBluetoothUpdateRef = useRef<number | null>(null);
   const [sendingTestNotification, setSendingTestNotification] = useState(false);
   const [notificationTimer, setNotificationTimer] = useState<number | null>(
     null,
@@ -198,10 +195,9 @@ export const DashboardScreen: React.FC = () => {
         console.log('[Heart Rate] No patient ID available, skipping poll');
         return;
       }
-      const lastBluetoothUpdate = lastBluetoothUpdateRef.current;
-      const timeSinceBluetoothUpdate = lastBluetoothUpdate
-        ? Date.now() - lastBluetoothUpdate
-        : Infinity;
+      const lastGlobalHeartRate = bluetoothMonitoringService.getLastHeartRate();
+      const lastGlobalTimestamp =
+        bluetoothMonitoringService.getLastHeartRateTimestamp();
 
       apiService
         .getHeartRate(currentPatientId)
@@ -212,20 +208,28 @@ export const DashboardScreen: React.FC = () => {
             const ageMs = Date.now() - timestamp;
             const ageSeconds = Math.floor(ageMs / 1000);
 
+            const hasRecentBluetoothReading =
+              lastGlobalTimestamp !== null &&
+              Date.now() - lastGlobalTimestamp < 10000;
+
             console.log(
-              `[Heart Rate] Poll result: ${newHeartRate} bpm (cached: ${
-                response.cached
-              }, age: ${ageSeconds}s, last BT update: ${Math.floor(
-                timeSinceBluetoothUpdate / 1000,
-              )}s ago)`,
+              `[Heart Rate] Poll result: ${newHeartRate} bpm (cached: ${response.cached}, age: ${ageSeconds}s, hasRecentBT: ${hasRecentBluetoothReading}, lastBT: ${lastGlobalHeartRate})`,
             );
 
-            if (timeSinceBluetoothUpdate < 5000) {
-              console.log(
-                `[Heart Rate] Skipping update - recent Bluetooth reading (${Math.floor(
-                  timeSinceBluetoothUpdate / 1000,
-                )}s ago)`,
-              );
+            if (hasRecentBluetoothReading && lastGlobalTimestamp) {
+              const backendAge = ageMs;
+              const bluetoothAge = Date.now() - lastGlobalTimestamp;
+
+              if (bluetoothAge < backendAge) {
+                console.log(
+                  `[Heart Rate] Using Bluetooth reading (${bluetoothAge}ms old) over backend (${backendAge}ms old)`,
+                );
+              } else if (ageSeconds < 30) {
+                console.log(
+                  `[Heart Rate] Using backend reading (${backendAge}ms old) over Bluetooth (${bluetoothAge}ms old)`,
+                );
+                setHeartRate(newHeartRate);
+              }
             } else if (ageSeconds < 30) {
               setHeartRate(newHeartRate);
             } else {
@@ -251,57 +255,23 @@ export const DashboardScreen: React.FC = () => {
     setRefreshing(false);
   }, [loadData]);
 
-  const setupBluetoothMonitoring = useCallback(async () => {
-    try {
-      await bluetoothService.initialize();
-      const connected = bluetoothService.isConnected();
-      setBluetoothConnected(connected);
-
-      console.log(
-        `[Dashboard] Bluetooth setup: connected=${connected}, isMonitoring=${isMonitoring}`,
-      );
-
-      if (connected && !isMonitoring) {
-        const handleHeartRate = async (hr: number) => {
-          console.log(`[Bluetooth] Heart rate received: ${hr} bpm`);
-          setHeartRate(hr);
-          lastBluetoothUpdateRef.current = Date.now();
-          try {
-            await apiService.uploadHeartRate(hr, 'bluetooth');
-            console.log(
-              `[Bluetooth] Heart rate uploaded successfully: ${hr} bpm`,
-            );
-          } catch (error) {
-            console.error('[Bluetooth] Failed to upload heart rate:', error);
-          }
-        };
-
-        try {
-          await bluetoothService.startHeartRateMonitoring(handleHeartRate);
-          setIsMonitoring(true);
-          console.log('[Dashboard] Heart rate monitoring started');
-          try {
-            await backgroundService.startService();
-          } catch (error) {
-            console.warn('Failed to start background service:', error);
-          }
-        } catch (error: any) {
-          console.error(
-            '[Dashboard] Failed to start heart rate monitoring:',
-            error,
-          );
-        }
-      } else if (connected && isMonitoring) {
-        console.log('[Dashboard] Already monitoring, skipping setup');
-      } else {
+  useEffect(() => {
+    if (isPatientRole) {
+      bluetoothMonitoringService.setHeartRateCallback((hr: number) => {
         console.log(
-          '[Dashboard] Device not connected, cannot start monitoring',
+          `[Dashboard] Heart rate update from global service: ${hr} bpm`,
         );
-      }
-    } catch (error) {
-      console.error('Error setting up Bluetooth:', error);
+        setHeartRate(hr);
+      });
+
+      const checkConnection = setInterval(() => {
+        const connected = bluetoothMonitoringService.isActive();
+        setBluetoothConnected(connected);
+      }, 2000);
+
+      return () => clearInterval(checkConnection);
     }
-  }, [isMonitoring]);
+  }, [isPatientRole]);
 
   useEffect(() => {
     patientIdRef.current = patient?.id;
@@ -309,38 +279,7 @@ export const DashboardScreen: React.FC = () => {
 
   useEffect(() => {
     loadData();
-    if (isPatientRole) {
-      setupBluetoothMonitoring();
-    }
-  }, [isPatientRole, loadData, setupBluetoothMonitoring]);
-
-  useEffect(() => {
-    if (isPatientRole) {
-      const checkConnection = setInterval(() => {
-        const connected = bluetoothService.isConnected();
-        const currentlyMonitoring = bluetoothService.isMonitoringActive();
-        if (connected !== bluetoothConnected) {
-          console.log(
-            `[Dashboard] Bluetooth connection state changed: ${bluetoothConnected} -> ${connected}`,
-          );
-          setBluetoothConnected(connected);
-        }
-        if (connected && !isMonitoring && !currentlyMonitoring) {
-          console.log(
-            '[Dashboard] Device connected but not monitoring, starting...',
-          );
-          setupBluetoothMonitoring();
-        }
-      }, 2000);
-
-      return () => clearInterval(checkConnection);
-    }
-  }, [
-    isPatientRole,
-    bluetoothConnected,
-    isMonitoring,
-    setupBluetoothMonitoring,
-  ]);
+  }, [loadData]);
 
   useEffect(() => {
     if (patient?.id) {
@@ -383,15 +322,11 @@ export const DashboardScreen: React.FC = () => {
 
   useEffect(() => {
     return () => {
-      if (isMonitoring) {
-        bluetoothService.stopHeartRateMonitoring();
-        backgroundService.stopService().catch(() => {});
-      }
       if (notificationTimer) {
         clearInterval(notificationTimer);
       }
     };
-  }, [isMonitoring, notificationTimer]);
+  }, [notificationTimer]);
 
   const latestCheckInByMedication = React.useMemo(() => {
     if (!checkIns) {

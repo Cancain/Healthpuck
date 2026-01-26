@@ -66,7 +66,8 @@ export class BluetoothService {
       const devices: BluetoothDevice[] = [];
       const foundDevices = new Set<string>();
 
-      // Start scan
+      console.log(`[BluetoothService] Starting scan for ${duration}ms...`);
+      // Start scan - empty array means scan for all devices
       await BleManager.scan([], duration, true);
 
       // Listen for discovered devices
@@ -77,19 +78,55 @@ export class BluetoothService {
           if (!foundDevices.has(deviceId)) {
             foundDevices.add(deviceId);
 
-            // Filter for Whoop devices or heart rate devices
             const name = peripheral.name || '';
+            const advertising = peripheral.advertising || {};
+            const serviceUUIDs = advertising.serviceUUIDs || [];
+            const manufacturerData = advertising.manufacturerData || {};
+
+            console.log(
+              `[BluetoothService] Device discovered: id=${deviceId}, name="${name}", rssi=${peripheral.rssi}`,
+            );
+            console.log(
+              '[BluetoothService] Service UUIDs:',
+              serviceUUIDs,
+              'Manufacturer data:',
+              manufacturerData,
+            );
+
+            // Filter for Whoop devices or heart rate devices
+            const isWhoopDevice = name.toUpperCase().includes('WHOOP');
+            const hasHeartRateService = serviceUUIDs.includes(
+              HEART_RATE_SERVICE_UUID,
+            );
+            const hasHeartRateServiceInData =
+              serviceUUIDs.some((uuid: string) =>
+                uuid.toLowerCase().includes('180d'),
+              ) ||
+              serviceUUIDs.some((uuid: string) =>
+                uuid.toLowerCase().includes('heart'),
+              );
+
             if (
-              name.toUpperCase().includes('WHOOP') ||
-              peripheral.advertising?.serviceUUIDs?.includes(
-                HEART_RATE_SERVICE_UUID,
-              )
+              isWhoopDevice ||
+              hasHeartRateService ||
+              hasHeartRateServiceInData
             ) {
+              console.log(
+                `[BluetoothService] Adding device: ${
+                  name || 'Unknown'
+                } (${deviceId})`,
+              );
               devices.push({
                 id: deviceId,
                 name: name || 'Unknown Device',
                 rssi: peripheral.rssi || 0,
               });
+            } else {
+              console.log(
+                `[BluetoothService] Filtered out device: ${
+                  name || 'Unknown'
+                } (${deviceId})`,
+              );
             }
           }
         },
@@ -133,6 +170,9 @@ export class BluetoothService {
       });
 
       console.log('Connected to device:', deviceId);
+      console.log(
+        '[BluetoothService] Connection established, ready for monitoring',
+      );
     } catch (error) {
       this.connectionState = 'error';
       console.error('Error connecting to device:', error);

@@ -6,11 +6,13 @@ import {
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {useAuth} from '../contexts/AuthContext';
+import {usePatient} from '../contexts/PatientContext';
 import {LoginScreen} from '../screens/Login';
 import {RegisterScreen} from '../screens/Register';
 import {DashboardScreen} from '../screens/Dashboard';
 import {SettingsScreen} from '../screens/Settings';
 import {notificationService} from '../services/notifications';
+import {bluetoothMonitoringService} from '../services/bluetoothMonitoring';
 import type {
   RootStackParamList,
   AuthStackParamList,
@@ -54,7 +56,8 @@ const MainNavigator = () => {
 };
 
 export const AppNavigator = () => {
-  const {isAuthenticated, isLoading} = useAuth();
+  const {isAuthenticated, isLoading: authLoading} = useAuth();
+  const {isPatientRole, isLoading: patientLoading} = usePatient();
   const navigationRef =
     useRef<NavigationContainerRef<RootStackParamList>>(null);
 
@@ -73,7 +76,47 @@ export const AppNavigator = () => {
     }
   }, [isAuthenticated]);
 
-  if (isLoading) {
+  useEffect(() => {
+    if (authLoading || patientLoading) {
+      console.log(
+        '[AppNavigator] Still loading (auth:',
+        authLoading,
+        ', patient:',
+        patientLoading,
+        '), waiting...',
+      );
+      return;
+    }
+
+    if (isAuthenticated && isPatientRole) {
+      console.log(
+        '[AppNavigator] User authenticated as patient, starting Bluetooth monitoring',
+      );
+      bluetoothMonitoringService.startMonitoring().catch(error => {
+        console.error(
+          '[AppNavigator] Failed to start Bluetooth monitoring:',
+          error,
+        );
+      });
+    } else {
+      console.log(
+        '[AppNavigator] Stopping Bluetooth monitoring (authenticated:',
+        isAuthenticated,
+        ', isPatientRole:',
+        isPatientRole,
+        ')',
+      );
+      bluetoothMonitoringService.stopMonitoring().catch(() => {});
+    }
+
+    return () => {
+      if (!isAuthenticated || !isPatientRole) {
+        bluetoothMonitoringService.stopMonitoring().catch(() => {});
+      }
+    };
+  }, [isAuthenticated, isPatientRole, authLoading, patientLoading]);
+
+  if (authLoading) {
     return null;
   }
 

@@ -130,13 +130,18 @@ export const WhoopSettings: React.FC = () => {
         return;
       }
 
-      const foundDevices = await bluetoothService.scanForDevices(5000);
+      console.log('[WhoopSettings] Starting Bluetooth scan...');
+      const foundDevices = await bluetoothService.scanForDevices(10000);
+      console.log(
+        `[WhoopSettings] Scan complete. Found ${foundDevices.length} device(s):`,
+        foundDevices.map(d => `${d.name} (${d.id})`),
+      );
       setBluetoothDevices(foundDevices);
 
       if (foundDevices.length === 0) {
         Alert.alert(
           'Inga enheter hittades',
-          'Inga Whoop-enheter hittades. Se till att din enhet är i närheten och påslagen.',
+          'Inga Whoop-enheter hittades. Se till att din enhet är i närheten och påslagen. Kontrollera loggarna för att se vilka enheter som upptäcktes.',
         );
       }
     } catch (error: any) {
@@ -579,24 +584,29 @@ export const WhoopSettings: React.FC = () => {
       </View>
 
       {(() => {
+        const currentPatient = patient;
         const isUserThePatient =
-          patient?.email && user?.email && patient.email === user.email;
+          currentPatient?.email &&
+          user?.email &&
+          currentPatient.email === user.email;
         const shouldShow =
           isPatientRole ||
-          patient?.role === 'patient' ||
+          currentPatient?.role === 'patient' ||
           isUserThePatient ||
-          !!patient;
+          !!currentPatient;
+
+        const logData = {
+          isPatientRole,
+          patientRole: currentPatient?.role ?? null,
+          isUserThePatient,
+          hasPatient: !!currentPatient,
+          patientId: currentPatient?.id ?? null,
+          patientEmail: currentPatient?.email ?? null,
+          userEmail: user?.email ?? null,
+        };
+
         if (!shouldShow) {
-          const p = patient;
-          console.log('[WhoopSettings] Bluetooth section HIDDEN:', {
-            isPatientRole,
-            patientRole: p ? p.role : null,
-            isUserThePatient,
-            hasPatient: !!p,
-            patientId: p ? p.id : null,
-            patientEmail: p ? p.email : null,
-            userEmail: user ? user.email : null,
-          });
+          console.log('[WhoopSettings] Bluetooth section HIDDEN:', logData);
         } else {
           console.log('[WhoopSettings] Bluetooth section VISIBLE');
         }
