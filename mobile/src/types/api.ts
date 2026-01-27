@@ -130,3 +130,8 @@ export interface PatientUser {
   invitedAt: string;
   acceptedAt: string | null;
 }
+
+export interface Organisation {
+  organisationId: number;
+  organisationName: string;
+}

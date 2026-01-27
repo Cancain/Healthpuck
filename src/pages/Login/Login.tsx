@@ -45,7 +45,7 @@ const LoginPage: React.FC = () => {
       }
       // Ensure auth context sees the new session before navigating
       await refresh();
-      const from = (location.state as any)?.from?.pathname || "/dashboard";
+      const from = (location.state as any)?.from?.pathname || "/home";
       navigate(from, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Något gick fel");

@@ -13,6 +13,50 @@ export const users = sqliteTable("users", {
     .$defaultFn(() => new Date()),
 });
 
+export const organisations = sqliteTable("organisations", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
+export const organisationUsers = sqliteTable(
+  "organisation_users",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    organisationId: integer("organisation_id")
+      .notNull()
+      .references(() => organisations.id, { onDelete: "cascade" }),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+  },
+  (table) => ({
+    uniqueOrganisationUser: unique().on(table.organisationId, table.userId),
+  }),
+);
+
+export const caretakers = sqliteTable("caretakers", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id")
+    .notNull()
+    .unique()
+    .references(() => users.id, { onDelete: "cascade" }),
+  organisationId: integer("organisation_id")
+    .notNull()
+    .references(() => organisations.id, { onDelete: "cascade" }),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
 export const patients = sqliteTable("patients", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull(),
@@ -21,6 +65,10 @@ export const patients = sqliteTable("patients", {
   createdBy: integer("created_by")
     .notNull()
     .references(() => users.id),
+  organisationId: integer("organisation_id").references(() => organisations.id, {
+    onDelete: "cascade",
+  }),
+  userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .$defaultFn(() => new Date()),
@@ -218,6 +266,12 @@ export const heartRateReadings = sqliteTable(
 
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
+export type Organisation = typeof organisations.$inferSelect;
+export type NewOrganisation = typeof organisations.$inferInsert;
+export type OrganisationUser = typeof organisationUsers.$inferSelect;
+export type NewOrganisationUser = typeof organisationUsers.$inferInsert;
+export type Caretaker = typeof caretakers.$inferSelect;
+export type NewCaretaker = typeof caretakers.$inferInsert;
 export type Patient = typeof patients.$inferSelect;
 export type NewPatient = typeof patients.$inferInsert;
 export type PatientUser = typeof patientUsers.$inferSelect;

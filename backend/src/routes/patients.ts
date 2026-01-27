@@ -2,9 +2,15 @@ import { Router, Request, Response } from "express";
 import { eq, and } from "drizzle-orm";
 
 import { db } from "../db";
-import { patients, patientUsers, users } from "../db/schema";
+import { patients, patientUsers, users, caretakers, organisations } from "../db/schema";
 import { getUserIdFromRequest, authenticate, requirePatientAccess } from "../middleware/auth";
 import { hashPassword } from "../utils/hash";
+import {
+  isCaretaker,
+  getCaretakerOrganisationId,
+  getPatientsForOrganisation,
+} from "../utils/organisationContext";
+import { getPatientContextForUser } from "../utils/patientContext";
 
 const router = Router();
 
@@ -92,6 +98,44 @@ router.post("/", authenticate, async (req: Request, res: Response) => {
       }
     }
 
+    const isUserCaretaker = await isCaretaker(userId);
+    let organisationId: number | null = null;
+
+    if (isUserCaretaker) {
+      organisationId = await getCaretakerOrganisationId(userId);
+      if (!organisationId) {
+        return res.status(400).json({ error: "Caretaker must belong to an organisation" });
+      }
+    } else {
+      const existingPatient = await db
+        .select()
+        .from(patients)
+        .where(eq(patients.createdBy, userId))
+        .limit(1);
+      if (existingPatient.length > 0 && existingPatient[0].organisationId) {
+        organisationId = existingPatient[0].organisationId;
+      } else {
+        const creatorUser = await db
+          .select()
+          .from(users)
+          .where(eq(users.id, userId))
+          .limit(1);
+        if (creatorUser.length === 0) {
+          return res.status(400).json({ error: "Creator user not found" });
+        }
+        const orgName = `${creatorUser[0].name}'s Organisation`;
+        const [newOrg] = await db
+          .insert(organisations)
+          .values({
+            name: orgName,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .returning();
+        organisationId = newOrg.id;
+      }
+    }
+
     // Create patient record
     const newPatient = await db
       .insert(patients)
@@ -100,6 +144,8 @@ router.post("/", authenticate, async (req: Request, res: Response) => {
         email,
         dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
         createdBy: userId,
+        organisationId,
+        userId: patientUserId,
       })
       .returning();
 
@@ -156,21 +202,36 @@ router.get("/", authenticate, async (req: Request, res: Response) => {
       return res.status(401).json({ error: "Not authenticated" });
     }
 
-    const userPatients = await db
-      .select({
-        patient: patients,
-        role: patientUsers.role,
-      })
-      .from(patientUsers)
-      .innerJoin(patients, eq(patientUsers.patientId, patients.id))
-      .where(eq(patientUsers.userId, userId));
+    const isUserCaretaker = await isCaretaker(userId);
 
-    const result = userPatients.map((up) => ({
-      ...up.patient,
-      role: up.role,
-    }));
+    if (isUserCaretaker) {
+      const organisationId = await getCaretakerOrganisationId(userId);
+      if (!organisationId) {
+        return res.status(404).json({
+          error: "No organisation found for this caretaker",
+          code: "NO_ORGANISATION",
+        });
+      }
 
-    return res.json(result);
+      const orgPatients = await getPatientsForOrganisation(organisationId);
+      return res.json(orgPatients);
+    } else {
+      const userPatients = await db
+        .select({
+          patient: patients,
+          role: patientUsers.role,
+        })
+        .from(patientUsers)
+        .innerJoin(patients, eq(patientUsers.patientId, patients.id))
+        .where(eq(patientUsers.userId, userId));
+
+      const result = userPatients.map((up) => ({
+        ...up.patient,
+        role: up.role,
+      }));
+
+      return res.json(result);
+    }
   } catch (error) {
     console.error("Error fetching patients:", error);
     return res.status(500).json({ error: "Internal server error" });

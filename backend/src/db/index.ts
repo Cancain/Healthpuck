@@ -199,7 +199,7 @@ export const initializeDatabase = async () => {
       );
     }
 
-    console.log("✓ All required tables verified!");
+    console.log("All required tables verified!");
   } catch (error) {
     console.error("Database migration failed:", error);
     if (error instanceof Error) {

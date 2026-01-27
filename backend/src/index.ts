@@ -19,6 +19,7 @@ import whoopIntegrationRoutes from "./routes/integrations/whoop";
 import alertRoutes from "./routes/alerts";
 import heartRateRoutes from "./routes/heartRate";
 import notificationRoutes from "./routes/notifications";
+import organisationRoutes from "./routes/organisations";
 import { startAlertScheduler } from "./utils/alertScheduler";
 import { setupWebSocketServer } from "./websocket/server";
 import { initializeFirebase } from "./utils/notificationService";
@@ -88,6 +89,7 @@ app.use("/api/integrations/whoop", whoopIntegrationRoutes);
 app.use("/api/alerts", alertRoutes);
 app.use("/api/heart-rate", heartRateRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/organisations", organisationRoutes);
 
 app.use((req: Request, res: Response) => {
   res.status(404).json({ error: "Route not found" });

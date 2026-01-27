@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useCallback} from 'react';
 import {
   View,
   Text,
@@ -7,15 +7,29 @@ import {
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
+import {useRoute} from '@react-navigation/native';
 import {apiService} from '../../services/api';
 import {usePatient} from '../../contexts/PatientContext';
-import type {Alert} from '../../types/api';
+import type {Alert, Patient} from '../../types/api';
 import HPTextInput from '../../components/HPTextInput';
+import {colors} from '../../utils/theme';
 
-export const AlertsSettings: React.FC = () => {
-  const {patient} = usePatient();
+interface AlertsSettingsProps {
+  initialPatientId?: number;
+}
+
+export const AlertsSettings: React.FC<AlertsSettingsProps> = ({
+  initialPatientId,
+}) => {
+  const route = useRoute();
+  const {patient, isCaretakerRole} = usePatient();
+  const [selectedPatientId, setSelectedPatientId] = useState<number | null>(
+    initialPatientId || null,
+  );
+  const [patients, setPatients] = useState<Patient[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingPatients, setLoadingPatients] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [name, setName] = useState('');
@@ -29,21 +43,90 @@ export const AlertsSettings: React.FC = () => {
   const [enabled, setEnabled] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    loadAlerts();
-  }, [patient]);
+  const loadPatients = useCallback(async () => {
+    if (!isCaretakerRole) return;
+    try {
+      setLoadingPatients(true);
+      const patientList = await apiService.getOrganisationPatients();
+      setPatients(patientList);
+      const params = route.params as {patientId?: number} | undefined;
+      if (params?.patientId) {
+        setSelectedPatientId(params.patientId);
+      } else if (patientList.length > 0) {
+        setSelectedPatientId(patientList[0].id);
+      } else {
+        setSelectedPatientId(null);
+      }
+    } catch (error: any) {
+      console.error('Error loading patients:', error);
+      const errorMessage = error?.message || 'Kunde inte hämta patienter';
+      console.log('Error message:', errorMessage);
+      setPatients([]);
+      if (
+        !errorMessage.includes('403') &&
+        !errorMessage.includes('Only caretakers') &&
+        !errorMessage.includes('404')
+      ) {
+        RNAlert.alert('Fel', errorMessage);
+      }
+    } finally {
+      setLoadingPatients(false);
+    }
+  }, [isCaretakerRole, route.params]);
 
-  const loadAlerts = async () => {
+  const loadAlerts = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await apiService.getAlerts();
-      setAlerts(data);
+      if (isCaretakerRole) {
+        if (selectedPatientId) {
+          const data = await apiService.getAlerts(selectedPatientId);
+          setAlerts(data);
+        } else {
+          setAlerts([]);
+        }
+      } else if (patient?.id) {
+        const data = await apiService.getAlerts();
+        setAlerts(data);
+      } else {
+        setAlerts([]);
+      }
     } catch (error: any) {
-      RNAlert.alert('Fel', error.message || 'Kunde inte hämta varningar');
+      console.error('Error loading alerts:', error);
+      const errorMessage = error?.message || 'Kunde inte hämta varningar';
+      if (!errorMessage.includes('NO_PATIENT') && !errorMessage.includes('PATIENT_ID_REQUIRED')) {
+        RNAlert.alert('Fel', errorMessage);
+      }
+      setAlerts([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [isCaretakerRole, selectedPatientId, patient?.id]);
+
+  useEffect(() => {
+    if (isCaretakerRole) {
+      loadPatients().catch(err => {
+        console.error('Failed to load patients:', err);
+      });
+    } else {
+      setSelectedPatientId(patient?.id || null);
+    }
+  }, [isCaretakerRole, patient, loadPatients]);
+
+  useEffect(() => {
+    if (initialPatientId) {
+      setSelectedPatientId(initialPatientId);
+    }
+  }, [initialPatientId]);
+
+  useEffect(() => {
+    if (isCaretakerRole) {
+      if (selectedPatientId) {
+        loadAlerts();
+      }
+    } else {
+      loadAlerts();
+    }
+  }, [selectedPatientId, isCaretakerRole, loadAlerts]);
 
   const startCreate = () => {
     setShowCreate(true);
@@ -80,7 +163,8 @@ export const AlertsSettings: React.FC = () => {
   };
 
   const handleSave = async () => {
-    if (!patient?.id) {
+    const patientId = isCaretakerRole ? selectedPatientId : patient?.id;
+    if (!patientId) {
       return;
     }
 
@@ -111,7 +195,7 @@ export const AlertsSettings: React.FC = () => {
         RNAlert.alert('Lyckades', 'Varning uppdaterad');
       } else {
         await apiService.createAlert(
-          patient.id,
+          patientId,
           name.trim(),
           metricType as 'whoop' | 'medication',
           metricPath.trim(),
@@ -176,7 +260,44 @@ export const AlertsSettings: React.FC = () => {
     return [];
   };
 
-  if (!patient) {
+  if (isCaretakerRole) {
+    if (loadingPatients) {
+      return (
+        <View
+          style={{
+            flex: 1,
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 20,
+          }}>
+          <ActivityIndicator size="large" color="#007AFF" />
+        </View>
+      );
+    }
+
+    if (patients.length === 0 && !loadingPatients) {
+      return (
+        <View
+          style={{
+            flex: 1,
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 20,
+          }}>
+          <Text
+            style={{
+              color: '#999',
+              fontSize: 14,
+              fontStyle: 'italic',
+              textAlign: 'center',
+              padding: 20,
+            }}>
+            Inga patienter i din organisation ännu.
+          </Text>
+        </View>
+      );
+    }
+  } else if (!patient) {
     return (
       <View
         style={{
@@ -213,9 +334,48 @@ export const AlertsSettings: React.FC = () => {
     );
   }
 
+  const currentPatient = isCaretakerRole
+    ? patients.find(p => p.id === selectedPatientId)
+    : patient;
+
   return (
     <ScrollView style={{flex: 1, padding: 20}}>
-      {!showCreate && !editingId && (
+      {isCaretakerRole && (
+        <View style={{marginBottom: 20}}>
+          <Text
+            style={{
+              fontSize: 14,
+              fontWeight: '500',
+              color: colors.primary.dark,
+              marginBottom: 8,
+            }}>
+            Välj patient:
+          </Text>
+          <TouchableOpacity
+            style={{
+              backgroundColor: '#f5f5f5',
+              borderRadius: 6,
+              padding: 12,
+              borderWidth: 1,
+              borderColor: '#ddd',
+            }}
+            onPress={() => {
+              RNAlert.alert('Välj patient', '', [
+                {text: 'Avbryt', style: 'cancel'},
+                ...patients.map(p => ({
+                  text: p.name,
+                  onPress: () => setSelectedPatientId(p.id),
+                })),
+              ]);
+            }}>
+            <Text style={{fontSize: 14, color: '#333'}}>
+              {currentPatient?.name || 'Välj patient'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {!showCreate && !editingId && currentPatient && (
         <TouchableOpacity
           style={{
             backgroundColor: '#007AFF',

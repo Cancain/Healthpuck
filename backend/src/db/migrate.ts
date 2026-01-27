@@ -4,26 +4,38 @@ import fs from "fs";
 import dotenv from "dotenv";
 import dotenvSafe from "dotenv-safe";
 
-import { db } from "./index";
-
 async function runMigrations() {
   try {
-    // Load env vars the same way as in src/index.ts
-    const examplePath = path.resolve(process.cwd(), "backend/.env.example");
+    // Load env vars BEFORE importing db to ensure DATABASE_URL is available
+    const cwd = process.cwd();
+    const examplePath = path.resolve(cwd, ".env.example");
+    const envPath = path.resolve(cwd, ".env");
+    
     if (fs.existsSync(examplePath)) {
       dotenvSafe.config({
         example: examplePath,
-        path: path.resolve(process.cwd(), "backend/.env"),
+        path: envPath,
       });
+    } else if (fs.existsSync(envPath)) {
+      dotenv.config({ path: envPath });
     } else {
-      // Fallback: try backend/.env then default .env
-      const backendEnv = path.resolve(process.cwd(), "backend/.env");
-      if (fs.existsSync(backendEnv)) {
-        dotenv.config({ path: backendEnv });
+      // Try parent directory (if running from src/db/)
+      const parentEnvPath = path.resolve(cwd, "..", "..", ".env");
+      const parentExamplePath = path.resolve(cwd, "..", "..", ".env.example");
+      if (fs.existsSync(parentExamplePath)) {
+        dotenvSafe.config({
+          example: parentExamplePath,
+          path: parentEnvPath,
+        });
+      } else if (fs.existsSync(parentEnvPath)) {
+        dotenv.config({ path: parentEnvPath });
       } else {
         dotenv.config();
       }
     }
+
+    // Import db AFTER loading env vars
+    const { db } = await import("./index");
 
     console.log("Running migrations...");
     const folder = path.resolve(__dirname, "./migrations");

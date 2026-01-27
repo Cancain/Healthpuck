@@ -3,6 +3,7 @@ import type {NavigatorScreenParams} from '@react-navigation/native';
 export type RootStackParamList = {
   Auth: NavigatorScreenParams<AuthStackParamList>;
   Main: NavigatorScreenParams<MainTabParamList>;
+  Onboarding: undefined;
 };
 
 export type AuthStackParamList = {
@@ -12,5 +13,5 @@ export type AuthStackParamList = {
 
 export type MainTabParamList = {
   Dashboard: undefined;
-  Settings: undefined;
+  Settings: {patientId?: number} | undefined;
 };

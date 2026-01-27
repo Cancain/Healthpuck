@@ -9,12 +9,20 @@ import {apiService} from '../services/api';
 import {useAuth} from './AuthContext';
 import type {Patient} from '../types/api';
 
+interface Organisation {
+  organisationId: number;
+  organisationName: string;
+}
+
 interface PatientContextType {
   patient: Patient | null;
   isLoading: boolean;
   error: string | null;
   refreshPatient: () => Promise<void>;
   isPatientRole: boolean;
+  isCaretakerRole: boolean;
+  organisation: Organisation | null;
+  hasOrganisation: boolean;
 }
 
 const PatientContext = createContext<PatientContextType | undefined>(undefined);
@@ -27,19 +35,50 @@ export const PatientProvider: React.FC<{children: ReactNode}> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isPatientRole, setIsPatientRole] = useState(false);
+  const [isCaretakerRole, setIsCaretakerRole] = useState(false);
+  const [organisation, setOrganisation] = useState<Organisation | null>(null);
 
   const refreshPatient = async () => {
     try {
       setIsLoading(true);
       setError(null);
-      console.log('[PatientContext] Fetching patients...');
-      const patients = await apiService.getPatients();
+      console.log('[PatientContext] Fetching patients and organisation...');
+
+      let patients: Patient[] = [];
+      let org: Organisation | null = null;
+
+      try {
+        patients = await apiService.getPatients();
+      } catch (err) {
+        console.warn('[PatientContext] Error fetching patients:', err);
+      }
+
+      try {
+        org = await apiService.getOrganisation();
+      } catch (err) {
+        console.log(
+          '[PatientContext] User is not a caregiver (no organisation found)',
+        );
+      }
+
       console.log(
         '[PatientContext] Patients received:',
         patients.length,
         'patient(s)',
-        patients.map(p => ({id: p.id, name: p.name, role: p.role})),
+        patients.map((p: Patient) => ({id: p.id, name: p.name, role: p.role})),
       );
+      console.log('[PatientContext] Organisation:', org);
+
+      const isCaretaker = !!org;
+      setIsCaretakerRole(isCaretaker);
+      setOrganisation(org);
+
+      if (isCaretaker) {
+        setPatient(null);
+        setIsPatientRole(false);
+        setIsLoading(false);
+        return;
+      }
 
       if (patients.length === 0) {
         console.log('[PatientContext] No patients found for this user');
@@ -48,17 +87,20 @@ export const PatientProvider: React.FC<{children: ReactNode}> = ({
         return;
       }
 
-      const patientRolePatient = patients.find(p => p.role === 'patient');
+      const patientRolePatient = patients.find(
+        (p: Patient) => p.role === 'patient',
+      );
       const mainPatient = patientRolePatient ?? patients[0] ?? null;
       setPatient(mainPatient);
       const hasPatientRole = !!patientRolePatient;
 
       console.log('[PatientContext] Patient context set:', {
         isPatientRole: hasPatientRole,
+        isCaretakerRole: isCaretaker,
         mainPatient: mainPatient
           ? {id: mainPatient.id, name: mainPatient.name, role: mainPatient.role}
           : null,
-        allPatients: patients.map(p => ({
+        allPatients: patients.map((p: Patient) => ({
           id: p.id,
           name: p.name,
           role: p.role,
@@ -72,6 +114,8 @@ export const PatientProvider: React.FC<{children: ReactNode}> = ({
       setError(errorMessage);
       setPatient(null);
       setIsPatientRole(false);
+      setIsCaretakerRole(false);
+      setOrganisation(null);
     } finally {
       setIsLoading(false);
     }
@@ -87,6 +131,8 @@ export const PatientProvider: React.FC<{children: ReactNode}> = ({
       );
       setPatient(null);
       setIsPatientRole(false);
+      setIsCaretakerRole(false);
+      setOrganisation(null);
       setIsLoading(false);
     }
   }, [isAuthenticated]);
@@ -105,6 +151,9 @@ export const PatientProvider: React.FC<{children: ReactNode}> = ({
         error,
         refreshPatient,
         isPatientRole,
+        isCaretakerRole,
+        organisation,
+        hasOrganisation: organisation !== null,
       }}>
       {children}
     </PatientContext.Provider>

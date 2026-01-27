@@ -7,6 +7,7 @@ import { getUserIdFromRequest, authenticate, hasPatientAccess } from "../middlew
 import { getPatientContextForUser } from "../utils/patientContext";
 import { evaluateAllAlerts } from "../utils/alertEvaluator";
 import { getTriggeredAtForAlert } from "../utils/alertScheduler";
+import { isCaretaker } from "../utils/organisationContext";
 
 const router = Router();
 
@@ -81,18 +82,41 @@ router.get("/", authenticate, async (req: Request, res: Response) => {
       return res.status(401).json({ error: "Not authenticated" });
     }
 
-    const { patientId } = await getPatientContextForUser(userId);
+    const isUserCaretaker = await isCaretaker(userId);
+    const requestedPatientId = req.query.patientId ? Number(req.query.patientId) : null;
 
-    const result = await db.select().from(alerts).where(eq(alerts.patientId, patientId));
+    let targetPatientId: number;
+
+    if (isUserCaretaker && requestedPatientId) {
+      const hasAccess = await hasPatientAccess(userId, requestedPatientId);
+      if (!hasAccess) {
+        return res.status(403).json({ error: "Access denied to this patient" });
+      }
+      targetPatientId = requestedPatientId;
+    } else if (isUserCaretaker) {
+      return res.status(400).json({
+        error: "patientId query parameter is required for caregivers",
+        code: "PATIENT_ID_REQUIRED",
+      });
+    } else {
+      try {
+        const { patientId } = await getPatientContextForUser(userId);
+        targetPatientId = patientId;
+      } catch (error: any) {
+        if (error.message === "User is not associated with a patient") {
+          return res.status(404).json({
+            error: "Inga omsorgstagare hittades för ditt konto. Lägg till en patient först.",
+            code: "NO_PATIENT",
+          });
+        }
+        throw error;
+      }
+    }
+
+    const result = await db.select().from(alerts).where(eq(alerts.patientId, targetPatientId));
 
     return res.json(result);
   } catch (error: any) {
-    if (error.message === "User is not associated with a patient") {
-      return res.status(404).json({
-        error: "Inga omsorgstagare hittades för ditt konto. Lägg till en patient först.",
-        code: "NO_PATIENT",
-      });
-    }
     console.error("Error fetching alerts:", error);
     return res.status(500).json({ error: "Internal server error" });
   }
@@ -105,15 +129,43 @@ router.get("/active", authenticate, async (req: Request, res: Response) => {
       return res.status(401).json({ error: "Not authenticated" });
     }
 
-    const { patientId } = await getPatientContextForUser(userId);
+    const isUserCaretaker = await isCaretaker(userId);
+    const requestedPatientId = req.query.patientId ? Number(req.query.patientId) : null;
 
-    const activeAlerts = await evaluateAllAlerts(patientId);
+    let targetPatientId: number;
+
+    if (isUserCaretaker && requestedPatientId) {
+      const hasAccess = await hasPatientAccess(userId, requestedPatientId);
+      if (!hasAccess) {
+        return res.status(403).json({ error: "Access denied to this patient" });
+      }
+      targetPatientId = requestedPatientId;
+    } else if (isUserCaretaker) {
+      return res.status(400).json({
+        error: "patientId query parameter is required for caregivers",
+        code: "PATIENT_ID_REQUIRED",
+      });
+    } else {
+      const { patientId } = await getPatientContextForUser(userId);
+      targetPatientId = patientId;
+    }
+
+    const activeAlerts = await evaluateAllAlerts(targetPatientId);
+    console.log(
+      `[Alerts GET /active] Patient ${targetPatientId}: Found ${activeAlerts.length} active alerts`,
+      activeAlerts.map((a) => ({
+        id: a.alert.id,
+        name: a.alert.name,
+        isActive: a.isActive,
+        currentValue: a.currentValue,
+      })),
+    );
     const activeAlertIds = new Set(activeAlerts.map((a) => a.alert.id));
 
     const dismissed = await db
       .select()
       .from(dismissedAlerts)
-      .where(eq(dismissedAlerts.patientId, patientId));
+      .where(eq(dismissedAlerts.patientId, targetPatientId));
 
     const dismissedAlertIds = new Set(dismissed.map((d) => d.alertId));
 
@@ -125,7 +177,7 @@ router.get("/active", authenticate, async (req: Request, res: Response) => {
         .delete(dismissedAlerts)
         .where(
           and(
-            eq(dismissedAlerts.patientId, patientId),
+            eq(dismissedAlerts.patientId, targetPatientId),
             inArray(dismissedAlerts.alertId, inactiveAlertIds),
           ),
         );
@@ -134,9 +186,11 @@ router.get("/active", authenticate, async (req: Request, res: Response) => {
     const filteredAlerts = activeAlerts.filter(
       (activeAlert) => !dismissedAlertIds.has(activeAlert.alert.id),
     );
+    console.log(`[Alerts GET /active] After filtering dismissed: ${filteredAlerts.length} alerts`);
 
     const serializedAlerts = filteredAlerts.map((activeAlert) => {
-      const triggeredAt = getTriggeredAtForAlert(patientId, activeAlert.alert.id) || new Date();
+      const triggeredAt =
+        getTriggeredAtForAlert(targetPatientId, activeAlert.alert.id) || new Date();
       return {
         alert: {
           id: activeAlert.alert.id,
@@ -165,8 +219,9 @@ router.get("/active", authenticate, async (req: Request, res: Response) => {
     });
 
     return res.json(serializedAlerts);
-  } catch (error: any) {
-    if (error.message === "User is not associated with a patient") {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (errorMessage === "User is not associated with a patient") {
       return res.status(404).json({
         error: "Inga omsorgstagare hittades för ditt konto. Lägg till en patient först.",
         code: "NO_PATIENT",

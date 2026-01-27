@@ -383,6 +383,11 @@ export async function evaluateAllAlerts(patientId: number): Promise<ActiveAlert[
       .from(alerts)
       .where(and(eq(alerts.patientId, patientId), eq(alerts.enabled, true)));
 
+    console.log(
+      `[evaluateAllAlerts] Patient ${patientId}: Found ${enabledAlerts.length} enabled alerts`,
+      enabledAlerts.map(a => ({id: a.id, name: a.name, metricType: a.metricType, metricPath: a.metricPath})),
+    );
+
     const results = await Promise.all(
       enabledAlerts.map((alert) =>
         evaluateAlert(alert, patientId).catch((error) => {
@@ -396,7 +401,22 @@ export async function evaluateAllAlerts(patientId: number): Promise<ActiveAlert[
       ),
     );
 
-    return results.filter((result) => result.isActive);
+    console.log(
+      `[evaluateAllAlerts] Patient ${patientId}: Evaluation results:`,
+      results.map(r => ({
+        alertId: r.alert.id,
+        alertName: r.alert.name,
+        currentValue: r.currentValue,
+        isActive: r.isActive,
+      })),
+    );
+
+    const activeResults = results.filter((result) => result.isActive);
+    console.log(
+      `[evaluateAllAlerts] Patient ${patientId}: ${activeResults.length} active alerts after filtering`,
+    );
+
+    return activeResults;
   } catch (error) {
     console.error(`Error in evaluateAllAlerts for patient ${patientId}:`, error);
     throw error;

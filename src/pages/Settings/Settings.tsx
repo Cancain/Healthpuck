@@ -145,6 +145,9 @@ const SettingsPage: React.FC = () => {
   });
   const [savingAlert, setSavingAlert] = useState<boolean>(false);
   const [deletingAlert, setDeletingAlert] = useState<Record<number, boolean>>({});
+  const [isCaretaker, setIsCaretaker] = useState<boolean>(false);
+  const [organisationPatients, setOrganisationPatients] = useState<Patient[]>([]);
+  const [selectedPatientId, setSelectedPatientId] = useState<number | null>(null);
 
   const fetchPatients = async () => {
     try {
@@ -396,11 +399,14 @@ const SettingsPage: React.FC = () => {
     }
   };
 
-  const fetchAlerts = async () => {
+  const fetchAlerts = async (patientId?: number) => {
     setAlertsLoading(true);
     setAlertsError(null);
     try {
-      const res = await fetch(`${API_BASE}/api/alerts`, {
+      const url = patientId
+        ? `${API_BASE}/api/alerts?patientId=${patientId}`
+        : `${API_BASE}/api/alerts`;
+      const res = await fetch(url, {
         credentials: "include",
       });
       if (!res.ok) {
@@ -415,11 +421,52 @@ const SettingsPage: React.FC = () => {
     }
   };
 
+  const checkIfCaretaker = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/organisations`, {
+        credentials: "include",
+      });
+      if (res.ok) {
+        setIsCaretaker(true);
+        const orgRes = await fetch(`${API_BASE}/api/organisations/patients`, {
+          credentials: "include",
+        });
+        if (orgRes.ok) {
+          const orgPatients = await orgRes.json();
+          setOrganisationPatients(orgPatients);
+          const params = new URLSearchParams(location.search);
+          const patientIdParam = params.get("patientId");
+          if (patientIdParam) {
+            const patientId = parseInt(patientIdParam, 10);
+            if (!isNaN(patientId)) {
+              setSelectedPatientId(patientId);
+              fetchAlerts(patientId);
+              return;
+            }
+          }
+          if (orgPatients.length > 0) {
+            setSelectedPatientId(orgPatients[0].id);
+            fetchAlerts(orgPatients[0].id);
+          }
+        }
+      } else {
+        setIsCaretaker(false);
+      }
+    } catch (err) {
+      setIsCaretaker(false);
+    }
+  };
+
   useEffect(() => {
     fetchPatients();
     fetchWhoopStatus();
+    checkIfCaretaker();
     if (activeTab === "alerts") {
-      fetchAlerts();
+      if (isCaretaker && selectedPatientId) {
+        fetchAlerts(selectedPatientId);
+      } else {
+        fetchAlerts();
+      }
     }
     if (activeTab === "whoop") {
       fetchWhoopStatus();
@@ -428,6 +475,13 @@ const SettingsPage: React.FC = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchWhoopStatus, activeTab]);
+
+  useEffect(() => {
+    if (isCaretaker && selectedPatientId && activeTab === "alerts") {
+      fetchAlerts(selectedPatientId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPatientId, isCaretaker, activeTab]);
 
   const handleInvite = async (patientId: number, role: "patient" | "caregiver") => {
     const email = inviteEmail[patientId]?.trim();
@@ -815,15 +869,20 @@ const SettingsPage: React.FC = () => {
       return;
     }
 
-    if (patients.length === 0) {
-      setAlertsError("Inga omsorgstagare hittades");
+    const patientId = isCaretaker
+      ? selectedPatientId
+      : patients.length > 0
+        ? patients[0].id
+        : null;
+
+    if (!patientId) {
+      setAlertsError(isCaretaker ? "Välj en patient" : "Inga omsorgstagare hittades");
       return;
     }
 
     setSavingAlert(true);
 
     try {
-      const patientId = patients[0].id;
       const res = await fetch(`${API_BASE}/api/alerts`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -857,7 +916,7 @@ const SettingsPage: React.FC = () => {
         enabled: true,
       });
       setShowCreateAlert(false);
-      await fetchAlerts();
+      await fetchAlerts(patientId);
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
       setAlertsError(err instanceof Error ? err.message : "Något gick fel");
@@ -1536,8 +1595,302 @@ const SettingsPage: React.FC = () => {
 
         {activeTab === "alerts" && (
           <>
-            {patients.length === 0 ? (
-              <p className={styles.empty}>Du har inga omsorgstagare ännu.</p>
+            {isCaretaker ? (
+              organisationPatients.length === 0 ? (
+                <p className={styles.empty}>Inga patienter i din organisation ännu.</p>
+              ) : (
+                <div className={styles.alertsSection}>
+                  <div className={styles.sectionHeader}>
+                    <h2 className={styles.sectionTitle}>Varningar</h2>
+                    {!showCreateAlert && !editingAlert && (
+                      <Button onClick={startAddAlert}>Lägg till varning</Button>
+                    )}
+                  </div>
+
+                  <div className={styles.field} style={{ marginBottom: "1rem" }}>
+                    <label htmlFor="patientSelect">Välj patient:</label>
+                    <select
+                      id="patientSelect"
+                      value={selectedPatientId || ""}
+                      onChange={(e) => {
+                        const patientId = parseInt(e.target.value, 10);
+                        setSelectedPatientId(patientId);
+                        fetchAlerts(patientId);
+                      }}
+                      className={styles.input}
+                    >
+                      {organisationPatients.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {alertsError && <div className={styles.error}>{alertsError}</div>}
+
+                  {alertsLoading ? (
+                  <p>Laddar varningar...</p>
+                ) : showCreateAlert || editingAlert ? (
+                  <form
+                    onSubmit={
+                      editingAlert ? (e) => handleUpdateAlert(editingAlert, e) : handleCreateAlert
+                    }
+                    className={styles.alertForm}
+                  >
+                    <h3 className={styles.sectionTitle}>
+                      {editingAlert ? "Redigera varning" : "Skapa ny varning"}
+                    </h3>
+
+                    <div className={styles.field}>
+                      <label htmlFor="alertName">Namn *</label>
+                      <input
+                        id="alertName"
+                        type="text"
+                        value={alertFormData.name}
+                        onChange={(e) =>
+                          setAlertFormData((prev) => ({ ...prev, name: e.target.value }))
+                        }
+                        required
+                        disabled={savingAlert}
+                        className={styles.input}
+                        placeholder="t.ex. Låg hjärtfrekvens"
+                      />
+                    </div>
+
+                    <div className={styles.field}>
+                      <label htmlFor="alertMetricType">Måtttyp *</label>
+                      <select
+                        id="alertMetricType"
+                        value={alertFormData.metricType}
+                        onChange={(e) =>
+                          setAlertFormData((prev) => ({
+                            ...prev,
+                            metricType: e.target.value as "whoop" | "medication",
+                            metricPath: "",
+                          }))
+                        }
+                        required
+                        disabled={savingAlert}
+                        className={styles.input}
+                      >
+                        <option value="">Välj måtttyp</option>
+                        <option value="whoop">Whoop</option>
+                        <option value="medication">Medicin</option>
+                      </select>
+                    </div>
+
+                    <div className={styles.field}>
+                      <label htmlFor="alertMetricPath">Mått *</label>
+                      {alertFormData.metricType === "whoop" ? (
+                        <select
+                          id="alertMetricPath"
+                          value={alertFormData.metricPath}
+                          onChange={(e) =>
+                            setAlertFormData((prev) => ({ ...prev, metricPath: e.target.value }))
+                          }
+                          required
+                          disabled={savingAlert}
+                          className={styles.input}
+                        >
+                          <option value="">Välj Whoop-mått</option>
+                          <option value="heart_rate">Hjärtfrekvens</option>
+                          <option value="recovery.score.recovery_score">Återhämtningspoäng</option>
+                          <option value="recovery.score.resting_heart_rate">Vilopuls</option>
+                          <option value="recovery.score.hrv_rmssd_milli">HRV RMSSD</option>
+                          <option value="recovery.score.spo2_percentage">Syrehalt (%)</option>
+                          <option value="sleep.score.sleep_performance_percentage">
+                            Sömnprestanda (%)
+                          </option>
+                        </select>
+                      ) : alertFormData.metricType === "medication" ? (
+                        <select
+                          id="alertMetricPath"
+                          value={alertFormData.metricPath}
+                          onChange={(e) =>
+                            setAlertFormData((prev) => ({ ...prev, metricPath: e.target.value }))
+                          }
+                          required
+                          disabled={savingAlert}
+                          className={styles.input}
+                        >
+                          <option value="">Välj medicin-mått</option>
+                          <option value="missed_dose">Missade doser (senaste 24h)</option>
+                        </select>
+                      ) : (
+                        <input
+                          id="alertMetricPath"
+                          type="text"
+                          value={alertFormData.metricPath}
+                          onChange={(e) =>
+                            setAlertFormData((prev) => ({ ...prev, metricPath: e.target.value }))
+                          }
+                          required
+                          disabled={savingAlert}
+                          className={styles.input}
+                          placeholder="Måttväg"
+                        />
+                      )}
+                    </div>
+
+                    <div className={styles.field}>
+                      <label htmlFor="alertOperator">Operator *</label>
+                      <select
+                        id="alertOperator"
+                        value={alertFormData.operator}
+                        onChange={(e) =>
+                          setAlertFormData((prev) => ({
+                            ...prev,
+                            operator: e.target.value as "<" | ">" | "=" | "<=" | ">=",
+                          }))
+                        }
+                        required
+                        disabled={savingAlert}
+                        className={styles.input}
+                      >
+                        <option value="">Välj operator</option>
+                        <option value="<">Mindre än (&lt;)</option>
+                        <option value=">">Större än (&gt;)</option>
+                        <option value="=">Lika med (=)</option>
+                        <option value="<=">Mindre än eller lika med (&lt;=)</option>
+                        <option value=">=">Större än eller lika med (&gt;=)</option>
+                      </select>
+                    </div>
+
+                    <div className={styles.field}>
+                      <label htmlFor="alertThresholdValue">Tröskelvärde *</label>
+                      <input
+                        id="alertThresholdValue"
+                        type="number"
+                        step="any"
+                        value={alertFormData.thresholdValue}
+                        onChange={(e) =>
+                          setAlertFormData((prev) => ({ ...prev, thresholdValue: e.target.value }))
+                        }
+                        required
+                        disabled={savingAlert}
+                        className={styles.input}
+                        placeholder="t.ex. 20"
+                      />
+                    </div>
+
+                    <div className={styles.field}>
+                      <label className={styles.fieldLabel} htmlFor="alertPriority">
+                        Prioritet *
+                      </label>
+                      <select
+                        id="alertPriority"
+                        value={alertFormData.priority}
+                        onChange={(e) =>
+                          setAlertFormData((prev) => ({
+                            ...prev,
+                            priority: e.target.value as "high" | "mid" | "low",
+                          }))
+                        }
+                        required
+                        disabled={savingAlert}
+                        className={styles.input}
+                      >
+                        <option value="">Välj prioritet</option>
+                        <option value="high">Hög (kontrolleras var 30:e sekund)</option>
+                        <option value="mid">Medel (kontrolleras var 5:e minut)</option>
+                        <option value="low">Låg (kontrolleras en gång per dag)</option>
+                      </select>
+                    </div>
+
+                    <div className={styles.field}>
+                      <label className={styles.fieldLabel}>
+                        <input
+                          className={styles.checkbox}
+                          type="checkbox"
+                          checked={alertFormData.enabled}
+                          onChange={(e) =>
+                            setAlertFormData((prev) => ({ ...prev, enabled: e.target.checked }))
+                          }
+                          disabled={savingAlert}
+                        />
+                        Aktiverad
+                      </label>
+                    </div>
+
+                    <div className={styles.formActions}>
+                      <Button type="submit" disabled={savingAlert}>
+                        {savingAlert ? "Sparar..." : editingAlert ? "Spara" : "Skapa"}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={editingAlert ? cancelEditAlert : cancelAddAlert}
+                        disabled={savingAlert}
+                      >
+                        Avbryt
+                      </Button>
+                    </div>
+                  </form>
+                ) : alerts.length === 0 ? (
+                  <p className={styles.emptyList}>Inga varningar ännu</p>
+                ) : (
+                  <ul className={styles.alertsList}>
+                    {alerts.map((alert) => {
+                      if (editingAlert === alert.id) {
+                        return null;
+                      }
+
+                      return (
+                        <li key={alert.id} className={styles.alertItem}>
+                          <div className={styles.alertInfo}>
+                            <div className={styles.alertHeader}>
+                              <span className={styles.alertName}>{alert.name}</span>
+                              <span
+                                className={
+                                  alert.enabled
+                                    ? styles.alertStatusEnabled
+                                    : styles.alertStatusDisabled
+                                }
+                              >
+                                {alert.enabled ? "Aktiverad" : "Inaktiverad"}
+                              </span>
+                              <span className={styles.alertPriority}>
+                                {alert.priority === "high"
+                                  ? "Hög"
+                                  : alert.priority === "mid"
+                                    ? "Medel"
+                                    : "Låg"}
+                              </span>
+                            </div>
+                            <div className={styles.alertDetails}>
+                              <span>
+                                {alert.metricType === "whoop" ? "Whoop" : "Medicin"}:{" "}
+                                {alert.metricPath}
+                              </span>
+                              <span>
+                                {alert.operator} {alert.thresholdValue}
+                              </span>
+                            </div>
+                          </div>
+                          <div className={styles.alertActions}>
+                            <Button
+                              variant="secondary"
+                              onClick={() => startEditAlert(alert)}
+                              disabled={deletingAlert[alert.id] || false}
+                            >
+                              Redigera
+                            </Button>
+                            <Button
+                              variant="secondary"
+                              onClick={() => handleDeleteAlert(alert.id, alert.name)}
+                              disabled={deletingAlert[alert.id] || false}
+                            >
+                              {deletingAlert[alert.id] ? "Tar bort..." : "Ta bort"}
+                            </Button>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  )}
+                </div>
+              )
             ) : (
               <div className={styles.alertsSection}>
                 <div className={styles.sectionHeader}>
