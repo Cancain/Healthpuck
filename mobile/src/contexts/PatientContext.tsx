@@ -73,20 +73,6 @@ export const PatientProvider: React.FC<{children: ReactNode}> = ({
       setIsCaretakerRole(isCaretaker);
       setOrganisation(org);
 
-      if (isCaretaker) {
-        setPatient(null);
-        setIsPatientRole(false);
-        setIsLoading(false);
-        return;
-      }
-
-      if (patients.length === 0) {
-        console.log('[PatientContext] No patients found for this user');
-        setPatient(null);
-        setIsPatientRole(false);
-        return;
-      }
-
       const patientRolePatient = patients.find(
         (p: Patient) => p.role === 'patient',
       );

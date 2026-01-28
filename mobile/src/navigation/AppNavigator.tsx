@@ -16,6 +16,7 @@ import {SettingsScreen} from '../screens/Settings';
 import {notificationService} from '../services/notifications';
 import {bluetoothMonitoringService} from '../services/bluetoothMonitoring';
 import {colors} from '../utils/theme';
+import {HomeIcon, SettingsIcon} from '../components/TabBarIcons';
 import type {
   RootStackParamList,
   AuthStackParamList,
@@ -36,7 +37,7 @@ const AuthNavigator = () => {
 };
 
 const MainNavigator = () => {
-  const {isCaretakerRole} = usePatient();
+  const {isCaretakerRole, isPatientRole} = usePatient();
 
   return (
     <MainTab.Navigator
@@ -48,13 +49,27 @@ const MainNavigator = () => {
       }}>
       <MainTab.Screen
         name="Dashboard"
-        component={isCaretakerRole ? CaregiverDashboardScreen : DashboardScreen}
-        options={{tabBarLabel: 'Dashboard'}}
+        component={
+          isPatientRole
+            ? DashboardScreen
+            : isCaretakerRole
+              ? CaregiverDashboardScreen
+              : DashboardScreen
+        }
+        options={{
+          tabBarLabel: 'Dashboard',
+          tabBarIcon: ({color, size}) => <HomeIcon color={color} size={size} />,
+        }}
       />
       <MainTab.Screen
         name="Settings"
         component={SettingsScreen}
-        options={{tabBarLabel: 'Inställningar'}}
+        options={{
+          tabBarLabel: 'Inställningar',
+          tabBarIcon: ({color, size}) => (
+            <SettingsIcon color={color} size={size} />
+          ),
+        }}
       />
     </MainTab.Navigator>
   );
