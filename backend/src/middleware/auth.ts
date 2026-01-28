@@ -4,6 +4,7 @@ import { eq, and } from "drizzle-orm";
 
 import { db } from "../db";
 import { patientUsers, patients } from "../db/schema";
+import { isCaretaker, hasAccessToPatientViaOrganisation } from "../utils/organisationContext";
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -40,6 +41,12 @@ export function getUserIdFromRequest(req: Request): number | null {
 }
 
 export async function hasPatientAccess(userId: number, patientId: number): Promise<boolean> {
+  const isUserCaretaker = await isCaretaker(userId);
+
+  if (isUserCaretaker) {
+    return hasAccessToPatientViaOrganisation(userId, patientId);
+  }
+
   const result = await db
     .select()
     .from(patientUsers)
@@ -100,6 +107,28 @@ export function requirePatientAccess(req: Request, res: Response, next: NextFunc
       next();
     } catch (err) {
       console.error("Error in requirePatientAccess:", err);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  })();
+}
+
+export function requireCaretakerAccess(req: Request, res: Response, next: NextFunction) {
+  (async () => {
+    try {
+      const userId = getUserIdFromRequest(req);
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const isUserCaretaker = await isCaretaker(userId);
+      if (!isUserCaretaker) {
+        return res.status(403).json({ error: "Only caretakers can access this resource" });
+      }
+
+      (req as any).userId = userId;
+      next();
+    } catch (err) {
+      console.error("Error in requireCaretakerAccess:", err);
       return res.status(500).json({ error: "Internal server error" });
     }
   })();

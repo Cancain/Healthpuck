@@ -298,12 +298,16 @@ export class ApiService {
     });
   }
 
-  async getAlerts(): Promise<Alert[]> {
-    return this.request<Alert[]>('/api/alerts');
+  async getAlerts(patientId?: number): Promise<Alert[]> {
+    const url = patientId
+      ? `/api/alerts?patientId=${patientId}`
+      : '/api/alerts';
+    return this.request<Alert[]>(url);
   }
 
-  async getActiveAlerts(): Promise<ActiveAlert[]> {
-    return this.request<ActiveAlert[]>('/api/alerts/active');
+  async getActiveAlerts(patientId?: number): Promise<ActiveAlert[]> {
+    const query = patientId ? `?patientId=${patientId}` : '';
+    return this.request<ActiveAlert[]>(`/api/alerts/active${query}`);
   }
 
   async createAlert(
@@ -504,6 +508,61 @@ export class ApiService {
       }
       throw error;
     }
+  }
+
+  async getOrganisation(): Promise<{
+    organisationId: number;
+    organisationName: string;
+  }> {
+    return this.request<{
+      organisationId: number;
+      organisationName: string;
+    }>('/api/organisations');
+  }
+
+  async createOrganisation(name?: string): Promise<{
+    organisationId: number;
+    organisationName: string;
+  }> {
+    return this.request<{
+      organisationId: number;
+      organisationName: string;
+    }>('/api/organisations', {
+      method: 'POST',
+      body: JSON.stringify({name}),
+    });
+  }
+
+  async getOrganisationPatients(): Promise<Patient[]> {
+    return this.request<Patient[]>('/api/organisations/patients');
+  }
+
+  async getPatientAlerts(patientId: number): Promise<ActiveAlert[]> {
+    return this.getActiveAlerts(patientId);
+  }
+
+  async getPatientHeartRate(patientId: number): Promise<HeartRateResponse> {
+    return this.getHeartRate(patientId);
+  }
+
+  async inviteUsersToOrganisation(
+    invites: Array<{
+      email: string;
+      name: string;
+      password: string;
+      role: 'patient' | 'caregiver';
+    }>,
+  ): Promise<{
+    created: Array<{id: number; email: string; name: string}>;
+    errors: Array<{email: string; error: string}>;
+  }> {
+    return this.request<{
+      created: Array<{id: number; email: string; name: string}>;
+      errors: Array<{email: string; error: string}>;
+    }>('/api/organisations/invite-users', {
+      method: 'POST',
+      body: JSON.stringify({invites}),
+    });
   }
 }
 

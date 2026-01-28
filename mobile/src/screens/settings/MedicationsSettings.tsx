@@ -13,7 +13,7 @@ import type {Medication} from '../../types/api';
 import HPTextInput from '../../components/HPTextInput';
 
 export const MedicationsSettings: React.FC = () => {
-  const {patient} = usePatient();
+  const {patient, isCaretakerRole} = usePatient();
   const [medications, setMedications] = useState<Medication[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -134,6 +134,30 @@ export const MedicationsSettings: React.FC = () => {
       ],
     );
   };
+
+  if (isCaretakerRole) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: 20,
+        }}>
+        <Text
+          style={{
+            color: '#999',
+            fontSize: 14,
+            fontStyle: 'italic',
+            textAlign: 'center',
+            padding: 20,
+          }}>
+          Mediciner hanteras per patient. Välj en patient från dashboarden för
+          att se deras mediciner.
+        </Text>
+      </View>
+    );
+  }
 
   if (!patient) {
     return (

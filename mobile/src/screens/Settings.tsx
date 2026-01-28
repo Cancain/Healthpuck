@@ -1,5 +1,6 @@
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import {View, Text, ScrollView, TouchableOpacity} from 'react-native';
+import {useRoute} from '@react-navigation/native';
 import {useAuth} from '../contexts/AuthContext';
 import {UsersSettings} from './settings/UsersSettings';
 import {MedicationsSettings} from './settings/MedicationsSettings';
@@ -11,8 +12,20 @@ import {colors} from '../utils/theme';
 type Tab = 'users' | 'medications' | 'alerts' | 'whoop' | 'notifications';
 
 export const SettingsScreen: React.FC = () => {
+  const route = useRoute();
   const {logout} = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>('alerts');
+  const [initialPatientId, setInitialPatientId] = useState<
+    number | undefined
+  >();
+
+  useEffect(() => {
+    const params = route.params as {patientId?: number} | undefined;
+    if (params?.patientId) {
+      setInitialPatientId(params.patientId);
+      setActiveTab('alerts');
+    }
+  }, [route.params]);
 
   const tabs: Array<{id: Tab; label: string}> = [
     {id: 'users', label: 'Användare'},
@@ -29,7 +42,7 @@ export const SettingsScreen: React.FC = () => {
       case 'medications':
         return <MedicationsSettings />;
       case 'alerts':
-        return <AlertsSettings />;
+        return <AlertsSettings initialPatientId={initialPatientId} />;
       case 'whoop':
         return <WhoopSettings />;
       case 'notifications':

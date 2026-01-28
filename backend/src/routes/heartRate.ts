@@ -2,13 +2,14 @@ import { Router, Request, Response } from "express";
 import { desc, eq } from "drizzle-orm";
 
 import { authenticate, getUserIdFromRequest } from "../middleware/auth";
-import { getPatientContextForUser, assertUserHasAccessToPatient } from "../utils/patientContext";
+import { getPatientContextForUser } from "../utils/patientContext";
 import { db } from "../db";
 import { heartRateReadings, whoopConnections, patientUsers, patients } from "../db/schema";
 import { whoopRateLimiter } from "../utils/whoopRateLimiter";
 import { broadcastHeartRateToCaregivers } from "../websocket/server";
 import { ensureWhoopAccessTokenForPatient } from "../utils/whoopSync";
 import { WhoopClient } from "../utils/whoopClient";
+import { isCaretaker } from "../utils/organisationContext";
 
 const router = Router();
 
@@ -19,7 +20,28 @@ router.post("/", authenticate, async (req: Request, res: Response) => {
       return res.status(401).json({ error: "Not authenticated" });
     }
 
-    const context = await getPatientContextForUser(userId);
+    const isUserCaretaker = await isCaretaker(userId);
+    if (isUserCaretaker) {
+      return res.status(403).json({
+        error:
+          "Caregivers cannot send heart rate readings. Only patients can send heart rate data.",
+      });
+    }
+
+    let context;
+    try {
+      context = await getPatientContextForUser(userId);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes("not associated with a patient")) {
+        return res.status(404).json({
+          error: "No patient found for this user. Please create a patient profile first.",
+          code: "NO_PATIENT",
+        });
+      }
+      throw error;
+    }
+
     if (context.role !== "patient") {
       return res.status(403).json({ error: "Only patients can send heart rate readings" });
     }
@@ -101,11 +123,23 @@ router.get("/", authenticate, async (req: Request, res: Response) => {
       return res.status(401).json({ error: "Not authenticated" });
     }
 
+    const isUserCaretaker = await isCaretaker(userId);
     const requestedPatientId = req.query.patientId ? Number(req.query.patientId) : null;
+
+    if (isUserCaretaker && !requestedPatientId) {
+      return res.status(400).json({
+        error: "patientId query parameter is required for caregivers",
+        code: "PATIENT_ID_REQUIRED",
+      });
+    }
 
     let context: { patientId: number; patientName: string; role: string };
     if (requestedPatientId) {
-      await assertUserHasAccessToPatient(userId, requestedPatientId);
+      const { hasPatientAccess } = await import("../middleware/auth");
+      const hasAccess = await hasPatientAccess(userId, requestedPatientId);
+      if (!hasAccess) {
+        return res.status(403).json({ error: "User does not have access to this patient" });
+      }
       const allAssociations = await db
         .select({
           patientId: patientUsers.patientId,
@@ -117,11 +151,36 @@ router.get("/", authenticate, async (req: Request, res: Response) => {
         .where(eq(patientUsers.userId, userId));
       const requested = allAssociations.find((a) => a.patientId === requestedPatientId);
       if (!requested) {
-        return res.status(403).json({ error: "User does not have access to this patient" });
+        const patient = await db
+          .select()
+          .from(patients)
+          .where(eq(patients.id, requestedPatientId))
+          .limit(1);
+        if (patient.length > 0) {
+          context = {
+            patientId: patient[0].id,
+            patientName: patient[0].name,
+            role: "caregiver",
+          };
+        } else {
+          return res.status(404).json({ error: "Patient not found" });
+        }
+      } else {
+        context = requested;
       }
-      context = requested;
     } else {
-      context = await getPatientContextForUser(userId);
+      try {
+        context = await getPatientContextForUser(userId);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        if (errorMessage.includes("not associated with a patient")) {
+          return res.status(404).json({
+            error: "No patient found for this user",
+            code: "NO_PATIENT",
+          });
+        }
+        throw error;
+      }
     }
     console.log(
       `[Heart Rate GET] userId=${userId}, patientId=${context.patientId}, role=${context.role}, requestedPatientId=${requestedPatientId}`,

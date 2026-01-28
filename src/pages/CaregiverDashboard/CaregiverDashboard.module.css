@@ -1,0 +1,207 @@
+.page {
+  padding: 2rem clamp(1rem, 3vw, 3rem);
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  background-color: #f5f5f5;
+  min-height: 100vh;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  background: #fff;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.title {
+  margin: 0;
+  font-size: 1.75rem;
+  color: #333;
+}
+
+.subtitle {
+  color: #666;
+  margin-top: 0.25rem;
+  font-size: 0.9rem;
+}
+
+.caretakerBadge {
+  background: #336699;
+  color: #fff;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.organisationSection {
+  background: #fff;
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.organisationTitle {
+  margin: 0;
+  font-size: 1.25rem;
+  color: #333;
+}
+
+.patientsList {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.patientItem {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.patientHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.patientHeader:hover {
+  background-color: #f9f9f9;
+}
+
+.patientHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.statusIcon {
+  font-size: 1.25rem;
+}
+
+.patientName {
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: #333;
+}
+
+.expandIcon {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.patientDetails {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #e0e0e0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.heartRateSection {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: #f5f5f5;
+  border-radius: 4px;
+}
+
+.heartRateLabel {
+  font-weight: 500;
+  color: #333;
+}
+
+.heartRateValue {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #336699;
+}
+
+.alertsSection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.alertsTitle {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.noAlerts {
+  color: #666;
+  font-style: italic;
+  padding: 0.5rem;
+}
+
+.alertsList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.alertItem {
+  padding: 0.75rem;
+  border-radius: 4px;
+  border-left: 4px solid;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.alertTriggered {
+  background: #fff5f5;
+  border-left-color: #dc3545;
+}
+
+.alertNotTriggered {
+  background: #f0f9f0;
+  border-left-color: #28a745;
+}
+
+.alertName {
+  font-weight: 500;
+  color: #333;
+}
+
+.alertPriority {
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.manageAlertsButton {
+  align-self: flex-start;
+  margin-top: 0.5rem;
+}
+
+.loading,
+.error {
+  text-align: center;
+  padding: 2rem;
+  color: #666;
+}
+
+.error {
+  color: #dc3545;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 3rem;
+  color: #666;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}

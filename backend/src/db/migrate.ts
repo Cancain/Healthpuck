@@ -2,28 +2,23 @@ import { migrate } from "drizzle-orm/libsql/migrator";
 import path from "path";
 import fs from "fs";
 import dotenv from "dotenv";
-import dotenvSafe from "dotenv-safe";
-
-import { db } from "./index";
 
 async function runMigrations() {
   try {
-    // Load env vars the same way as in src/index.ts
-    const examplePath = path.resolve(process.cwd(), "backend/.env.example");
-    if (fs.existsSync(examplePath)) {
-      dotenvSafe.config({
-        example: examplePath,
-        path: path.resolve(process.cwd(), "backend/.env"),
-      });
+    const cwd = process.cwd();
+    const envPath = path.resolve(cwd, ".env");
+    if (fs.existsSync(envPath)) {
+      dotenv.config({ path: envPath });
     } else {
-      // Fallback: try backend/.env then default .env
-      const backendEnv = path.resolve(process.cwd(), "backend/.env");
-      if (fs.existsSync(backendEnv)) {
-        dotenv.config({ path: backendEnv });
+      const parentEnvPath = path.resolve(cwd, "..", "..", ".env");
+      if (fs.existsSync(parentEnvPath)) {
+        dotenv.config({ path: parentEnvPath });
       } else {
         dotenv.config();
       }
     }
+
+    const { db } = await import("./index");
 
     console.log("Running migrations...");
     const folder = path.resolve(__dirname, "./migrations");

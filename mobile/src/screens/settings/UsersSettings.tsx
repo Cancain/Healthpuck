@@ -13,7 +13,7 @@ import type {Patient, PatientUser} from '../../types/api';
 import HPTextInput from '../../components/HPTextInput';
 
 export const UsersSettings: React.FC = () => {
-  const {refreshPatient} = usePatient();
+  const {refreshPatient, isCaretakerRole} = usePatient();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [patientUsers, setPatientUsers] = useState<
     Record<number, PatientUser[]>
@@ -31,18 +31,28 @@ export const UsersSettings: React.FC = () => {
   useEffect(() => {
     loadPatients();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isCaretakerRole]);
 
   const loadPatients = async () => {
     try {
       setLoading(true);
-      const data = await apiService.getPatients();
-      setPatients(data);
-      for (const p of data) {
-        await loadPatientUsers(p.id);
+      if (isCaretakerRole) {
+        const data = await apiService.getOrganisationPatients();
+        setPatients(data);
+        for (const p of data) {
+          await loadPatientUsers(p.id);
+        }
+      } else {
+        const data = await apiService.getPatients();
+        setPatients(data);
+        for (const p of data) {
+          await loadPatientUsers(p.id);
+        }
       }
     } catch (error: any) {
-      Alert.alert('Fel', error.message || 'Kunde inte hämta omsorgstagare');
+      if (!isCaretakerRole) {
+        Alert.alert('Fel', error.message || 'Kunde inte hämta omsorgstagare');
+      }
     } finally {
       setLoading(false);
     }

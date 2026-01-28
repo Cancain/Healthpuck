@@ -10,6 +10,8 @@ import {usePatient} from '../contexts/PatientContext';
 import {LoginScreen} from '../screens/Login';
 import {RegisterScreen} from '../screens/Register';
 import {DashboardScreen} from '../screens/Dashboard';
+import {CaregiverDashboardScreen} from '../screens/CaregiverDashboard';
+import {OnboardingScreen} from '../screens/Onboarding';
 import {SettingsScreen} from '../screens/Settings';
 import {notificationService} from '../services/notifications';
 import {bluetoothMonitoringService} from '../services/bluetoothMonitoring';
@@ -34,6 +36,8 @@ const AuthNavigator = () => {
 };
 
 const MainNavigator = () => {
+  const {isCaretakerRole} = usePatient();
+
   return (
     <MainTab.Navigator
       screenOptions={{
@@ -44,7 +48,7 @@ const MainNavigator = () => {
       }}>
       <MainTab.Screen
         name="Dashboard"
-        component={DashboardScreen}
+        component={isCaretakerRole ? CaregiverDashboardScreen : DashboardScreen}
         options={{tabBarLabel: 'Dashboard'}}
       />
       <MainTab.Screen
@@ -58,7 +62,11 @@ const MainNavigator = () => {
 
 export const AppNavigator = () => {
   const {isAuthenticated, isLoading: authLoading} = useAuth();
-  const {isPatientRole, isLoading: patientLoading} = usePatient();
+  const {
+    isPatientRole,
+    isLoading: patientLoading,
+    hasOrganisation,
+  } = usePatient();
   const navigationRef =
     useRef<NavigationContainerRef<RootStackParamList>>(null);
 
@@ -117,7 +125,7 @@ export const AppNavigator = () => {
     };
   }, [isAuthenticated, isPatientRole, authLoading, patientLoading]);
 
-  if (authLoading) {
+  if (authLoading || patientLoading) {
     return null;
   }
 
@@ -125,7 +133,11 @@ export const AppNavigator = () => {
     <NavigationContainer ref={navigationRef}>
       <RootStack.Navigator screenOptions={{headerShown: false}}>
         {isAuthenticated ? (
-          <RootStack.Screen name="Main" component={MainNavigator} />
+          hasOrganisation ? (
+            <RootStack.Screen name="Main" component={MainNavigator} />
+          ) : (
+            <RootStack.Screen name="Onboarding" component={OnboardingScreen} />
+          )
         ) : (
           <RootStack.Screen name="Auth" component={AuthNavigator} />
         )}
