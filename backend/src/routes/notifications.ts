@@ -62,11 +62,10 @@ router.post("/register", authenticate, async (req: Request, res: Response) => {
     }
 
     try {
-      await db.insert(deviceTokens).values({
-        userId,
-        token,
-        platform,
-      });
+      const now = Math.floor(Date.now() / 1000);
+      await db.run(
+        sql`INSERT INTO device_tokens (user_id, token, platform, created_at, updated_at) VALUES (${userId}, ${token}, ${platform}, ${now}, ${now})`,
+      );
     } catch (insertError: any) {
       if (
         insertError?.code === 19 ||
