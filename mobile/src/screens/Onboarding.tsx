@@ -9,17 +9,12 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import {useNavigation} from '@react-navigation/native';
-import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {useAuth} from '../contexts/AuthContext';
 import {usePatient} from '../contexts/PatientContext';
 import {apiService} from '../services/api';
 import HPTextInput from '../components/HPTextInput';
 import {Logo} from '../components/Logo/Logo';
 import {colors} from '../utils/theme';
-import type {RootStackParamList} from '../navigation/types';
-
-type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 interface InviteForm {
   name: string;
@@ -28,7 +23,6 @@ interface InviteForm {
 }
 
 export const OnboardingScreen: React.FC = () => {
-  const navigation = useNavigation<NavigationProp>();
   const {user} = useAuth();
   const {refreshPatient} = usePatient();
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
@@ -53,7 +47,10 @@ export const OnboardingScreen: React.FC = () => {
       return false;
     }
     if (trimmed.length > 100) {
-      Alert.alert('Fel', 'Organisationsnamn får inte vara längre än 100 tecken');
+      Alert.alert(
+        'Fel',
+        'Organisationsnamn får inte vara längre än 100 tecken',
+      );
       return false;
     }
     return true;
@@ -95,7 +92,9 @@ export const OnboardingScreen: React.FC = () => {
   };
 
   const handleStep1 = async () => {
-    if (!validateOrganisationName()) return;
+    if (!validateOrganisationName()) {
+      return;
+    }
 
     setLoading(true);
     try {
@@ -133,15 +132,23 @@ export const OnboardingScreen: React.FC = () => {
         const result = await apiService.inviteUsersToOrganisation(invites);
 
         if (result.errors.length > 0) {
-          const errorMessages = result.errors.map(e => `${e.email}: ${e.error}`).join('\n');
-          Alert.alert('Varning', `Några patienter kunde inte skapas:\n${errorMessages}`);
+          const errorMessages = result.errors
+            .map(e => `${e.email}: ${e.error}`)
+            .join('\n');
+          Alert.alert(
+            'Varning',
+            `Några patienter kunde inte skapas:\n${errorMessages}`,
+          );
         }
 
         if (result.created.length > 0 || validInvites.length === 0) {
           setCurrentStep(3);
         }
       } catch (err) {
-        Alert.alert('Fel', err instanceof Error ? err.message : 'Kunde inte skapa patienter');
+        Alert.alert(
+          'Fel',
+          err instanceof Error ? err.message : 'Kunde inte skapa patienter',
+        );
         setLoading(false);
         return;
       } finally {
@@ -174,8 +181,13 @@ export const OnboardingScreen: React.FC = () => {
         const result = await apiService.inviteUsersToOrganisation(invites);
 
         if (result.errors.length > 0) {
-          const errorMessages = result.errors.map(e => `${e.email}: ${e.error}`).join('\n');
-          Alert.alert('Varning', `Några omsorgsgivare kunde inte skapas:\n${errorMessages}`);
+          const errorMessages = result.errors
+            .map(e => `${e.email}: ${e.error}`)
+            .join('\n');
+          Alert.alert(
+            'Varning',
+            `Några omsorgsgivare kunde inte skapas:\n${errorMessages}`,
+          );
         }
       } catch (err) {
         Alert.alert(
@@ -190,10 +202,6 @@ export const OnboardingScreen: React.FC = () => {
     }
 
     await refreshPatient();
-    navigation.reset({
-      index: 0,
-      routes: [{name: 'Main' as never}],
-    });
   };
 
   const addPatientInvite = () => {
@@ -206,14 +214,21 @@ export const OnboardingScreen: React.FC = () => {
     }
   };
 
-  const updatePatientInvite = (index: number, field: keyof InviteForm, value: string) => {
+  const updatePatientInvite = (
+    index: number,
+    field: keyof InviteForm,
+    value: string,
+  ) => {
     const updated = [...patientInvites];
     updated[index] = {...updated[index], [field]: value};
     setPatientInvites(updated);
   };
 
   const addCaregiverInvite = () => {
-    setCaregiverInvites([...caregiverInvites, {name: '', email: '', password: ''}]);
+    setCaregiverInvites([
+      ...caregiverInvites,
+      {name: '', email: '', password: ''},
+    ]);
   };
 
   const removeCaregiverInvite = (index: number) => {
@@ -222,7 +237,11 @@ export const OnboardingScreen: React.FC = () => {
     }
   };
 
-  const updateCaregiverInvite = (index: number, field: keyof InviteForm, value: string) => {
+  const updateCaregiverInvite = (
+    index: number,
+    field: keyof InviteForm,
+    value: string,
+  ) => {
     const updated = [...caregiverInvites];
     updated[index] = {...updated[index], [field]: value};
     setCaregiverInvites(updated);
@@ -250,7 +269,8 @@ export const OnboardingScreen: React.FC = () => {
               width: 32,
               height: 32,
               borderRadius: 16,
-              backgroundColor: currentStep >= 1 ? colors.primary.dark : colors.device.iconGray,
+              backgroundColor:
+                currentStep >= 1 ? colors.primary.dark : colors.device.iconGray,
               alignItems: 'center',
               justifyContent: 'center',
             }}>
@@ -269,7 +289,8 @@ export const OnboardingScreen: React.FC = () => {
               width: 32,
               height: 32,
               borderRadius: 16,
-              backgroundColor: currentStep >= 2 ? colors.primary.dark : colors.device.iconGray,
+              backgroundColor:
+                currentStep >= 2 ? colors.primary.dark : colors.device.iconGray,
               alignItems: 'center',
               justifyContent: 'center',
             }}>
@@ -288,7 +309,8 @@ export const OnboardingScreen: React.FC = () => {
               width: 32,
               height: 32,
               borderRadius: 16,
-              backgroundColor: currentStep >= 3 ? colors.primary.dark : colors.device.iconGray,
+              backgroundColor:
+                currentStep >= 3 ? colors.primary.dark : colors.device.iconGray,
               alignItems: 'center',
               justifyContent: 'center',
             }}>
@@ -378,7 +400,8 @@ export const OnboardingScreen: React.FC = () => {
                 marginBottom: 24,
                 textAlign: 'center',
               }}>
-              Skapa konton för patienter i din organisation. Du kan hoppa över detta steg.
+              Skapa konton för patienter i din organisation. Du kan hoppa över
+              detta steg.
             </Text>
 
             {patientInvites.map((invite, index) => (
@@ -426,11 +449,19 @@ export const OnboardingScreen: React.FC = () => {
                 <HPTextInput
                   placeholder="Namn"
                   value={invite.name}
-                  onChangeText={value => updatePatientInvite(index, 'name', value)}
+                  onChangeText={value =>
+                    updatePatientInvite(index, 'name', value)
+                  }
                   editable={!loading}
                 />
                 {errors[`${index}-name`] && (
-                  <Text style={{color: '#dc2626', fontSize: 12, marginTop: -8, marginBottom: 8}}>
+                  <Text
+                    style={{
+                      color: '#dc2626',
+                      fontSize: 12,
+                      marginTop: -8,
+                      marginBottom: 8,
+                    }}>
                     {errors[`${index}-name`]}
                   </Text>
                 )}
@@ -438,13 +469,21 @@ export const OnboardingScreen: React.FC = () => {
                 <HPTextInput
                   placeholder="E-post"
                   value={invite.email}
-                  onChangeText={value => updatePatientInvite(index, 'email', value)}
+                  onChangeText={value =>
+                    updatePatientInvite(index, 'email', value)
+                  }
                   keyboardType="email-address"
                   autoCapitalize="none"
                   editable={!loading}
                 />
                 {errors[`${index}-email`] && (
-                  <Text style={{color: '#dc2626', fontSize: 12, marginTop: -8, marginBottom: 8}}>
+                  <Text
+                    style={{
+                      color: '#dc2626',
+                      fontSize: 12,
+                      marginTop: -8,
+                      marginBottom: 8,
+                    }}>
                     {errors[`${index}-email`]}
                   </Text>
                 )}
@@ -452,12 +491,20 @@ export const OnboardingScreen: React.FC = () => {
                 <HPTextInput
                   placeholder="Lösenord (minst 8 tecken)"
                   value={invite.password}
-                  onChangeText={value => updatePatientInvite(index, 'password', value)}
+                  onChangeText={value =>
+                    updatePatientInvite(index, 'password', value)
+                  }
                   secureTextEntry
                   editable={!loading}
                 />
                 {errors[`${index}-password`] && (
-                  <Text style={{color: '#dc2626', fontSize: 12, marginTop: -8, marginBottom: 8}}>
+                  <Text
+                    style={{
+                      color: '#dc2626',
+                      fontSize: 12,
+                      marginTop: -8,
+                      marginBottom: 8,
+                    }}>
                     {errors[`${index}-password`]}
                   </Text>
                 )}
@@ -476,7 +523,12 @@ export const OnboardingScreen: React.FC = () => {
               }}
               onPress={addPatientInvite}
               disabled={loading}>
-              <Text style={{color: colors.primary.dark, fontSize: 14, fontWeight: '500'}}>
+              <Text
+                style={{
+                  color: colors.primary.dark,
+                  fontSize: 14,
+                  fontWeight: '500',
+                }}>
                 Lägg till patient
               </Text>
             </TouchableOpacity>
@@ -494,7 +546,12 @@ export const OnboardingScreen: React.FC = () => {
                 }}
                 onPress={() => setCurrentStep(3)}
                 disabled={loading}>
-                <Text style={{color: colors.primary.dark, fontSize: 16, fontWeight: '600'}}>
+                <Text
+                  style={{
+                    color: colors.primary.dark,
+                    fontSize: 16,
+                    fontWeight: '600',
+                  }}>
                   Hoppa över
                 </Text>
               </TouchableOpacity>
@@ -544,8 +601,8 @@ export const OnboardingScreen: React.FC = () => {
                 marginBottom: 24,
                 textAlign: 'center',
               }}>
-              Skapa konton för andra omsorgsgivare i din organisation. Du kan hoppa över detta
-              steg.
+              Skapa konton för andra omsorgsgivare i din organisation. Du kan
+              hoppa över detta steg.
             </Text>
 
             {caregiverInvites.map((invite, index) => (
@@ -593,11 +650,19 @@ export const OnboardingScreen: React.FC = () => {
                 <HPTextInput
                   placeholder="Namn"
                   value={invite.name}
-                  onChangeText={value => updateCaregiverInvite(index, 'name', value)}
+                  onChangeText={value =>
+                    updateCaregiverInvite(index, 'name', value)
+                  }
                   editable={!loading}
                 />
                 {errors[`${index}-name`] && (
-                  <Text style={{color: '#dc2626', fontSize: 12, marginTop: -8, marginBottom: 8}}>
+                  <Text
+                    style={{
+                      color: '#dc2626',
+                      fontSize: 12,
+                      marginTop: -8,
+                      marginBottom: 8,
+                    }}>
                     {errors[`${index}-name`]}
                   </Text>
                 )}
@@ -605,13 +670,21 @@ export const OnboardingScreen: React.FC = () => {
                 <HPTextInput
                   placeholder="E-post"
                   value={invite.email}
-                  onChangeText={value => updateCaregiverInvite(index, 'email', value)}
+                  onChangeText={value =>
+                    updateCaregiverInvite(index, 'email', value)
+                  }
                   keyboardType="email-address"
                   autoCapitalize="none"
                   editable={!loading}
                 />
                 {errors[`${index}-email`] && (
-                  <Text style={{color: '#dc2626', fontSize: 12, marginTop: -8, marginBottom: 8}}>
+                  <Text
+                    style={{
+                      color: '#dc2626',
+                      fontSize: 12,
+                      marginTop: -8,
+                      marginBottom: 8,
+                    }}>
                     {errors[`${index}-email`]}
                   </Text>
                 )}
@@ -619,12 +692,20 @@ export const OnboardingScreen: React.FC = () => {
                 <HPTextInput
                   placeholder="Lösenord (minst 8 tecken)"
                   value={invite.password}
-                  onChangeText={value => updateCaregiverInvite(index, 'password', value)}
+                  onChangeText={value =>
+                    updateCaregiverInvite(index, 'password', value)
+                  }
                   secureTextEntry
                   editable={!loading}
                 />
                 {errors[`${index}-password`] && (
-                  <Text style={{color: '#dc2626', fontSize: 12, marginTop: -8, marginBottom: 8}}>
+                  <Text
+                    style={{
+                      color: '#dc2626',
+                      fontSize: 12,
+                      marginTop: -8,
+                      marginBottom: 8,
+                    }}>
                     {errors[`${index}-password`]}
                   </Text>
                 )}
@@ -643,7 +724,12 @@ export const OnboardingScreen: React.FC = () => {
               }}
               onPress={addCaregiverInvite}
               disabled={loading}>
-              <Text style={{color: colors.primary.dark, fontSize: 14, fontWeight: '500'}}>
+              <Text
+                style={{
+                  color: colors.primary.dark,
+                  fontSize: 14,
+                  fontWeight: '500',
+                }}>
                 Lägg till omsorgsgivare
               </Text>
             </TouchableOpacity>
@@ -661,7 +747,12 @@ export const OnboardingScreen: React.FC = () => {
                 }}
                 onPress={handleStep3}
                 disabled={loading}>
-                <Text style={{color: colors.primary.dark, fontSize: 16, fontWeight: '600'}}>
+                <Text
+                  style={{
+                    color: colors.primary.dark,
+                    fontSize: 16,
+                    fontWeight: '600',
+                  }}>
                   Hoppa över
                 </Text>
               </TouchableOpacity>
