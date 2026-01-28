@@ -13,7 +13,7 @@ import type {Medication} from '../../types/api';
 import HPTextInput from '../../components/HPTextInput';
 
 export const MedicationsSettings: React.FC = () => {
-  const {patient, isCaretakerRole} = usePatient();
+  const {patient, isCaretakerRole, isPatientRole} = usePatient();
   const [medications, setMedications] = useState<Medication[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -135,7 +135,7 @@ export const MedicationsSettings: React.FC = () => {
     );
   };
 
-  if (isCaretakerRole) {
+  if (isCaretakerRole && !isPatientRole) {
     return (
       <View
         style={{

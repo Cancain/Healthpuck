@@ -22,7 +22,8 @@ export const AlertsSettings: React.FC<AlertsSettingsProps> = ({
   initialPatientId,
 }) => {
   const route = useRoute();
-  const {patient, isCaretakerRole} = usePatient();
+  const {patient, isCaretakerRole, isPatientRole} = usePatient();
+  const usePatientContext = isPatientRole || !isCaretakerRole;
   const [selectedPatientId, setSelectedPatientId] = useState<number | null>(
     initialPatientId || null,
   );
@@ -44,7 +45,7 @@ export const AlertsSettings: React.FC<AlertsSettingsProps> = ({
   const [saving, setSaving] = useState(false);
 
   const loadPatients = useCallback(async () => {
-    if (!isCaretakerRole) {
+    if (!isCaretakerRole || isPatientRole) {
       return;
     }
     try {
@@ -74,20 +75,16 @@ export const AlertsSettings: React.FC<AlertsSettingsProps> = ({
     } finally {
       setLoadingPatients(false);
     }
-  }, [isCaretakerRole, route.params]);
+  }, [isCaretakerRole, isPatientRole, route.params]);
 
   const loadAlerts = useCallback(async () => {
     try {
       setLoading(true);
-      if (isCaretakerRole) {
-        if (selectedPatientId) {
-          const data = await apiService.getAlerts(selectedPatientId);
-          setAlerts(data);
-        } else {
-          setAlerts([]);
-        }
-      } else if (patient?.id) {
+      if (usePatientContext && patient?.id) {
         const data = await apiService.getAlerts();
+        setAlerts(data);
+      } else if (!usePatientContext && selectedPatientId) {
+        const data = await apiService.getAlerts(selectedPatientId);
         setAlerts(data);
       } else {
         setAlerts([]);
@@ -105,17 +102,17 @@ export const AlertsSettings: React.FC<AlertsSettingsProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [isCaretakerRole, selectedPatientId, patient?.id]);
+  }, [usePatientContext, selectedPatientId, patient?.id]);
 
   useEffect(() => {
-    if (isCaretakerRole) {
+    if (usePatientContext) {
+      setSelectedPatientId(patient?.id || null);
+    } else {
       loadPatients().catch(err => {
         console.error('Failed to load patients:', err);
       });
-    } else {
-      setSelectedPatientId(patient?.id || null);
     }
-  }, [isCaretakerRole, patient, loadPatients]);
+  }, [usePatientContext, patient, loadPatients]);
 
   useEffect(() => {
     if (initialPatientId) {
@@ -124,14 +121,12 @@ export const AlertsSettings: React.FC<AlertsSettingsProps> = ({
   }, [initialPatientId]);
 
   useEffect(() => {
-    if (isCaretakerRole) {
-      if (selectedPatientId) {
-        loadAlerts();
-      }
-    } else {
+    if (usePatientContext) {
+      loadAlerts();
+    } else if (selectedPatientId) {
       loadAlerts();
     }
-  }, [selectedPatientId, isCaretakerRole, loadAlerts]);
+  }, [selectedPatientId, usePatientContext, loadAlerts]);
 
   const startCreate = () => {
     setShowCreate(true);
@@ -168,7 +163,7 @@ export const AlertsSettings: React.FC<AlertsSettingsProps> = ({
   };
 
   const handleSave = async () => {
-    const patientId = isCaretakerRole ? selectedPatientId : patient?.id;
+    const patientId = usePatientContext ? patient?.id : selectedPatientId;
     if (!patientId) {
       return;
     }
@@ -265,7 +260,7 @@ export const AlertsSettings: React.FC<AlertsSettingsProps> = ({
     return [];
   };
 
-  if (isCaretakerRole) {
+  if (!usePatientContext) {
     if (loadingPatients) {
       return (
         <View
@@ -302,7 +297,9 @@ export const AlertsSettings: React.FC<AlertsSettingsProps> = ({
         </View>
       );
     }
-  } else if (!patient) {
+  }
+
+  if (usePatientContext && !patient) {
     return (
       <View
         style={{
@@ -339,13 +336,13 @@ export const AlertsSettings: React.FC<AlertsSettingsProps> = ({
     );
   }
 
-  const currentPatient = isCaretakerRole
-    ? patients.find(p => p.id === selectedPatientId)
-    : patient;
+  const currentPatient = usePatientContext
+    ? patient
+    : patients.find(p => p.id === selectedPatientId);
 
   return (
     <ScrollView style={{flex: 1, padding: 20}}>
-      {isCaretakerRole && (
+      {!usePatientContext && (
         <View style={{marginBottom: 20}}>
           <Text
             style={{

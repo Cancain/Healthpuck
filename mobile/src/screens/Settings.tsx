@@ -1,7 +1,8 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useMemo} from 'react';
 import {View, Text, ScrollView, TouchableOpacity} from 'react-native';
 import {useRoute} from '@react-navigation/native';
 import {useAuth} from '../contexts/AuthContext';
+import {usePatient} from '../contexts/PatientContext';
 import {UsersSettings} from './settings/UsersSettings';
 import {MedicationsSettings} from './settings/MedicationsSettings';
 import {AlertsSettings} from './settings/AlertsSettings';
@@ -11,13 +12,36 @@ import {colors} from '../utils/theme';
 
 type Tab = 'users' | 'medications' | 'alerts' | 'whoop' | 'notifications';
 
+const ALL_TABS: Array<{id: Tab; label: string}> = [
+  {id: 'users', label: 'Användare'},
+  {id: 'medications', label: 'Mediciner'},
+  {id: 'alerts', label: 'Varningar'},
+  {id: 'whoop', label: 'Whoop'},
+  {id: 'notifications', label: 'Notifikationer'},
+];
+
 export const SettingsScreen: React.FC = () => {
   const route = useRoute();
   const {logout} = useAuth();
+  const {isCaretakerRole, isPatientRole} = usePatient();
   const [activeTab, setActiveTab] = useState<Tab>('alerts');
   const [initialPatientId, setInitialPatientId] = useState<
     number | undefined
   >();
+
+  const tabs = useMemo(
+    () =>
+      ALL_TABS.filter(t => {
+        if (t.id === 'whoop') {
+          return isPatientRole;
+        }
+        if (t.id === 'users') {
+          return isCaretakerRole && !isPatientRole;
+        }
+        return true;
+      }),
+    [isCaretakerRole, isPatientRole],
+  );
 
   useEffect(() => {
     const params = route.params as {patientId?: number} | undefined;
@@ -27,13 +51,14 @@ export const SettingsScreen: React.FC = () => {
     }
   }, [route.params]);
 
-  const tabs: Array<{id: Tab; label: string}> = [
-    {id: 'users', label: 'Användare'},
-    {id: 'medications', label: 'Mediciner'},
-    {id: 'alerts', label: 'Varningar'},
-    {id: 'whoop', label: 'Whoop'},
-    {id: 'notifications', label: 'Notifikationer'},
-  ];
+  useEffect(() => {
+    if (!isPatientRole && activeTab === 'whoop') {
+      setActiveTab('alerts');
+    }
+    if (!(isCaretakerRole && !isPatientRole) && activeTab === 'users') {
+      setActiveTab('alerts');
+    }
+  }, [isCaretakerRole, isPatientRole, activeTab]);
 
   const renderContent = () => {
     switch (activeTab) {
