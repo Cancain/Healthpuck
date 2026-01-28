@@ -9,7 +9,6 @@ import { whoopRateLimiter } from "../utils/whoopRateLimiter";
 import { broadcastHeartRateToCaregivers } from "../websocket/server";
 import { ensureWhoopAccessTokenForPatient } from "../utils/whoopSync";
 import { WhoopClient } from "../utils/whoopClient";
-import { isCaretaker } from "../utils/organisationContext";
 
 const router = Router();
 
@@ -18,14 +17,6 @@ router.post("/", authenticate, async (req: Request, res: Response) => {
     const userId = getUserIdFromRequest(req);
     if (!userId) {
       return res.status(401).json({ error: "Not authenticated" });
-    }
-
-    const isUserCaretaker = await isCaretaker(userId);
-    if (isUserCaretaker) {
-      return res.status(403).json({
-        error:
-          "Caregivers cannot send heart rate readings. Only patients can send heart rate data.",
-      });
     }
 
     let context;
@@ -123,15 +114,7 @@ router.get("/", authenticate, async (req: Request, res: Response) => {
       return res.status(401).json({ error: "Not authenticated" });
     }
 
-    const isUserCaretaker = await isCaretaker(userId);
     const requestedPatientId = req.query.patientId ? Number(req.query.patientId) : null;
-
-    if (isUserCaretaker && !requestedPatientId) {
-      return res.status(400).json({
-        error: "patientId query parameter is required for caregivers",
-        code: "PATIENT_ID_REQUIRED",
-      });
-    }
 
     let context: { patientId: number; patientName: string; role: string };
     if (requestedPatientId) {

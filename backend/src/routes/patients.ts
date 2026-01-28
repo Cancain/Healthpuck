@@ -210,7 +210,30 @@ router.get("/", authenticate, async (req: Request, res: Response) => {
       }
 
       const orgPatients = await getPatientsForOrganisation(organisationId);
-      return res.json(orgPatients);
+
+      const userAsPatientLink = await db
+        .select()
+        .from(patientUsers)
+        .where(and(eq(patientUsers.userId, userId), eq(patientUsers.role, "patient")))
+        .limit(1);
+
+      if (userAsPatientLink.length > 0) {
+        const myPatientRow = await db
+          .select()
+          .from(patients)
+          .where(eq(patients.id, userAsPatientLink[0].patientId))
+          .limit(1);
+        if (myPatientRow.length > 0) {
+          const meAsPatient = { ...myPatientRow[0], role: "patient" as const };
+          const others = orgPatients
+            .filter((p) => p.id !== meAsPatient.id)
+            .map((p) => ({ ...p, role: "caregiver" as const }));
+          return res.json([meAsPatient, ...others]);
+        }
+      }
+
+      const withRole = orgPatients.map((p) => ({ ...p, role: "caregiver" as const }));
+      return res.json(withRole);
     } else {
       const userPatients = await db
         .select({

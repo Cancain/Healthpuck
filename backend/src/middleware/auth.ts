@@ -41,19 +41,21 @@ export function getUserIdFromRequest(req: Request): number | null {
 }
 
 export async function hasPatientAccess(userId: number, patientId: number): Promise<boolean> {
-  const isUserCaretaker = await isCaretaker(userId);
-
-  if (isUserCaretaker) {
-    return hasAccessToPatientViaOrganisation(userId, patientId);
-  }
-
-  const result = await db
+  const directLink = await db
     .select()
     .from(patientUsers)
     .where(and(eq(patientUsers.patientId, patientId), eq(patientUsers.userId, userId)))
     .limit(1);
+  if (directLink.length > 0) {
+    return true;
+  }
 
-  return result.length > 0;
+  const isUserCaretaker = await isCaretaker(userId);
+  if (isUserCaretaker) {
+    return hasAccessToPatientViaOrganisation(userId, patientId);
+  }
+
+  return false;
 }
 
 export function authenticate(req: Request, res: Response, next: NextFunction) {

@@ -93,11 +93,23 @@ router.get("/", authenticate, async (req: Request, res: Response) => {
         return res.status(403).json({ error: "Access denied to this patient" });
       }
       targetPatientId = requestedPatientId;
-    } else if (isUserCaretaker) {
-      return res.status(400).json({
-        error: "patientId query parameter is required for caregivers",
-        code: "PATIENT_ID_REQUIRED",
-      });
+    } else if (isUserCaretaker && !requestedPatientId) {
+      try {
+        const context = await getPatientContextForUser(userId);
+        if (context.role === "patient") {
+          targetPatientId = context.patientId;
+        } else {
+          return res.status(400).json({
+            error: "patientId query parameter is required for caregivers",
+            code: "PATIENT_ID_REQUIRED",
+          });
+        }
+      } catch (error: any) {
+        return res.status(400).json({
+          error: "patientId query parameter is required for caregivers",
+          code: "PATIENT_ID_REQUIRED",
+        });
+      }
     } else {
       try {
         const { patientId } = await getPatientContextForUser(userId);
@@ -140,11 +152,23 @@ router.get("/active", authenticate, async (req: Request, res: Response) => {
         return res.status(403).json({ error: "Access denied to this patient" });
       }
       targetPatientId = requestedPatientId;
-    } else if (isUserCaretaker) {
-      return res.status(400).json({
-        error: "patientId query parameter is required for caregivers",
-        code: "PATIENT_ID_REQUIRED",
-      });
+    } else if (isUserCaretaker && !requestedPatientId) {
+      try {
+        const context = await getPatientContextForUser(userId);
+        if (context.role === "patient") {
+          targetPatientId = context.patientId;
+        } else {
+          return res.status(400).json({
+            error: "patientId query parameter is required for caregivers",
+            code: "PATIENT_ID_REQUIRED",
+          });
+        }
+      } catch {
+        return res.status(400).json({
+          error: "patientId query parameter is required for caregivers",
+          code: "PATIENT_ID_REQUIRED",
+        });
+      }
     } else {
       const { patientId } = await getPatientContextForUser(userId);
       targetPatientId = patientId;
@@ -398,7 +422,7 @@ router.delete("/:id", authenticate, async (req: Request, res: Response) => {
 
     await db.delete(alerts).where(eq(alerts.id, alertId));
 
-    return res.status(204).send();
+    return res.status(200).json({ success: true });
   } catch (error) {
     console.error("Error deleting alert:", error);
     return res.status(500).json({ error: "Internal server error" });
