@@ -4,9 +4,7 @@ import { useNavigate } from "react-router-dom";
 import styles from "./CaregiverDashboard.module.css";
 import Button from "../../components/Button/Button";
 import { useAuth } from "../../auth/AuthContext";
-import { apiService, type Patient, type ActiveAlert, type HeartRateResponse } from "../../services/api";
-
-const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:3001";
+import { apiService, type Patient, type ActiveAlert } from "../../services/api";
 
 interface Organisation {
   organisationId: number;
@@ -56,9 +54,7 @@ const CaregiverDashboardPage: React.FC = () => {
   }, []);
 
   const loadPatientData = useCallback(async (patientId: number) => {
-    setPatients((prev) =>
-      prev.map((p) => (p.id === patientId ? { ...p, loading: true } : p)),
-    );
+    setPatients((prev) => prev.map((p) => (p.id === patientId ? { ...p, loading: true } : p)));
 
     try {
       const [heartRate, alerts] = await Promise.all([
@@ -80,9 +76,7 @@ const CaregiverDashboardPage: React.FC = () => {
       );
     } catch (err) {
       console.error(`Error loading data for patient ${patientId}:`, err);
-      setPatients((prev) =>
-        prev.map((p) => (p.id === patientId ? { ...p, loading: false } : p)),
-      );
+      setPatients((prev) => prev.map((p) => (p.id === patientId ? { ...p, loading: false } : p)));
     }
   }, []);
 
@@ -154,10 +148,7 @@ const CaregiverDashboardPage: React.FC = () => {
         ) : (
           patients.map((patient) => (
             <div key={patient.id} className={styles.patientItem}>
-              <div
-                className={styles.patientHeader}
-                onClick={() => togglePatient(patient.id)}
-              >
+              <div className={styles.patientHeader} onClick={() => togglePatient(patient.id)}>
                 <div className={styles.patientHeaderLeft}>
                   <span className={styles.statusIcon}>{getStatusIcon(patient)}</span>
                   <span className={styles.patientName}>{patient.name}</span>
@@ -195,9 +186,7 @@ const CaregiverDashboardPage: React.FC = () => {
                                     : styles.alertNotTriggered
                                 }`}
                               >
-                                <div className={styles.alertName}>
-                                  {activeAlert.alert.name}
-                                </div>
+                                <div className={styles.alertName}>{activeAlert.alert.name}</div>
                                 <div className={styles.alertPriority}>
                                   {activeAlert.alert.priority === "high"
                                     ? "Hög prioritet"

@@ -28,7 +28,7 @@ class WhoopRateLimiter {
   private currentRateLimits: RateLimitHeaders | null = null;
 
   private activeUsers: ActiveUser[] = [];
-  private currentUserIndex: number = 0;
+  private currentUserIndex = 0;
 
   private heartRateCache: Map<number, CachedHeartRate> = new Map();
   private readonly CACHE_TTL_MS = 15000;

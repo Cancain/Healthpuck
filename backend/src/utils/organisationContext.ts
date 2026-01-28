@@ -1,12 +1,6 @@
 import { eq, and } from "drizzle-orm";
 import db from "../db";
-import {
-  caretakers,
-  organisations,
-  organisationUsers,
-  patients,
-  patientUsers,
-} from "../db/schema";
+import { caretakers, organisations, organisationUsers, patients, patientUsers } from "../db/schema";
 
 export type OrganisationContext = {
   organisationId: number;
@@ -38,7 +32,7 @@ export async function getOrganisationForCaretaker(
 
 export async function getPatientsForOrganisation(
   organisationId: number,
-): Promise<typeof patients.$inferSelect[]> {
+): Promise<(typeof patients.$inferSelect)[]> {
   const result = await db
     .select()
     .from(patients)
@@ -48,18 +42,12 @@ export async function getPatientsForOrganisation(
 }
 
 export async function isCaretaker(userId: number): Promise<boolean> {
-  const result = await db
-    .select()
-    .from(caretakers)
-    .where(eq(caretakers.userId, userId))
-    .limit(1);
+  const result = await db.select().from(caretakers).where(eq(caretakers.userId, userId)).limit(1);
 
   return result.length > 0;
 }
 
-export async function getCaretakerOrganisationId(
-  userId: number,
-): Promise<number | null> {
+export async function getCaretakerOrganisationId(userId: number): Promise<number | null> {
   const result = await db
     .select({ organisationId: caretakers.organisationId })
     .from(caretakers)

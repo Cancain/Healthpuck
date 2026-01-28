@@ -275,8 +275,8 @@ const OnboardingPage: React.FC = () => {
           <div className={styles.step}>
             <h2 className={styles.stepTitle}>Lägg till patienter</h2>
             <p className={styles.stepDescription}>
-              Skapa konton för patienter i din organisation. Du kan hoppa över detta steg och
-              lägga till patienter senare.
+              Skapa konton för patienter i din organisation. Du kan hoppa över detta steg och lägga
+              till patienter senare.
             </p>
 
             {patientInvites.map((invite, index) => (
@@ -334,9 +334,7 @@ const OnboardingPage: React.FC = () => {
                     minLength={8}
                   />
                   {errors[`patient-${index}-password`] && (
-                    <span className={styles.fieldError}>
-                      {errors[`patient-${index}-password`]}
-                    </span>
+                    <span className={styles.fieldError}>{errors[`patient-${index}-password`]}</span>
                   )}
                 </div>
               </div>
@@ -368,8 +366,7 @@ const OnboardingPage: React.FC = () => {
           <div className={styles.step}>
             <h2 className={styles.stepTitle}>Lägg till omsorgsgivare</h2>
             <p className={styles.stepDescription}>
-              Skapa konton för andra omsorgsgivare i din organisation. Du kan hoppa över detta
-              steg.
+              Skapa konton för andra omsorgsgivare i din organisation. Du kan hoppa över detta steg.
             </p>
 
             {caregiverInvites.map((invite, index) => (
@@ -412,9 +409,7 @@ const OnboardingPage: React.FC = () => {
                     disabled={loading}
                   />
                   {errors[`caregiver-${index}-email`] && (
-                    <span className={styles.fieldError}>
-                      {errors[`caregiver-${index}-email`]}
-                    </span>
+                    <span className={styles.fieldError}>{errors[`caregiver-${index}-email`]}</span>
                   )}
                 </div>
 

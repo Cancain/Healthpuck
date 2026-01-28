@@ -62,7 +62,11 @@ const MainNavigator = () => {
 
 export const AppNavigator = () => {
   const {isAuthenticated, isLoading: authLoading} = useAuth();
-  const {isPatientRole, isLoading: patientLoading, hasOrganisation} = usePatient();
+  const {
+    isPatientRole,
+    isLoading: patientLoading,
+    hasOrganisation,
+  } = usePatient();
   const navigationRef =
     useRef<NavigationContainerRef<RootStackParamList>>(null);
 

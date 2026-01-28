@@ -299,7 +299,9 @@ export class ApiService {
   }
 
   async getAlerts(patientId?: number): Promise<Alert[]> {
-    const url = patientId ? `/api/alerts?patientId=${patientId}` : '/api/alerts';
+    const url = patientId
+      ? `/api/alerts?patientId=${patientId}`
+      : '/api/alerts';
     return this.request<Alert[]>(url);
   }
 
@@ -543,12 +545,14 @@ export class ApiService {
     return this.getHeartRate(patientId);
   }
 
-  async inviteUsersToOrganisation(invites: Array<{
-    email: string;
-    name: string;
-    password: string;
-    role: 'patient' | 'caregiver';
-  }>): Promise<{
+  async inviteUsersToOrganisation(
+    invites: Array<{
+      email: string;
+      name: string;
+      password: string;
+      role: 'patient' | 'caregiver';
+    }>,
+  ): Promise<{
     created: Array<{id: number; email: string; name: string}>;
     errors: Array<{email: string; error: string}>;
   }> {

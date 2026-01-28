@@ -32,7 +32,9 @@ async function migrateData() {
           .limit(1);
 
         if (creator.length === 0) {
-          console.warn(`Creator user ${patient.createdBy} not found for patient ${patient.id}, skipping`);
+          console.warn(
+            `Creator user ${patient.createdBy} not found for patient ${patient.id}, skipping`,
+          );
           continue;
         }
 
@@ -53,7 +55,9 @@ async function migrateData() {
           userId: patient.createdBy,
         });
 
-        console.log(`Created organisation "${orgName}" (ID: ${newOrg.id}) for user ${patient.createdBy}`);
+        console.log(
+          `Created organisation "${orgName}" (ID: ${newOrg.id}) for user ${patient.createdBy}`,
+        );
       }
 
       const organisationId = createdByMap.get(patient.createdBy)!;
@@ -61,12 +65,7 @@ async function migrateData() {
       const patientUserLink = await db
         .select()
         .from(patientUsers)
-        .where(
-          and(
-            eq(patientUsers.patientId, patient.id),
-            eq(patientUsers.role, "patient"),
-          ),
-        )
+        .where(and(eq(patientUsers.patientId, patient.id), eq(patientUsers.role, "patient")))
         .limit(1);
 
       const userId = patientUserLink.length > 0 ? patientUserLink[0].userId : null;
@@ -99,9 +98,7 @@ async function migrateData() {
         .limit(1);
 
       if (patient.length === 0) {
-        console.warn(
-          `Patient ${link.patientId} not found, skipping caregiver ${link.userId}`,
-        );
+        console.warn(`Patient ${link.patientId} not found, skipping caregiver ${link.userId}`);
         continue;
       }
 

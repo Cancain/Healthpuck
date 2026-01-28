@@ -385,7 +385,12 @@ export async function evaluateAllAlerts(patientId: number): Promise<ActiveAlert[
 
     console.log(
       `[evaluateAllAlerts] Patient ${patientId}: Found ${enabledAlerts.length} enabled alerts`,
-      enabledAlerts.map(a => ({id: a.id, name: a.name, metricType: a.metricType, metricPath: a.metricPath})),
+      enabledAlerts.map((a) => ({
+        id: a.id,
+        name: a.name,
+        metricType: a.metricType,
+        metricPath: a.metricPath,
+      })),
     );
 
     const results = await Promise.all(
@@ -403,7 +408,7 @@ export async function evaluateAllAlerts(patientId: number): Promise<ActiveAlert[
 
     console.log(
       `[evaluateAllAlerts] Patient ${patientId}: Evaluation results:`,
-      results.map(r => ({
+      results.map((r) => ({
         alertId: r.alert.id,
         alertName: r.alert.name,
         currentValue: r.currentValue,

@@ -869,11 +869,7 @@ const SettingsPage: React.FC = () => {
       return;
     }
 
-    const patientId = isCaretaker
-      ? selectedPatientId
-      : patients.length > 0
-        ? patients[0].id
-        : null;
+    const patientId = isCaretaker ? selectedPatientId : patients.length > 0 ? patients[0].id : null;
 
     if (!patientId) {
       setAlertsError(isCaretaker ? "Välj en patient" : "Inga omsorgstagare hittades");
@@ -1630,264 +1626,269 @@ const SettingsPage: React.FC = () => {
                   {alertsError && <div className={styles.error}>{alertsError}</div>}
 
                   {alertsLoading ? (
-                  <p>Laddar varningar...</p>
-                ) : showCreateAlert || editingAlert ? (
-                  <form
-                    onSubmit={
-                      editingAlert ? (e) => handleUpdateAlert(editingAlert, e) : handleCreateAlert
-                    }
-                    className={styles.alertForm}
-                  >
-                    <h3 className={styles.sectionTitle}>
-                      {editingAlert ? "Redigera varning" : "Skapa ny varning"}
-                    </h3>
-
-                    <div className={styles.field}>
-                      <label htmlFor="alertName">Namn *</label>
-                      <input
-                        id="alertName"
-                        type="text"
-                        value={alertFormData.name}
-                        onChange={(e) =>
-                          setAlertFormData((prev) => ({ ...prev, name: e.target.value }))
-                        }
-                        required
-                        disabled={savingAlert}
-                        className={styles.input}
-                        placeholder="t.ex. Låg hjärtfrekvens"
-                      />
-                    </div>
-
-                    <div className={styles.field}>
-                      <label htmlFor="alertMetricType">Måtttyp *</label>
-                      <select
-                        id="alertMetricType"
-                        value={alertFormData.metricType}
-                        onChange={(e) =>
-                          setAlertFormData((prev) => ({
-                            ...prev,
-                            metricType: e.target.value as "whoop" | "medication",
-                            metricPath: "",
-                          }))
-                        }
-                        required
-                        disabled={savingAlert}
-                        className={styles.input}
-                      >
-                        <option value="">Välj måtttyp</option>
-                        <option value="whoop">Whoop</option>
-                        <option value="medication">Medicin</option>
-                      </select>
-                    </div>
-
-                    <div className={styles.field}>
-                      <label htmlFor="alertMetricPath">Mått *</label>
-                      {alertFormData.metricType === "whoop" ? (
-                        <select
-                          id="alertMetricPath"
-                          value={alertFormData.metricPath}
-                          onChange={(e) =>
-                            setAlertFormData((prev) => ({ ...prev, metricPath: e.target.value }))
-                          }
-                          required
-                          disabled={savingAlert}
-                          className={styles.input}
-                        >
-                          <option value="">Välj Whoop-mått</option>
-                          <option value="heart_rate">Hjärtfrekvens</option>
-                          <option value="recovery.score.recovery_score">Återhämtningspoäng</option>
-                          <option value="recovery.score.resting_heart_rate">Vilopuls</option>
-                          <option value="recovery.score.hrv_rmssd_milli">HRV RMSSD</option>
-                          <option value="recovery.score.spo2_percentage">Syrehalt (%)</option>
-                          <option value="sleep.score.sleep_performance_percentage">
-                            Sömnprestanda (%)
-                          </option>
-                        </select>
-                      ) : alertFormData.metricType === "medication" ? (
-                        <select
-                          id="alertMetricPath"
-                          value={alertFormData.metricPath}
-                          onChange={(e) =>
-                            setAlertFormData((prev) => ({ ...prev, metricPath: e.target.value }))
-                          }
-                          required
-                          disabled={savingAlert}
-                          className={styles.input}
-                        >
-                          <option value="">Välj medicin-mått</option>
-                          <option value="missed_dose">Missade doser (senaste 24h)</option>
-                        </select>
-                      ) : (
-                        <input
-                          id="alertMetricPath"
-                          type="text"
-                          value={alertFormData.metricPath}
-                          onChange={(e) =>
-                            setAlertFormData((prev) => ({ ...prev, metricPath: e.target.value }))
-                          }
-                          required
-                          disabled={savingAlert}
-                          className={styles.input}
-                          placeholder="Måttväg"
-                        />
-                      )}
-                    </div>
-
-                    <div className={styles.field}>
-                      <label htmlFor="alertOperator">Operator *</label>
-                      <select
-                        id="alertOperator"
-                        value={alertFormData.operator}
-                        onChange={(e) =>
-                          setAlertFormData((prev) => ({
-                            ...prev,
-                            operator: e.target.value as "<" | ">" | "=" | "<=" | ">=",
-                          }))
-                        }
-                        required
-                        disabled={savingAlert}
-                        className={styles.input}
-                      >
-                        <option value="">Välj operator</option>
-                        <option value="<">Mindre än (&lt;)</option>
-                        <option value=">">Större än (&gt;)</option>
-                        <option value="=">Lika med (=)</option>
-                        <option value="<=">Mindre än eller lika med (&lt;=)</option>
-                        <option value=">=">Större än eller lika med (&gt;=)</option>
-                      </select>
-                    </div>
-
-                    <div className={styles.field}>
-                      <label htmlFor="alertThresholdValue">Tröskelvärde *</label>
-                      <input
-                        id="alertThresholdValue"
-                        type="number"
-                        step="any"
-                        value={alertFormData.thresholdValue}
-                        onChange={(e) =>
-                          setAlertFormData((prev) => ({ ...prev, thresholdValue: e.target.value }))
-                        }
-                        required
-                        disabled={savingAlert}
-                        className={styles.input}
-                        placeholder="t.ex. 20"
-                      />
-                    </div>
-
-                    <div className={styles.field}>
-                      <label className={styles.fieldLabel} htmlFor="alertPriority">
-                        Prioritet *
-                      </label>
-                      <select
-                        id="alertPriority"
-                        value={alertFormData.priority}
-                        onChange={(e) =>
-                          setAlertFormData((prev) => ({
-                            ...prev,
-                            priority: e.target.value as "high" | "mid" | "low",
-                          }))
-                        }
-                        required
-                        disabled={savingAlert}
-                        className={styles.input}
-                      >
-                        <option value="">Välj prioritet</option>
-                        <option value="high">Hög (kontrolleras var 30:e sekund)</option>
-                        <option value="mid">Medel (kontrolleras var 5:e minut)</option>
-                        <option value="low">Låg (kontrolleras en gång per dag)</option>
-                      </select>
-                    </div>
-
-                    <div className={styles.field}>
-                      <label className={styles.fieldLabel}>
-                        <input
-                          className={styles.checkbox}
-                          type="checkbox"
-                          checked={alertFormData.enabled}
-                          onChange={(e) =>
-                            setAlertFormData((prev) => ({ ...prev, enabled: e.target.checked }))
-                          }
-                          disabled={savingAlert}
-                        />
-                        Aktiverad
-                      </label>
-                    </div>
-
-                    <div className={styles.formActions}>
-                      <Button type="submit" disabled={savingAlert}>
-                        {savingAlert ? "Sparar..." : editingAlert ? "Spara" : "Skapa"}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        onClick={editingAlert ? cancelEditAlert : cancelAddAlert}
-                        disabled={savingAlert}
-                      >
-                        Avbryt
-                      </Button>
-                    </div>
-                  </form>
-                ) : alerts.length === 0 ? (
-                  <p className={styles.emptyList}>Inga varningar ännu</p>
-                ) : (
-                  <ul className={styles.alertsList}>
-                    {alerts.map((alert) => {
-                      if (editingAlert === alert.id) {
-                        return null;
+                    <p>Laddar varningar...</p>
+                  ) : showCreateAlert || editingAlert ? (
+                    <form
+                      onSubmit={
+                        editingAlert ? (e) => handleUpdateAlert(editingAlert, e) : handleCreateAlert
                       }
+                      className={styles.alertForm}
+                    >
+                      <h3 className={styles.sectionTitle}>
+                        {editingAlert ? "Redigera varning" : "Skapa ny varning"}
+                      </h3>
 
-                      return (
-                        <li key={alert.id} className={styles.alertItem}>
-                          <div className={styles.alertInfo}>
-                            <div className={styles.alertHeader}>
-                              <span className={styles.alertName}>{alert.name}</span>
-                              <span
-                                className={
-                                  alert.enabled
-                                    ? styles.alertStatusEnabled
-                                    : styles.alertStatusDisabled
-                                }
+                      <div className={styles.field}>
+                        <label htmlFor="alertName">Namn *</label>
+                        <input
+                          id="alertName"
+                          type="text"
+                          value={alertFormData.name}
+                          onChange={(e) =>
+                            setAlertFormData((prev) => ({ ...prev, name: e.target.value }))
+                          }
+                          required
+                          disabled={savingAlert}
+                          className={styles.input}
+                          placeholder="t.ex. Låg hjärtfrekvens"
+                        />
+                      </div>
+
+                      <div className={styles.field}>
+                        <label htmlFor="alertMetricType">Måtttyp *</label>
+                        <select
+                          id="alertMetricType"
+                          value={alertFormData.metricType}
+                          onChange={(e) =>
+                            setAlertFormData((prev) => ({
+                              ...prev,
+                              metricType: e.target.value as "whoop" | "medication",
+                              metricPath: "",
+                            }))
+                          }
+                          required
+                          disabled={savingAlert}
+                          className={styles.input}
+                        >
+                          <option value="">Välj måtttyp</option>
+                          <option value="whoop">Whoop</option>
+                          <option value="medication">Medicin</option>
+                        </select>
+                      </div>
+
+                      <div className={styles.field}>
+                        <label htmlFor="alertMetricPath">Mått *</label>
+                        {alertFormData.metricType === "whoop" ? (
+                          <select
+                            id="alertMetricPath"
+                            value={alertFormData.metricPath}
+                            onChange={(e) =>
+                              setAlertFormData((prev) => ({ ...prev, metricPath: e.target.value }))
+                            }
+                            required
+                            disabled={savingAlert}
+                            className={styles.input}
+                          >
+                            <option value="">Välj Whoop-mått</option>
+                            <option value="heart_rate">Hjärtfrekvens</option>
+                            <option value="recovery.score.recovery_score">
+                              Återhämtningspoäng
+                            </option>
+                            <option value="recovery.score.resting_heart_rate">Vilopuls</option>
+                            <option value="recovery.score.hrv_rmssd_milli">HRV RMSSD</option>
+                            <option value="recovery.score.spo2_percentage">Syrehalt (%)</option>
+                            <option value="sleep.score.sleep_performance_percentage">
+                              Sömnprestanda (%)
+                            </option>
+                          </select>
+                        ) : alertFormData.metricType === "medication" ? (
+                          <select
+                            id="alertMetricPath"
+                            value={alertFormData.metricPath}
+                            onChange={(e) =>
+                              setAlertFormData((prev) => ({ ...prev, metricPath: e.target.value }))
+                            }
+                            required
+                            disabled={savingAlert}
+                            className={styles.input}
+                          >
+                            <option value="">Välj medicin-mått</option>
+                            <option value="missed_dose">Missade doser (senaste 24h)</option>
+                          </select>
+                        ) : (
+                          <input
+                            id="alertMetricPath"
+                            type="text"
+                            value={alertFormData.metricPath}
+                            onChange={(e) =>
+                              setAlertFormData((prev) => ({ ...prev, metricPath: e.target.value }))
+                            }
+                            required
+                            disabled={savingAlert}
+                            className={styles.input}
+                            placeholder="Måttväg"
+                          />
+                        )}
+                      </div>
+
+                      <div className={styles.field}>
+                        <label htmlFor="alertOperator">Operator *</label>
+                        <select
+                          id="alertOperator"
+                          value={alertFormData.operator}
+                          onChange={(e) =>
+                            setAlertFormData((prev) => ({
+                              ...prev,
+                              operator: e.target.value as "<" | ">" | "=" | "<=" | ">=",
+                            }))
+                          }
+                          required
+                          disabled={savingAlert}
+                          className={styles.input}
+                        >
+                          <option value="">Välj operator</option>
+                          <option value="<">Mindre än (&lt;)</option>
+                          <option value=">">Större än (&gt;)</option>
+                          <option value="=">Lika med (=)</option>
+                          <option value="<=">Mindre än eller lika med (&lt;=)</option>
+                          <option value=">=">Större än eller lika med (&gt;=)</option>
+                        </select>
+                      </div>
+
+                      <div className={styles.field}>
+                        <label htmlFor="alertThresholdValue">Tröskelvärde *</label>
+                        <input
+                          id="alertThresholdValue"
+                          type="number"
+                          step="any"
+                          value={alertFormData.thresholdValue}
+                          onChange={(e) =>
+                            setAlertFormData((prev) => ({
+                              ...prev,
+                              thresholdValue: e.target.value,
+                            }))
+                          }
+                          required
+                          disabled={savingAlert}
+                          className={styles.input}
+                          placeholder="t.ex. 20"
+                        />
+                      </div>
+
+                      <div className={styles.field}>
+                        <label className={styles.fieldLabel} htmlFor="alertPriority">
+                          Prioritet *
+                        </label>
+                        <select
+                          id="alertPriority"
+                          value={alertFormData.priority}
+                          onChange={(e) =>
+                            setAlertFormData((prev) => ({
+                              ...prev,
+                              priority: e.target.value as "high" | "mid" | "low",
+                            }))
+                          }
+                          required
+                          disabled={savingAlert}
+                          className={styles.input}
+                        >
+                          <option value="">Välj prioritet</option>
+                          <option value="high">Hög (kontrolleras var 30:e sekund)</option>
+                          <option value="mid">Medel (kontrolleras var 5:e minut)</option>
+                          <option value="low">Låg (kontrolleras en gång per dag)</option>
+                        </select>
+                      </div>
+
+                      <div className={styles.field}>
+                        <label className={styles.fieldLabel}>
+                          <input
+                            className={styles.checkbox}
+                            type="checkbox"
+                            checked={alertFormData.enabled}
+                            onChange={(e) =>
+                              setAlertFormData((prev) => ({ ...prev, enabled: e.target.checked }))
+                            }
+                            disabled={savingAlert}
+                          />
+                          Aktiverad
+                        </label>
+                      </div>
+
+                      <div className={styles.formActions}>
+                        <Button type="submit" disabled={savingAlert}>
+                          {savingAlert ? "Sparar..." : editingAlert ? "Spara" : "Skapa"}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={editingAlert ? cancelEditAlert : cancelAddAlert}
+                          disabled={savingAlert}
+                        >
+                          Avbryt
+                        </Button>
+                      </div>
+                    </form>
+                  ) : alerts.length === 0 ? (
+                    <p className={styles.emptyList}>Inga varningar ännu</p>
+                  ) : (
+                    <ul className={styles.alertsList}>
+                      {alerts.map((alert) => {
+                        if (editingAlert === alert.id) {
+                          return null;
+                        }
+
+                        return (
+                          <li key={alert.id} className={styles.alertItem}>
+                            <div className={styles.alertInfo}>
+                              <div className={styles.alertHeader}>
+                                <span className={styles.alertName}>{alert.name}</span>
+                                <span
+                                  className={
+                                    alert.enabled
+                                      ? styles.alertStatusEnabled
+                                      : styles.alertStatusDisabled
+                                  }
+                                >
+                                  {alert.enabled ? "Aktiverad" : "Inaktiverad"}
+                                </span>
+                                <span className={styles.alertPriority}>
+                                  {alert.priority === "high"
+                                    ? "Hög"
+                                    : alert.priority === "mid"
+                                      ? "Medel"
+                                      : "Låg"}
+                                </span>
+                              </div>
+                              <div className={styles.alertDetails}>
+                                <span>
+                                  {alert.metricType === "whoop" ? "Whoop" : "Medicin"}:{" "}
+                                  {alert.metricPath}
+                                </span>
+                                <span>
+                                  {alert.operator} {alert.thresholdValue}
+                                </span>
+                              </div>
+                            </div>
+                            <div className={styles.alertActions}>
+                              <Button
+                                variant="secondary"
+                                onClick={() => startEditAlert(alert)}
+                                disabled={deletingAlert[alert.id] || false}
                               >
-                                {alert.enabled ? "Aktiverad" : "Inaktiverad"}
-                              </span>
-                              <span className={styles.alertPriority}>
-                                {alert.priority === "high"
-                                  ? "Hög"
-                                  : alert.priority === "mid"
-                                    ? "Medel"
-                                    : "Låg"}
-                              </span>
+                                Redigera
+                              </Button>
+                              <Button
+                                variant="secondary"
+                                onClick={() => handleDeleteAlert(alert.id, alert.name)}
+                                disabled={deletingAlert[alert.id] || false}
+                              >
+                                {deletingAlert[alert.id] ? "Tar bort..." : "Ta bort"}
+                              </Button>
                             </div>
-                            <div className={styles.alertDetails}>
-                              <span>
-                                {alert.metricType === "whoop" ? "Whoop" : "Medicin"}:{" "}
-                                {alert.metricPath}
-                              </span>
-                              <span>
-                                {alert.operator} {alert.thresholdValue}
-                              </span>
-                            </div>
-                          </div>
-                          <div className={styles.alertActions}>
-                            <Button
-                              variant="secondary"
-                              onClick={() => startEditAlert(alert)}
-                              disabled={deletingAlert[alert.id] || false}
-                            >
-                              Redigera
-                            </Button>
-                            <Button
-                              variant="secondary"
-                              onClick={() => handleDeleteAlert(alert.id, alert.name)}
-                              disabled={deletingAlert[alert.id] || false}
-                            >
-                              {deletingAlert[alert.id] ? "Tar bort..." : "Ta bort"}
-                            </Button>
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
+                          </li>
+                        );
+                      })}
+                    </ul>
                   )}
                 </div>
               )

@@ -13,7 +13,6 @@ import {useAuth} from '../contexts/AuthContext';
 import {usePatient} from '../contexts/PatientContext';
 import {apiService} from '../services/api';
 import type {Patient, ActiveAlert, HeartRateResponse} from '../types/api';
-import {AlertCard} from '../components/AlertCard';
 import {HeartRateCard} from '../components/HeartRateCard';
 import {colors} from '../utils/theme';
 import type {MainTabParamList} from '../navigation/types';
@@ -31,7 +30,9 @@ export const CaregiverDashboardScreen: React.FC = () => {
   const {user} = useAuth();
   const {organisation} = usePatient();
   const [patients, setPatients] = useState<PatientData[]>([]);
-  const [expandedPatientId, setExpandedPatientId] = useState<number | null>(null);
+  const [expandedPatientIds, setExpandedPatientIds] = useState<Set<number>>(
+    new Set(),
+  );
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -78,7 +79,7 @@ export const CaregiverDashboardScreen: React.FC = () => {
       );
       if (alerts.length > 0) {
         console.log(
-          `[CaregiverDashboard] Alert details:`,
+          '[CaregiverDashboard] Alert details:',
           JSON.stringify(
             alerts.map(a => ({
               id: a.alert.id,
@@ -123,11 +124,11 @@ export const CaregiverDashboardScreen: React.FC = () => {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await loadPatients();
-    if (expandedPatientId) {
-      await loadPatientData(expandedPatientId);
+    for (const id of expandedPatientIds) {
+      await loadPatientData(id);
     }
     setRefreshing(false);
-  }, [loadPatients, loadPatientData, expandedPatientId]);
+  }, [loadPatients, loadPatientData, expandedPatientIds]);
 
   useEffect(() => {
     loadPatients();
@@ -135,13 +136,19 @@ export const CaregiverDashboardScreen: React.FC = () => {
   }, [loadPatients]);
 
   useEffect(() => {
-    if (expandedPatientId) {
-      loadPatientData(expandedPatientId);
-    }
-  }, [expandedPatientId, loadPatientData]);
+    expandedPatientIds.forEach(id => loadPatientData(id));
+  }, [expandedPatientIds, loadPatientData]);
 
   const togglePatient = (patientId: number) => {
-    setExpandedPatientId(expandedPatientId === patientId ? null : patientId);
+    setExpandedPatientIds(prev => {
+      const next = new Set(prev);
+      if (next.has(patientId)) {
+        next.delete(patientId);
+      } else {
+        next.add(patientId);
+      }
+      return next;
+    });
   };
 
   const getStatusIcon = (patient: PatientData): string => {
@@ -156,7 +163,9 @@ export const CaregiverDashboardScreen: React.FC = () => {
     return (
       <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
         <ActivityIndicator size="large" color={colors.primary.dark} />
-        <Text style={{marginTop: 16, color: colors.primary.dark}}>Laddar...</Text>
+        <Text style={{marginTop: 16, color: colors.primary.dark}}>
+          Laddar...
+        </Text>
       </View>
     );
   }
@@ -184,7 +193,9 @@ export const CaregiverDashboardScreen: React.FC = () => {
             }}>
             Välkommen {user?.name}
           </Text>
-          <Text style={{fontSize: 14, color: colors.primary.dark}}>{user?.email}</Text>
+          <Text style={{fontSize: 14, color: colors.primary.dark}}>
+            {user?.email}
+          </Text>
           <View
             style={{
               alignSelf: 'flex-start',
@@ -194,7 +205,12 @@ export const CaregiverDashboardScreen: React.FC = () => {
               borderRadius: 4,
               marginTop: 12,
             }}>
-            <Text style={{color: colors.semantic.white, fontSize: 12, fontWeight: '600'}}>
+            <Text
+              style={{
+                color: colors.semantic.white,
+                fontSize: 12,
+                fontWeight: '600',
+              }}>
               Omsorgsgivare
             </Text>
           </View>
@@ -249,7 +265,8 @@ export const CaregiverDashboardScreen: React.FC = () => {
                   padding: 16,
                 }}
                 onPress={() => togglePatient(patient.id)}>
-                <View style={{flexDirection: 'row', alignItems: 'center', gap: 12}}>
+                <View
+                  style={{flexDirection: 'row', alignItems: 'center', gap: 12}}>
                   <Text style={{fontSize: 18}}>{getStatusIcon(patient)}</Text>
                   <Text
                     style={{
@@ -261,15 +278,23 @@ export const CaregiverDashboardScreen: React.FC = () => {
                   </Text>
                 </View>
                 <Text style={{color: colors.primary.dark, fontSize: 14}}>
-                  {expandedPatientId === patient.id ? '▼' : '▶'}
+                  {expandedPatientIds.has(patient.id) ? '▼' : '▶'}
                 </Text>
               </TouchableOpacity>
 
-              {expandedPatientId === patient.id && (
-                <View style={{padding: 16, borderTopWidth: 1, borderTopColor: '#e0e0e0'}}>
+              {expandedPatientIds.has(patient.id) && (
+                <View
+                  style={{
+                    padding: 16,
+                    borderTopWidth: 1,
+                    borderTopColor: '#e0e0e0',
+                  }}>
                   {patient.loading ? (
                     <View style={{padding: 20, alignItems: 'center'}}>
-                      <ActivityIndicator size="small" color={colors.primary.dark} />
+                      <ActivityIndicator
+                        size="small"
+                        color={colors.primary.dark}
+                      />
                       <Text style={{marginTop: 8, color: colors.primary.dark}}>
                         Laddar data...
                       </Text>
@@ -307,48 +332,48 @@ export const CaregiverDashboardScreen: React.FC = () => {
                           </Text>
                         ) : (
                           patient.activeAlerts.map(activeAlert => (
-                              <View
-                                key={activeAlert.alert.id}
+                            <View
+                              key={activeAlert.alert.id}
+                              style={{
+                                backgroundColor: '#fff5f5',
+                                borderRadius: 4,
+                                padding: 12,
+                                marginBottom: 8,
+                                borderLeftWidth: 4,
+                                borderLeftColor: '#dc3545',
+                              }}>
+                              <Text
                                 style={{
-                                  backgroundColor: '#fff5f5',
-                                  borderRadius: 4,
-                                  padding: 12,
-                                  marginBottom: 8,
-                                  borderLeftWidth: 4,
-                                  borderLeftColor: '#dc3545',
+                                  fontSize: 14,
+                                  fontWeight: '500',
+                                  color: colors.primary.dark,
+                                  marginBottom: 4,
                                 }}>
-                                <Text
-                                  style={{
-                                    fontSize: 14,
-                                    fontWeight: '500',
-                                    color: colors.primary.dark,
-                                    marginBottom: 4,
-                                  }}>
-                                  {activeAlert.alert.name}
-                                </Text>
+                                {activeAlert.alert.name}
+                              </Text>
+                              <Text
+                                style={{
+                                  fontSize: 12,
+                                  color: colors.device.iconGray,
+                                  marginBottom: 4,
+                                }}>
+                                {activeAlert.alert.priority === 'high'
+                                  ? 'Hög prioritet'
+                                  : activeAlert.alert.priority === 'mid'
+                                    ? 'Medel prioritet'
+                                    : 'Låg prioritet'}
+                              </Text>
+                              {activeAlert.currentValue !== null && (
                                 <Text
                                   style={{
                                     fontSize: 12,
                                     color: colors.device.iconGray,
-                                    marginBottom: 4,
                                   }}>
-                                  {activeAlert.alert.priority === 'high'
-                                    ? 'Hög prioritet'
-                                    : activeAlert.alert.priority === 'mid'
-                                      ? 'Medel prioritet'
-                                      : 'Låg prioritet'}
+                                  Nuvarande värde: {activeAlert.currentValue}
                                 </Text>
-                                {activeAlert.currentValue !== null && (
-                                  <Text
-                                    style={{
-                                      fontSize: 12,
-                                      color: colors.device.iconGray,
-                                    }}>
-                                    Nuvarande värde: {activeAlert.currentValue}
-                                  </Text>
-                                )}
-                              </View>
-                            ))
+                              )}
+                            </View>
+                          ))
                         )}
                       </View>
 
@@ -360,7 +385,9 @@ export const CaregiverDashboardScreen: React.FC = () => {
                           alignItems: 'center',
                         }}
                         onPress={() => {
-                          navigation.navigate('Settings', {patientId: patient.id});
+                          navigation.navigate('Settings', {
+                            patientId: patient.id,
+                          });
                         }}>
                         <Text
                           style={{

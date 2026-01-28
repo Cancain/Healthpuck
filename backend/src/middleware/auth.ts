@@ -4,10 +4,7 @@ import { eq, and } from "drizzle-orm";
 
 import { db } from "../db";
 import { patientUsers, patients } from "../db/schema";
-import {
-  isCaretaker,
-  hasAccessToPatientViaOrganisation,
-} from "../utils/organisationContext";
+import { isCaretaker, hasAccessToPatientViaOrganisation } from "../utils/organisationContext";
 
 const JWT_SECRET = process.env.JWT_SECRET;
 

@@ -23,7 +23,8 @@ router.post("/", authenticate, async (req: Request, res: Response) => {
     const isUserCaretaker = await isCaretaker(userId);
     if (isUserCaretaker) {
       return res.status(403).json({
-        error: "Caregivers cannot send heart rate readings. Only patients can send heart rate data.",
+        error:
+          "Caregivers cannot send heart rate readings. Only patients can send heart rate data.",
       });
     }
 

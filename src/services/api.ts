@@ -38,10 +38,7 @@ export interface HeartRateResponse {
   timestamp?: number;
 }
 
-async function request<T>(
-  endpoint: string,
-  options: RequestInit = {},
-): Promise<T> {
+async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_BASE}${endpoint}`, {
     ...options,
     credentials: "include",

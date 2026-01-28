@@ -152,7 +152,8 @@ export const MedicationsSettings: React.FC = () => {
             textAlign: 'center',
             padding: 20,
           }}>
-          Mediciner hanteras per patient. Välj en patient från dashboarden för att se deras mediciner.
+          Mediciner hanteras per patient. Välj en patient från dashboarden för
+          att se deras mediciner.
         </Text>
       </View>
     );

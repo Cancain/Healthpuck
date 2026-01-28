@@ -44,7 +44,9 @@ export const AlertsSettings: React.FC<AlertsSettingsProps> = ({
   const [saving, setSaving] = useState(false);
 
   const loadPatients = useCallback(async () => {
-    if (!isCaretakerRole) return;
+    if (!isCaretakerRole) {
+      return;
+    }
     try {
       setLoadingPatients(true);
       const patientList = await apiService.getOrganisationPatients();
@@ -93,7 +95,10 @@ export const AlertsSettings: React.FC<AlertsSettingsProps> = ({
     } catch (error: any) {
       console.error('Error loading alerts:', error);
       const errorMessage = error?.message || 'Kunde inte hämta varningar';
-      if (!errorMessage.includes('NO_PATIENT') && !errorMessage.includes('PATIENT_ID_REQUIRED')) {
+      if (
+        !errorMessage.includes('NO_PATIENT') &&
+        !errorMessage.includes('PATIENT_ID_REQUIRED')
+      ) {
         RNAlert.alert('Fel', errorMessage);
       }
       setAlerts([]);

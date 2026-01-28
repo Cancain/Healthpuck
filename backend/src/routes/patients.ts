@@ -115,11 +115,7 @@ router.post("/", authenticate, async (req: Request, res: Response) => {
       if (existingPatient.length > 0 && existingPatient[0].organisationId) {
         organisationId = existingPatient[0].organisationId;
       } else {
-        const creatorUser = await db
-          .select()
-          .from(users)
-          .where(eq(users.id, userId))
-          .limit(1);
+        const creatorUser = await db.select().from(users).where(eq(users.id, userId)).limit(1);
         if (creatorUser.length === 0) {
           return res.status(400).json({ error: "Creator user not found" });
         }

@@ -15,7 +15,9 @@ export const SettingsScreen: React.FC = () => {
   const route = useRoute();
   const {logout} = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>('alerts');
-  const [initialPatientId, setInitialPatientId] = useState<number | undefined>();
+  const [initialPatientId, setInitialPatientId] = useState<
+    number | undefined
+  >();
 
   useEffect(() => {
     const params = route.params as {patientId?: number} | undefined;

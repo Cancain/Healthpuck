@@ -10,7 +10,7 @@ async function runMigrations() {
     const cwd = process.cwd();
     const examplePath = path.resolve(cwd, ".env.example");
     const envPath = path.resolve(cwd, ".env");
-    
+
     if (fs.existsSync(examplePath)) {
       dotenvSafe.config({
         example: examplePath,
