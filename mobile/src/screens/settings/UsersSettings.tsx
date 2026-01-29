@@ -378,7 +378,7 @@ export const UsersSettings: React.FC = () => {
                   }}>
                   Bjud in omsorgsgivare
                 </Text>
-                <View style={{flexDirection: 'row', gap: 8}}>
+                <View style={{flexDirection: 'column'}}>
                   <HPTextInput
                     placeholder="E-postadress"
                     value={inviteEmail[p.id] || ''}
@@ -390,16 +390,14 @@ export const UsersSettings: React.FC = () => {
                     editable={!inviting[p.id]}
                   />
                   <TouchableOpacity
-                    style={[
-                      {
-                        flex: 1,
-                        borderRadius: 6,
-                        padding: 12,
-                        alignItems: 'center',
-                      },
-                      {backgroundColor: '#007AFF'},
-                      {flex: 0, paddingHorizontal: 16},
-                    ]}
+                    style={{
+                      marginTop: 4,
+                      borderRadius: 6,
+                      padding: 12,
+                      alignItems: 'center',
+                      backgroundColor: '#007AFF',
+                      justifyContent: 'center',
+                    }}
                     onPress={() => handleInvite(p.id)}
                     disabled={inviting[p.id]}>
                     {inviting[p.id] ? (
