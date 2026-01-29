@@ -1,6 +1,6 @@
 # Healthpuck
 
-A comprehensive health monitoring application for patients and caregivers, featuring medication tracking, Whoop device integration, and intelligent alerting.
+A comprehensive health monitoring application for patients and caregivers, featuring medication tracking, Whoop device integration, intelligent alerting, panic alarms, and push notifications.
 
 🌐 **Live Site**: [https://app.healthpuck.se](https://app.healthpuck.se)
 
@@ -9,20 +9,42 @@ A comprehensive health monitoring application for patients and caregivers, featu
 Healthpuck is a full-stack health management platform that enables:
 
 - **Patient Management**: Create and manage patient profiles with caregiver access
+- **Organisation Management**: Caregivers manage organisations with patients (omsorgstagare), caregivers (omsorgsgivare), and organisation settings
 - **Medication Tracking**: Track medications, dosages, and adherence with check-ins
 - **Whoop Integration**: Connect Whoop devices to monitor recovery, sleep, workouts, and heart rate
 - **Smart Alerts**: Configure alerts based on Whoop metrics or medication adherence
+- **Panic Button**: Patients trigger an alarm that sends push notifications to all organisation caregivers; caregivers see a flashing row until they acknowledge
+- **Push Notifications**: Firebase Cloud Messaging for alerts and panic alarms
 - **Real-time Monitoring**: Live heart rate monitoring via Bluetooth or Whoop API
 - **Real-time Heart Rate Sharing**: WebSocket-based real-time heart rate sharing between patients and caregivers
+- **Mobile App**: React Native app for iOS and Android with native Bluetooth and push notifications
 
 ## Tech Stack
 
-### Frontend
+### Web Frontend
 
 - **React 19** with TypeScript
 - **React Router** for navigation
 - **CSS Modules** for styling
 - **React Scripts** (Create React App)
+
+### Mobile App (iOS & Android)
+
+- **React Native 0.73** with TypeScript
+- **React Navigation** (native-stack, bottom-tabs) for navigation
+- **@react-native-firebase/app** and **@react-native-firebase/messaging** for push notifications (FCM)
+- **react-native-ble-manager** for Bluetooth Low Energy (heart rate from devices)
+- **react-native-keychain** for secure token storage
+- **react-native-svg** for vector graphics
+- **@fortawesome/react-native-fontawesome**, **@fortawesome/fontawesome-svg-core**, **@fortawesome/free-solid-svg-icons** for icons (Font Awesome)
+- **@react-native-async-storage/async-storage** for local storage
+- **@react-native-community/netinfo** for network state
+- **react-native-gesture-handler**, **react-native-screens**, **react-native-safe-area-context** for navigation and gestures
+- **react-native-webview** for in-app web content
+
+**iOS**: Xcode, CocoaPods (for Firebase, etc.). Push requires Apple Developer account and APNs. Bluetooth requires `NSBluetoothAlwaysUsageDescription` in Info.plist.
+
+**Android**: Android Studio, Gradle. Push uses FCM; Bluetooth and background heart-rate service require permissions in AndroidManifest. Min SDK and target SDK are set in `android/build.gradle` and `android/app/build.gradle`.
 
 ### Backend
 
@@ -30,8 +52,9 @@ Healthpuck is a full-stack health management platform that enables:
 - **Bun** runtime and package manager
 - **Drizzle ORM** with libSQL (Turso-compatible)
 - **Passport.js** for OAuth (Whoop integration)
-- **JWT** for authentication (httpOnly cookies)
+- **JWT** for authentication (httpOnly cookies and Bearer token for mobile)
 - **WebSocket** (ws) for real-time communication
+- **Firebase Admin SDK** (firebase-admin) for sending push notifications (FCM) to mobile devices
 
 ### Database
 
@@ -59,6 +82,26 @@ Healthpuck is a full-stack health management platform that enables:
 - Multi-user access: patients and caregivers can access the same patient record
 - Invite system: caregivers can invite other users to access a patient
 - Role-based access control (patient/caregiver roles)
+
+### Organisation Management (Caregivers)
+
+- **Organisation tab** (mobile Settings): Visible only to caregivers. Sub-tabs:
+  - **Omsorgstagare (Patients)**: List patients, add (create) and delete patients
+  - **Omsorgsgivare (Caregivers)**: List organisation caregivers, add caregivers via invite (name, email, password)
+  - **Organisationsinställningar**: Edit organisation name and save
+- API: `GET/PATCH /api/organisations`, `GET /api/organisations/patients` (with `hasActivePanic` per patient), `GET /api/organisations/caretakers`, `POST /api/organisations/invite-users`
+
+### Panic Button (Alarm)
+
+- **Patient (mobile)**: Large “Alarm” button on dashboard. Tap to trigger alarm; push is sent to all organisation caregivers. If alarm is active, button becomes “Avsluta alarm” (cancel) so the patient can undo an accidental press.
+- **Caregiver (mobile)**: Patient row flashes red until a caregiver expands the row and taps “Avsluta alarm” to acknowledge. Push notification opens app; dashboard refetches on focus so multiple caregivers stay in sync.
+- **Backend**: `patient_panic` table; `POST /api/patients/panic`, `GET /api/patients/panic-status`, `POST /api/patients/panic/cancel`, `POST /api/patients/:id/panic/acknowledge`. FCM sends to all org caretakers on trigger.
+
+### Push Notifications
+
+- **Firebase Cloud Messaging (FCM)** for iOS and Android. Used for alert notifications and panic alarms.
+- Backend: Register device tokens via `POST /api/notifications/register`; send via Firebase Admin SDK. Notification preferences (high/mid/low) stored per user.
+- Mobile: Request permissions, register token on login, handle foreground/background and tap. See `FIREBASE_SETUP_GUIDE.md` and `mobile/FIREBASE_SETUP.md` for setup.
 
 ### Medication Management
 
@@ -128,14 +171,15 @@ Healthpuck is a full-stack health management platform that enables:
 
 ### Settings
 
-- Manage patient information
-- Configure Whoop connection
-- Set up and manage alerts
-- Manage medications
-- **Bluetooth Connection** (patients only):
-  - Connect directly to Whoop devices via Web Bluetooth
-  - Simulated device mode for testing
-  - Role-based access: Bluetooth section hidden for caregivers
+- **Web**: Manage patient information, Whoop connection, alerts, medications, Bluetooth (patients only).
+- **Mobile**: Tabbed Settings (Organisation, Mediciner, Varningar, Whoop, Notifikationer). Organisation tab shows sub-tabs (Omsorgstagare, Omsorgsgivare, Organisationsinställningar). Mediciner tab includes a patient dropdown for caregivers to choose which patient’s medications to manage. Icons use Font Awesome (top Settings tabs and bottom tab bar).
+- **Bluetooth Connection** (patients only): Connect directly to Whoop devices; Bluetooth section hidden for caregivers.
+
+### Mobile App Summary
+
+- **Patients**: Dashboard with welcome, panic button (Alarm / Avsluta alarm), active alerts, heart rate, Whoop status, medications and check-ins. Whoop and Bluetooth in Settings.
+- **Caregivers**: Caregiver dashboard with organisation name, list of patients (expand for heart rate and active alerts), panic flashing row and “Avsluta alarm”, link to Settings. Organisation management under Settings → Organisation.
+- **Auth**: Login, Register, Onboarding (create organisation and invite patients/caregivers). Token stored in Keychain (mobile).
 
 ## Project Structure
 
@@ -144,7 +188,7 @@ healthpuck/
 ├── backend/              # Express API server
 │   ├── src/
 │   │   ├── auth/         # Passport Whoop OAuth strategy
-│   │   ├── db/           # Database schema and migrations
+│   │   ├── db/            # Database schema and migrations
 │   │   ├── middleware/   # Auth middleware
 │   │   ├── routes/       # API route handlers
 │   │   │   ├── alerts.ts
@@ -152,17 +196,33 @@ healthpuck/
 │   │   │   ├── checkIns.ts
 │   │   │   ├── heartRate.ts
 │   │   │   ├── medications.ts
-│   │   │   ├── patients.ts
+│   │   │   ├── notifications.ts  # FCM token registration, preferences
+│   │   │   ├── organisations.ts  # Org CRUD, patients, caretakers, invite-users
+│   │   │   ├── patients.ts       # Patients, panic (trigger/status/cancel/acknowledge)
 │   │   │   ├── users.ts
 │   │   │   └── integrations/
 │   │   │       └── whoop.ts
 │   │   ├── websocket/    # WebSocket server for real-time communication
 │   │   │   └── server.ts
-│   │   └── utils/        # Alert evaluator, scheduler, Whoop client, etc.
+│   │   └── utils/        # Alert evaluator, scheduler, Whoop client, notificationService, etc.
 │   ├── drizzle.config.ts
 │   ├── fly.toml          # Fly.io deployment config
 │   └── package.json
-├── src/                  # React frontend
+├── mobile/               # React Native app (iOS & Android)
+│   ├── src/
+│   │   ├── components/   # AlertCard, HeartRateCard, HPTextInput, TabBarIcons, etc.
+│   │   ├── contexts/     # AuthContext, PatientContext
+│   │   ├── navigation/  # AppNavigator, types
+│   │   ├── screens/      # Dashboard, CaregiverDashboard, Settings, Login, Register, Onboarding
+│   │   │   └── settings/ # OrganisationSettings, MedicationsSettings, AlertsSettings, WhoopSettings, NotificationSettings
+│   │   ├── services/     # api, auth, notifications, bluetooth, bluetoothMonitoring
+│   │   ├── types/        # api types
+│   │   └── utils/        # theme
+│   ├── android/          # Android project (Gradle, FCM, permissions)
+│   ├── ios/               # iOS project (Xcode, CocoaPods, FCM, Bluetooth entitlements)
+│   ├── package.json
+│   └── FIREBASE_SETUP.md
+├── src/                  # React web frontend
 │   ├── auth/             # Auth context and protected routes
 │   ├── components/       # Reusable React components
 │   ├── pages/            # Page components
@@ -178,6 +238,7 @@ healthpuck/
 │   ├── with-node-localstorage.js
 │   └── setup-webstorage-shim.js
 ├── package.json
+├── FIREBASE_SETUP_GUIDE.md  # Backend + mobile FCM setup
 └── README.md
 ```
 
@@ -355,6 +416,24 @@ The project uses Husky for git hooks. Pre-commit hooks will:
 - `PUT /api/patients/:id/users/:userId` - Update user role
 - `DELETE /api/patients/:id/users/:userId` - Remove user access
 - `DELETE /api/patients/:id` - Delete patient
+- `POST /api/patients/panic` - Trigger panic alarm (patient only; sends FCM to org caregivers)
+- `GET /api/patients/panic-status` - Get current panic status for patient (patient only)
+- `POST /api/patients/panic/cancel` - Cancel active panic (patient only)
+- `POST /api/patients/:id/panic/acknowledge` - Acknowledge patient's panic (caregiver only)
+
+### Organisations
+
+- `GET /api/organisations` - Get current user's organisation
+- `PATCH /api/organisations` - Update organisation (e.g. name); body: `{ name: string }`
+- `GET /api/organisations/patients` - List organisation patients (includes `hasActivePanic` per patient)
+- `GET /api/organisations/caretakers` - List organisation caregivers
+- `POST /api/organisations/invite-users` - Invite users (caregivers/patients) to organisation; body: `{ name, email, password, role }`
+
+### Notifications
+
+- `POST /api/notifications/register` - Register FCM device token; body: `{ token: string }`
+- `GET /api/notifications/preferences` - Get notification preferences
+- `PATCH /api/notifications/preferences` - Update preferences (e.g. priority levels)
 
 ### Medications
 
