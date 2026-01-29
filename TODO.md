@@ -1,4 +1,0 @@
-- [x] Deep linking
-- [] Loocal prod build
-- [] Font awesome
-- [] Bluetooth
