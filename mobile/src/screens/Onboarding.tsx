@@ -353,6 +353,7 @@ export const OnboardingScreen: React.FC = () => {
               onChangeText={setOrganisationName}
               editable={!loading}
               maxLength={100}
+              style={{marginBottom: 8}}
             />
 
             <TouchableOpacity
@@ -453,6 +454,7 @@ export const OnboardingScreen: React.FC = () => {
                     updatePatientInvite(index, 'name', value)
                   }
                   editable={!loading}
+                  style={{marginBottom: 8}}
                 />
                 {errors[`${index}-name`] && (
                   <Text
@@ -475,6 +477,7 @@ export const OnboardingScreen: React.FC = () => {
                   keyboardType="email-address"
                   autoCapitalize="none"
                   editable={!loading}
+                  style={{marginBottom: 8}}
                 />
                 {errors[`${index}-email`] && (
                   <Text
@@ -496,6 +499,7 @@ export const OnboardingScreen: React.FC = () => {
                   }
                   secureTextEntry
                   editable={!loading}
+                  style={{marginBottom: 8}}
                 />
                 {errors[`${index}-password`] && (
                   <Text
@@ -654,6 +658,7 @@ export const OnboardingScreen: React.FC = () => {
                     updateCaregiverInvite(index, 'name', value)
                   }
                   editable={!loading}
+                  style={{marginBottom: 8}}
                 />
                 {errors[`${index}-name`] && (
                   <Text
@@ -676,6 +681,7 @@ export const OnboardingScreen: React.FC = () => {
                   keyboardType="email-address"
                   autoCapitalize="none"
                   editable={!loading}
+                  style={{marginBottom: 8}}
                 />
                 {errors[`${index}-email`] && (
                   <Text
@@ -697,6 +703,7 @@ export const OnboardingScreen: React.FC = () => {
                   }
                   secureTextEntry
                   editable={!loading}
+                  style={{marginBottom: 8}}
                 />
                 {errors[`${index}-password`] && (
                   <Text

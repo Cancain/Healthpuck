@@ -71,6 +71,7 @@ export const LoginScreen: React.FC = () => {
             keyboardType="email-address"
             autoComplete="email"
             editable={!loading}
+            style={{marginBottom: 4}}
           />
 
           <HPTextInput
@@ -81,6 +82,7 @@ export const LoginScreen: React.FC = () => {
             autoCapitalize="none"
             autoComplete="password"
             editable={!loading}
+            style={{marginBottom: 8}}
           />
 
           <TouchableOpacity
@@ -90,7 +92,6 @@ export const LoginScreen: React.FC = () => {
                 borderRadius: 8,
                 padding: 16,
                 alignItems: 'center',
-                marginTop: 8,
               },
               loading && {opacity: 0.6},
             ]}

@@ -93,6 +93,7 @@ export const RegisterScreen: React.FC = () => {
               onChangeText={setName}
               autoCapitalize="words"
               editable={!loading}
+              style={{marginBottom: 4}}
             />
 
             <HPTextInput
@@ -103,6 +104,7 @@ export const RegisterScreen: React.FC = () => {
               keyboardType="email-address"
               autoComplete="email"
               editable={!loading}
+              style={{marginBottom: 4}}
             />
 
             <HPTextInput
@@ -113,6 +115,7 @@ export const RegisterScreen: React.FC = () => {
               autoCapitalize="none"
               autoComplete="password"
               editable={!loading}
+              style={{marginBottom: 4}}
             />
 
             <HPTextInput
@@ -123,6 +126,7 @@ export const RegisterScreen: React.FC = () => {
               autoCapitalize="none"
               autoComplete="password"
               editable={!loading}
+              style={{marginBottom: 4}}
             />
 
             <TouchableOpacity
