@@ -6,6 +6,7 @@ import {
   RefreshControl,
   ActivityIndicator,
   Alert,
+  TouchableOpacity,
 } from 'react-native';
 import {useAuth} from '../contexts/AuthContext';
 import {usePatient} from '../contexts/PatientContext';
@@ -40,6 +41,8 @@ export const DashboardScreen: React.FC = () => {
   const [whoopLoading, setWhoopLoading] = useState(false);
   const [heartRate, setHeartRate] = useState<number | null>(null);
   const [bluetoothConnected, setBluetoothConnected] = useState(false);
+  const [panicSending, setPanicSending] = useState(false);
+  const [hasActivePanic, setHasActivePanic] = useState(false);
   const alertsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const heartRateIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
     null,
@@ -129,6 +132,18 @@ export const DashboardScreen: React.FC = () => {
     }
   };
 
+  const loadPanicStatus = useCallback(async () => {
+    if (!isPatientRole) {
+      return;
+    }
+    try {
+      const status = await apiService.getPanicStatus();
+      setHasActivePanic(status.hasActivePanic);
+    } catch (error) {
+      console.error('Error loading panic status:', error);
+    }
+  }, [isPatientRole]);
+
   const loadHeartRate = useCallback(async () => {
     try {
       const currentPatientId = patientIdRef.current;
@@ -164,9 +179,10 @@ export const DashboardScreen: React.FC = () => {
       loadCheckIns(),
       loadWhoopMetrics(),
       loadHeartRate(),
+      ...(isPatientRole ? [loadPanicStatus()] : []),
     ]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loadHeartRate]);
+  }, [loadHeartRate, isPatientRole, loadPanicStatus]);
 
   const startAlertsPolling = useCallback(() => {
     if (alertsIntervalRef.current) {
@@ -300,6 +316,38 @@ export const DashboardScreen: React.FC = () => {
     };
   }, [startAlertsPolling, startHeartRatePolling]);
 
+  const handleTriggerPanic = useCallback(async () => {
+    if (!patient?.id || panicSending) {
+      return;
+    }
+    setPanicSending(true);
+    try {
+      await apiService.triggerPanic();
+      setHasActivePanic(true);
+      Alert.alert('Alarm skickad', 'Dina omsorgsgivare har fått en notis.');
+    } catch (error: any) {
+      Alert.alert('Fel', error.message || 'Kunde inte skicka alarm');
+    } finally {
+      setPanicSending(false);
+    }
+  }, [patient?.id, panicSending]);
+
+  const handleCancelPanic = useCallback(async () => {
+    if (!patient?.id || panicSending) {
+      return;
+    }
+    setPanicSending(true);
+    try {
+      await apiService.cancelPanic();
+      setHasActivePanic(false);
+      Alert.alert('Alarm avslutat', 'Alarmet har avslutats.');
+    } catch (error: any) {
+      Alert.alert('Fel', error.message || 'Kunde inte avsluta alarm');
+    } finally {
+      setPanicSending(false);
+    }
+  }, [patient?.id, panicSending]);
+
   const latestCheckInByMedication = React.useMemo(() => {
     if (!checkIns) {
       return new Map();
@@ -370,6 +418,36 @@ export const DashboardScreen: React.FC = () => {
           </View>
         )}
       </View>
+
+      {isPatientRole && patient && (
+        <View style={{padding: 20, marginTop: 8}}>
+          <TouchableOpacity
+            style={{
+              backgroundColor: hasActivePanic ? '#6c757d' : '#DC3545',
+              borderRadius: 12,
+              paddingVertical: 20,
+              paddingHorizontal: 24,
+              alignItems: 'center',
+              justifyContent: 'center',
+              opacity: panicSending ? 0.7 : 1,
+            }}
+            onPress={hasActivePanic ? handleCancelPanic : handleTriggerPanic}
+            disabled={panicSending}>
+            {panicSending ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text
+                style={{
+                  fontSize: 22,
+                  fontWeight: '700',
+                  color: '#fff',
+                }}>
+                {hasActivePanic ? 'Avsluta alarm' : 'Alarm'}
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
 
       <View style={{padding: 20, marginTop: 8}}>
         <View

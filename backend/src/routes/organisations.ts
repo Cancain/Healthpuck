@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { eq, and } from "drizzle-orm";
+import { eq, and, isNull, inArray } from "drizzle-orm";
 
 import { db } from "../db";
 import {
@@ -7,8 +7,9 @@ import {
   caretakers,
   organisationUsers,
   users,
-  patients,
+  patients as patientsTable,
   patientUsers,
+  patientPanic,
 } from "../db/schema";
 import { getUserIdFromRequest, authenticate } from "../middleware/auth";
 import {
@@ -194,9 +195,23 @@ router.get("/patients", authenticate, async (req: Request, res: Response) => {
       });
     }
 
-    const patients = await getPatientsForOrganisation(organisation.organisationId);
-
-    return res.json(patients);
+    const patientList = await getPatientsForOrganisation(organisation.organisationId);
+    const patientIds = patientList.map((p) => p.id);
+    const activePanicPatientIds = new Set<number>();
+    if (patientIds.length > 0) {
+      const activePanics = await db
+        .select({ patientId: patientPanic.patientId })
+        .from(patientPanic)
+        .where(
+          and(inArray(patientPanic.patientId, patientIds), isNull(patientPanic.acknowledgedAt)),
+        );
+      activePanics.forEach((r) => activePanicPatientIds.add(r.patientId));
+    }
+    const result = patientList.map((p) => ({
+      ...p,
+      hasActivePanic: activePanicPatientIds.has(p.id),
+    }));
+    return res.json(result);
   } catch (error) {
     console.error("Error fetching organisation patients:", error);
     return res.status(500).json({ error: "Internal server error" });
@@ -225,9 +240,23 @@ router.get("/:id/patients", authenticate, async (req: Request, res: Response) =>
       return res.status(403).json({ error: "Access denied to this organisation" });
     }
 
-    const patients = await getPatientsForOrganisation(organisationId);
-
-    return res.json(patients);
+    const patientListById = await getPatientsForOrganisation(organisationId);
+    const patientIdsById = patientListById.map((p) => p.id);
+    const activePanicPatientIdsById = new Set<number>();
+    if (patientIdsById.length > 0) {
+      const activePanicsById = await db
+        .select({ patientId: patientPanic.patientId })
+        .from(patientPanic)
+        .where(
+          and(inArray(patientPanic.patientId, patientIdsById), isNull(patientPanic.acknowledgedAt)),
+        );
+      activePanicsById.forEach((r) => activePanicPatientIdsById.add(r.patientId));
+    }
+    const resultById = patientListById.map((p) => ({
+      ...p,
+      hasActivePanic: activePanicPatientIdsById.has(p.id),
+    }));
+    return res.json(resultById);
   } catch (error) {
     console.error("Error fetching organisation patients:", error);
     return res.status(500).json({ error: "Internal server error" });
@@ -336,7 +365,7 @@ router.post("/invite-users", authenticate, async (req: Request, res: Response) =
 
         if (invite.role === "patient") {
           const [newPatient] = await db
-            .insert(patients)
+            .insert(patientsTable)
             .values({
               name: invite.name,
               email: invite.email,

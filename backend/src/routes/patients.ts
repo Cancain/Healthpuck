@@ -1,18 +1,125 @@
 import { Router, Request, Response } from "express";
-import { eq, and } from "drizzle-orm";
+import { eq, and, isNull, desc } from "drizzle-orm";
 
 import { db } from "../db";
-import { patients, patientUsers, users, caretakers, organisations } from "../db/schema";
+import {
+  patients,
+  patientUsers,
+  users,
+  caretakers,
+  organisations,
+  patientPanic,
+} from "../db/schema";
 import { getUserIdFromRequest, authenticate, requirePatientAccess } from "../middleware/auth";
 import { hashPassword } from "../utils/hash";
 import {
   isCaretaker,
   getCaretakerOrganisationId,
   getPatientsForOrganisation,
+  hasAccessToPatientViaOrganisation,
 } from "../utils/organisationContext";
 import { getPatientContextForUser } from "../utils/patientContext";
+import { sendPanicNotification } from "../utils/notificationService";
 
 const router = Router();
+
+router.get("/panic-status", authenticate, async (req: Request, res: Response) => {
+  try {
+    const userId = getUserIdFromRequest(req);
+    if (!userId) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+    let patientId: number;
+    try {
+      const context = await getPatientContextForUser(userId);
+      if (context.role !== "patient") {
+        return res.status(403).json({ error: "Only the patient can check panic status" });
+      }
+      patientId = context.patientId;
+    } catch {
+      return res.status(403).json({ error: "User is not associated with a patient" });
+    }
+    const active = await db
+      .select()
+      .from(patientPanic)
+      .where(and(eq(patientPanic.patientId, patientId), isNull(patientPanic.acknowledgedAt)))
+      .orderBy(desc(patientPanic.triggeredAt))
+      .limit(1);
+    return res.json({ hasActivePanic: active.length > 0 });
+  } catch (error) {
+    console.error("Error fetching panic status:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post("/panic", authenticate, async (req: Request, res: Response) => {
+  try {
+    const userId = getUserIdFromRequest(req);
+    if (!userId) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+    let patientId: number;
+    let patientName: string;
+    try {
+      const context = await getPatientContextForUser(userId);
+      if (context.role !== "patient") {
+        return res.status(403).json({ error: "Only the patient can trigger panic" });
+      }
+      patientId = context.patientId;
+      patientName = context.patientName;
+    } catch {
+      return res.status(403).json({ error: "User is not associated with a patient" });
+    }
+    await db.insert(patientPanic).values({
+      patientId,
+      triggeredAt: new Date(),
+    });
+    await sendPanicNotification(patientId, patientName);
+    return res.status(201).json({ ok: true, patientId });
+  } catch (error) {
+    console.error("Error triggering panic:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post("/panic/cancel", authenticate, async (req: Request, res: Response) => {
+  try {
+    const userId = getUserIdFromRequest(req);
+    if (!userId) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+    let patientId: number;
+    try {
+      const context = await getPatientContextForUser(userId);
+      if (context.role !== "patient") {
+        return res.status(403).json({ error: "Only the patient can cancel panic" });
+      }
+      patientId = context.patientId;
+    } catch {
+      return res.status(403).json({ error: "User is not associated with a patient" });
+    }
+    const activePanics = await db
+      .select()
+      .from(patientPanic)
+      .where(and(eq(patientPanic.patientId, patientId), isNull(patientPanic.acknowledgedAt)))
+      .orderBy(desc(patientPanic.triggeredAt))
+      .limit(1);
+    if (activePanics.length === 0) {
+      return res.status(404).json({ error: "No active panic to cancel" });
+    }
+    await db
+      .update(patientPanic)
+      .set({
+        acknowledgedAt: new Date(),
+        acknowledgedByUserId: userId,
+      })
+      .where(eq(patientPanic.id, activePanics[0].id));
+    return res.json({ ok: true });
+  } catch (error) {
+    console.error("Error cancelling panic:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
 
 router.post("/", authenticate, async (req: Request, res: Response) => {
   try {
@@ -382,6 +489,47 @@ router.delete("/:id/users/:userId", requirePatientAccess, async (req: Request, r
     return res.status(204).send();
   } catch (error) {
     console.error("Error removing user access:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post("/:id/panic/acknowledge", authenticate, async (req: Request, res: Response) => {
+  try {
+    const userId = getUserIdFromRequest(req);
+    if (!userId) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+    const patientId = Number(req.params.id);
+    if (isNaN(patientId)) {
+      return res.status(400).json({ error: "Invalid patient ID" });
+    }
+    const isUserCaretaker = await isCaretaker(userId);
+    if (!isUserCaretaker) {
+      return res.status(403).json({ error: "Only caregivers can acknowledge panic" });
+    }
+    const hasAccess = await hasAccessToPatientViaOrganisation(userId, patientId);
+    if (!hasAccess) {
+      return res.status(403).json({ error: "Access denied to this patient" });
+    }
+    const activePanics = await db
+      .select()
+      .from(patientPanic)
+      .where(and(eq(patientPanic.patientId, patientId), isNull(patientPanic.acknowledgedAt)))
+      .orderBy(desc(patientPanic.triggeredAt))
+      .limit(1);
+    if (activePanics.length === 0) {
+      return res.status(404).json({ error: "No active panic for this patient" });
+    }
+    await db
+      .update(patientPanic)
+      .set({
+        acknowledgedAt: new Date(),
+        acknowledgedByUserId: userId,
+      })
+      .where(eq(patientPanic.id, activePanics[0].id));
+    return res.json({ ok: true });
+  } catch (error) {
+    console.error("Error acknowledging panic:", error);
     return res.status(500).json({ error: "Internal server error" });
   }
 });

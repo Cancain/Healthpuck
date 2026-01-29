@@ -250,18 +250,21 @@ export const OrganisationSettings: React.FC = () => {
               marginBottom: 20,
             }}>
             <HPTextInput
+              style={{marginBottom: 8}}
               placeholder="Namn *"
               value={patientName}
               onChangeText={setPatientName}
               editable={!creatingPatient}
             />
             <HPTextInput
+              style={{marginBottom: 8}}
               placeholder="E-post *"
               value={patientEmail}
               onChangeText={setPatientEmail}
               editable={!creatingPatient}
             />
             <HPTextInput
+              style={{marginBottom: 8}}
               placeholder="Lösenord (minst 8 tecken) *"
               value={patientPassword}
               onChangeText={setPatientPassword}
@@ -269,6 +272,7 @@ export const OrganisationSettings: React.FC = () => {
               editable={!creatingPatient}
             />
             <HPTextInput
+              style={{marginBottom: 8}}
               placeholder="Bekräfta lösenord *"
               value={patientConfirmPassword}
               onChangeText={setPatientConfirmPassword}
@@ -393,18 +397,21 @@ export const OrganisationSettings: React.FC = () => {
               marginBottom: 20,
             }}>
             <HPTextInput
+              style={{marginBottom: 8}}
               placeholder="Namn *"
               value={caregiverName}
               onChangeText={setCaregiverName}
               editable={!creatingCaregiver}
             />
             <HPTextInput
+              style={{marginBottom: 8}}
               placeholder="E-post *"
               value={caregiverEmail}
               onChangeText={setCaregiverEmail}
               editable={!creatingCaregiver}
             />
             <HPTextInput
+              style={{marginBottom: 8}}
               placeholder="Lösenord (minst 8 tecken) *"
               value={caregiverPassword}
               onChangeText={setCaregiverPassword}
