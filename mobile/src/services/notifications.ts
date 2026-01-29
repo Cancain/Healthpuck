@@ -9,6 +9,7 @@ import {
   onMessage,
   onTokenRefresh,
   AuthorizationStatus,
+  registerDeviceForRemoteMessages,
 } from '@react-native-firebase/messaging';
 import {Platform, Alert} from 'react-native';
 import {apiService} from './api';
@@ -76,6 +77,25 @@ class NotificationService {
       }
 
       const messaging = getMessaging();
+      
+      // On iOS, explicitly register device for remote messages before getting token
+      // Auto-registration may not be enabled, so we need to do this manually
+      if (Platform.OS === 'ios') {
+        try {
+          await registerDeviceForRemoteMessages(messaging);
+          console.log('[Notifications] Device registered for remote messages (iOS)');
+        } catch (error: any) {
+          const errorMsg = error.message || String(error);
+          // If already registered, that's fine - continue
+          if (errorMsg.includes('already registered')) {
+            console.log('[Notifications] Device already registered for remote messages');
+          } else {
+            // For other errors, log but continue - getToken might still work
+            console.warn('[Notifications] Warning during device registration:', errorMsg);
+          }
+        }
+      }
+      
       const token = await getToken(messaging);
       if (!token) {
         console.log('[Notifications] No FCM token available');
@@ -109,7 +129,23 @@ class NotificationService {
   async unregisterToken(): Promise<void> {
     try {
       const messaging = getMessaging();
-      const token = await getToken(messaging);
+      
+      // On iOS, check if device is registered before trying to get token
+      let token: string | null = null;
+      if (Platform.OS === 'ios') {
+        try {
+          // Try to get token, but don't fail if device isn't registered
+          token = await getToken(messaging);
+        } catch (error: any) {
+          if (error.message?.includes('not registered') || error.message?.includes('unregistered')) {
+            console.log('[Notifications] Device not registered for remote messages, skipping token deletion');
+            return;
+          }
+          throw error;
+        }
+      } else {
+        token = await getToken(messaging);
+      }
       if (token) {
         try {
           await apiService.unregisterDeviceToken();
