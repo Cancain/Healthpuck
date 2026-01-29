@@ -2,7 +2,7 @@
 
 This guide will help you set up the iOS project for compilation on macOS.
 
-**👋 New to Xcode?** Start with [`FRIDAY_SETUP_GUIDE.md`](FRIDAY_SETUP_GUIDE.md) - a complete step-by-step guide for beginners!
+**New to Xcode?** Run `./setup-ios.sh` in this directory for automated setup, or follow the steps below.
 
 ## Prerequisites
 
@@ -68,7 +68,7 @@ pod install
 
 This will:
 
-- Install all native dependencies (react-native-ble-manager, react-native-keychain, etc.)
+- Install all native dependencies (react-native-ble-manager, react-native-keychain, Firebase, etc.)
 - Create the `Healthpuck.xcworkspace` file (use this, not `.xcodeproj`)
 
 ### 4. Open in Xcode
@@ -116,6 +116,15 @@ Verify these are present in Xcode:
 1. Select `Info.plist` in the project navigator
 2. Check that all Bluetooth permissions are present
 3. Verify `UIBackgroundModes` includes `bluetooth-central`
+
+### 5. Push Notifications (Firebase / FCM)
+
+For push notifications (alerts and panic alarms):
+
+1. Add **Push Notifications** capability: Signing & Capabilities → "+ Capability" → Push Notifications
+2. Add **Background Modes** → "Remote notifications" if you use background FCM
+3. Add `GoogleService-Info.plist` to the Healthpuck target (from Firebase Console; replace the placeholder if present)
+4. See the repo root **`FIREBASE_SETUP_GUIDE.md`** for Firebase project setup and APNs configuration
 
 ## Building and Running
 
@@ -220,16 +229,18 @@ In Xcode:
 
 ```
 ios/
-├── Healthpuck/              # Main app directory
-│   ├── AppDelegate.h       # App delegate header
-│   ├── AppDelegate.mm      # App delegate implementation
-│   ├── Info.plist          # App configuration and permissions
-│   └── main.m              # App entry point
-├── Podfile                 # CocoaPods dependencies
-├── Podfile.lock            # Locked dependency versions (generated)
-├── Pods/                   # Installed pods (generated, gitignored)
-├── Healthpuck.xcodeproj    # Xcode project (generated)
-└── Healthpuck.xcworkspace  # Xcode workspace (generated, use this)
+├── Healthpuck/                  # Main app directory
+│   ├── AppDelegate.h/mm         # App delegate (Firebase, push)
+│   ├── GoogleService-Info.plist # Firebase config (add from Console; placeholder may exist)
+│   ├── Info.plist               # App configuration and permissions
+│   └── main.m                   # App entry point
+├── Podfile                      # CocoaPods dependencies (Firebase, BLE, etc.)
+├── Podfile.lock                 # Locked dependency versions (generated)
+├── Pods/                        # Installed pods (generated, gitignored)
+├── Healthpuck.xcodeproj         # Xcode project (generated)
+├── Healthpuck.xcworkspace       # Xcode workspace (generated; always use this)
+├── setup-ios.sh                 # Automated setup script
+└── README.md                    # This file
 ```
 
 ## Notes
@@ -243,8 +254,9 @@ ios/
 
 After successful setup:
 
-1. Test Bluetooth scanning and connection
-2. Verify heart rate monitoring works
-3. Test background monitoring (app backgrounded)
-4. Verify data uploads to backend
-5. Test on physical device (required for real BLE hardware)
+1. Add `GoogleService-Info.plist` and Push Notifications capability if using push (see FIREBASE_SETUP_GUIDE.md in repo root)
+2. Test Bluetooth scanning and connection
+3. Verify heart rate monitoring works
+4. Test background monitoring (app backgrounded)
+5. Verify data uploads to backend
+6. Test on physical device (required for real BLE and push)

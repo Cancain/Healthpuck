@@ -1,6 +1,6 @@
 # Healthpuck Backend
 
-Express.js API using Drizzle ORM with libSQL (Turso-compatible). Bun for runtime and tooling.
+Express.js API for Healthpuck: patients, organisations, medications, check-ins, alerts, Whoop integration, panic alarms, push notifications (Firebase/FCM), and real-time heart rate (WebSocket). Uses Drizzle ORM with libSQL (Turso-compatible) and Bun for runtime and tooling.
 
 ## Quick start (local dev)
 
@@ -11,10 +11,11 @@ turso dev
 # Note the URL it prints, e.g. http://127.0.0.1:8080
 ```
 
-2. Copy the example env file and fill in values:
+2. Copy the example env file and fill in values (from repo root or from `backend/`):
 
 ```bash
-cp backend/.env.example backend/.env
+cp .env.example .env
+# or from repo root: cp backend/.env.example backend/.env
 ```
 
 At minimum update:
@@ -61,6 +62,10 @@ Required (dev & prod):
 - `WHOOP_API_BASE_URL` = defaults to `https://api.prod.whoop.com/developer/v2`
 - `WHOOP_CONNECT_REDIRECT_SUCCESS` (optional) = where to send the browser after a successful connection (defaults to `<frontend>/settings?tab=whoop` – adjust if your SPA uses hash routing, e.g. `<frontend>/#/settings?tab=whoop`)
 - `WHOOP_CONNECT_REDIRECT_ERROR` (optional) = where to send the browser if connecting fails (defaults to `<frontend>/settings?tab=whoop`)
+
+Optional (push notifications):
+
+- `FIREBASE_SERVICE_ACCOUNT_KEY` = JSON key for Firebase Admin SDK (base64 or raw JSON). Required to send FCM to mobile; see repo root `FIREBASE_SETUP_GUIDE.md`.
 
 ### Whoop OAuth configuration
 
@@ -133,8 +138,13 @@ DATABASE_URL=... TURSO_AUTH_TOKEN=... bun run db:migrate
      TURSO_AUTH_TOKEN=<token> \
      JWT_SECRET=<random> \
      JWT_EXPIRES_IN=7d \
-     CORS_ORIGIN=https://<frontend-domain>
+     CORS_ORIGIN=https://<frontend-domain> \
+     WHOOP_CLIENT_ID=<id> \
+     WHOOP_CLIENT_SECRET=<secret> \
+     WHOOP_REDIRECT_URI=https://<your-fly-app>.fly.dev/api/integrations/whoop/callback
    ```
+
+   For push notifications, also set `FIREBASE_SERVICE_ACCOUNT_KEY` (see `FIREBASE_SETUP_GUIDE.md`).
 
 3. Deploy with `fly deploy --config fly.toml` from `backend/` or rely on the GitHub workflow.
 4. Verify health check at `/health` once deployment finishes.
@@ -142,14 +152,35 @@ DATABASE_URL=... TURSO_AUTH_TOKEN=... bun run db:migrate
 ### CI (GitHub Actions)
 
 - `.github/workflows/backend-fly.yml` runs migrations and deploys to Fly.io.
-- Repo secrets required:
-  - `FLY_API_TOKEN`
-  - `APP_ENV`, `DATABASE_URL`, `TURSO_AUTH_TOKEN`, `JWT_SECRET`, `JWT_EXPIRES_IN`, `CORS_ORIGIN`
+- Repo secrets required: `FLY_API_TOKEN`, `APP_ENV`, `DATABASE_URL`, `TURSO_AUTH_TOKEN`, `JWT_SECRET`, `JWT_EXPIRES_IN`, `CORS_ORIGIN`, `WHOOP_CLIENT_ID`, `WHOOP_CLIENT_SECRET`, `WHOOP_REDIRECT_URI`. For push notifications: `FIREBASE_SERVICE_ACCOUNT_KEY`.
+
+## Project structure
+
+```
+backend/
+├── src/
+│   ├── auth/           # Passport Whoop OAuth
+│   ├── db/             # Schema, migrations (libSQL/Turso)
+│   ├── middleware/     # Auth (JWT cookie + Bearer for mobile)
+│   ├── routes/         # alerts, auth, checkIns, heartRate, medications, notifications, organisations, patients, users, integrations/whoop
+│   ├── utils/          # alertEvaluator, alertScheduler, notificationService, whoopClient, whoopSync, etc.
+│   └── websocket/      # Real-time heart rate (ws)
+├── drizzle.config.ts
+├── fly.toml
+└── package.json
+```
 
 ## API Endpoints (summary)
 
-- `GET /health` – health check
-- `POST /api/users` – register user `{ email, name, password }`
-- `POST /api/auth/login` – sets httpOnly cookie `hp_token`
-- `GET /api/auth/me` – returns current user if authenticated
-- `POST /api/auth/logout` – clears cookie
+- `GET /health`, `GET /health/cors` – health and CORS check
+- **Auth**: `POST /api/users`, `POST /api/auth/login`, `GET /api/auth/me`, `POST /api/auth/logout`
+- **Patients**: CRUD, invite, users; `POST /api/patients/panic`, `GET /api/patients/panic-status`, `POST /api/patients/panic/cancel`, `POST /api/patients/:id/panic/acknowledge`
+- **Organisations**: `GET/PATCH /api/organisations`, `GET /api/organisations/patients`, `GET /api/organisations/caretakers`, `POST /api/organisations/invite-users`
+- **Notifications**: `POST /api/notifications/register` (FCM token), `GET/PATCH /api/notifications/preferences`
+- **Medications**: CRUD, intake; **Check-ins**: `GET/POST /api/check-ins`
+- **Alerts**: CRUD, `GET /api/alerts/active`, `POST /api/alerts/:id/dismiss`
+- **Heart rate**: `POST /api/heart-rate` (stores and broadcasts via WebSocket)
+- **Whoop**: `GET /api/integrations/whoop/connect`, callback, status, metrics, heart-rate, test, disconnect
+- **WebSocket**: `WS /` – heart rate updates (JWT auth)
+
+Full endpoint list is in the repo root `README.md`.

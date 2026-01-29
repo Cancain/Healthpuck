@@ -2,7 +2,7 @@
 
 A comprehensive health monitoring application for patients and caregivers, featuring medication tracking, Whoop device integration, intelligent alerting, panic alarms, and push notifications.
 
-🌐 **Live Site**: [https://app.healthpuck.se](https://app.healthpuck.se)
+**Live Site**: [https://app.healthpuck.se](https://app.healthpuck.se)
 
 ## Overview
 

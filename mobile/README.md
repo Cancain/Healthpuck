@@ -1,14 +1,18 @@
 # Healthpuck Mobile App
 
-React Native app (Android & iOS) for monitoring heart rate via Bluetooth and uploading data to the backend.
+React Native app (Android & iOS) for patients and caregivers: heart rate (Bluetooth/Whoop), medications, alerts, panic button, organisation management, and push notifications. Requires internet for API and FCM.
 
 ## Features
 
-- Bluetooth Low Energy (BLE) heart rate monitoring
-- Background monitoring (continues when app is backgrounded or screen is locked)
-- Real-time heart rate upload to backend API
-- Offline queue for failed uploads
-- User authentication
+- **Patient / Caregiver roles**: Patient dashboard (heart rate, medications, check-ins, panic button); caregiver dashboard (organisation patients, real-time heart rate, active alerts, panic acknowledge)
+- **Bluetooth Low Energy (BLE)** heart rate monitoring (patients only); background monitoring when app is backgrounded or screen is locked
+- **Real-time heart rate** upload to backend and WebSocket sharing with caregivers
+- **Push notifications** (Firebase Cloud Messaging) for alerts and panic alarms
+- **Panic button**: Patients trigger alarm (FCM to caregivers); caregivers see flashing row and can acknowledge
+- **Organisation management** (caregivers): Patients list, caregivers list, organisation settings; invite users
+- **Medications & check-ins**, **alerts**, **Whoop** integration (OAuth, metrics)
+- **Settings**: Tabbed (Organisation, Mediciner, Varningar, Whoop, Notifikationer); Font Awesome icons
+- User authentication (JWT in Keychain)
 
 ## Setup
 
@@ -28,7 +32,9 @@ React Native app (Android & iOS) for monitoring heart rate via Bluetooth and upl
 
 - macOS with Xcode installed
 - CocoaPods (`sudo gem install cocoapods`)
-- Apple Developer Account (free account works for development)
+- Apple Developer Account (free account works for development; required for push/APNs on device)
+
+**Push notifications (optional):** Firebase (FCM). See repo root `FIREBASE_SETUP_GUIDE.md` and add `GoogleService-Info.plist` (iOS) / `google-services.json` (Android) as needed.
 
 ### Installation
 
@@ -53,11 +59,7 @@ cd android
 ./gradlew clean
 ```
 
-3. Update API URL in `src/config.ts`:
-
-```typescript
-export const API_BASE_URL = 'http://YOUR_BACKEND_URL:3001';
-```
+3. Configure API URL in `src/config.ts`: set the dev URL (e.g. your machine’s LAN IP and port 3001) and production URL as needed; the app uses `__DEV__` to switch.
 
 ### Running
 
@@ -108,21 +110,28 @@ The app continues monitoring heart rate when:
 
 ```
 mobile/
-├── android/          # Android native code
-├── ios/              # iOS native code
+├── android/          # Android native code (Gradle, FCM, permissions)
+├── ios/              # iOS native code (Xcode, CocoaPods, FCM)
 ├── src/
-│   ├── screens/      # UI screens
-│   ├── services/     # Business logic services
-│   └── config.ts     # Configuration
+│   ├── components/   # AlertCard, HeartRateCard, TabBarIcons, etc.
+│   ├── contexts/     # AuthContext, PatientContext
+│   ├── navigation/   # AppNavigator, types
+│   ├── screens/      # Dashboard, CaregiverDashboard, Settings, Login, Register, Onboarding
+│   │   └── settings/ # OrganisationSettings, MedicationsSettings, AlertsSettings, WhoopSettings, NotificationSettings
+│   ├── services/     # api, auth, bluetooth, backgroundService, notifications
+│   ├── types/        # API types
+│   ├── utils/        # theme
+│   └── config.ts     # API_BASE_URL (dev/prod), API_ENDPOINTS
 └── index.js          # Entry point
 ```
 
 ### Key Services
 
-- `auth.ts` - Authentication and user management
-- `api.ts` - Backend API client with offline queue
-- `bluetooth.ts` - BLE device connection and heart rate monitoring
-- `backgroundService.ts` - Platform-specific background service (Android foreground service, iOS background BLE)
+- `auth.ts` - Authentication, login/register, JWT in Keychain
+- `api.ts` - Backend API client (patients, organisations, panic, medications, alerts, heart rate, etc.)
+- `bluetooth.ts` - BLE device connection and heart rate monitoring (patients only)
+- `backgroundService.ts` - Platform-specific background monitoring (Android foreground service, iOS bluetooth-central)
+- `notifications.ts` - FCM token, permissions, foreground/background handling
 
 ## Troubleshooting
 
@@ -146,16 +155,12 @@ mobile/
 
 ## iOS Setup
 
-For detailed iOS setup instructions, see:
-
-- `SETUP.md` - General setup guide with iOS section
-- `ios/README.md` - Comprehensive iOS-specific guide
+See **`ios/README.md`** for full iOS setup (Xcode, CocoaPods, signing, Bluetooth, push). For Firebase/push setup see the repo root **`FIREBASE_SETUP_GUIDE.md`**.
 
 Quick iOS setup:
 
 1. Install CocoaPods: `sudo gem install cocoapods`
-2. Generate Xcode project (on macOS): See `SETUP.md` for details
-3. Install pods: `cd ios && pod install`
-4. Open workspace: `open Healthpuck.xcworkspace`
-5. Configure signing and capabilities in Xcode
-6. Run: `npm run ios`
+2. Install pods: `cd ios && pod install`
+3. Open workspace: `open ios/Healthpuck.xcworkspace`
+4. Configure signing and capabilities in Xcode; add Push Notifications capability and `GoogleService-Info.plist` for FCM
+5. Run: `npm run ios`
