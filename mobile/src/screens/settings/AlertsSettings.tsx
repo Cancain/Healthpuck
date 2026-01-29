@@ -342,6 +342,15 @@ export const AlertsSettings: React.FC<AlertsSettingsProps> = ({
 
   return (
     <ScrollView style={{flex: 1, padding: 20}}>
+      <Text
+        style={{
+          fontSize: 26,
+          fontWeight: '700',
+          color: colors.primary.dark,
+          marginBottom: 8,
+        }}>
+        Varningar
+      </Text>
       {!usePatientContext && (
         <View style={{marginBottom: 20}}>
           <Text

@@ -1,6 +1,11 @@
+import {Platform} from 'react-native';
 import {API_BASE_URL, API_ENDPOINTS} from '../config';
 import {authService} from './auth';
-import {getMessaging, getToken, registerDeviceForRemoteMessages} from '@react-native-firebase/messaging';
+import {
+  getMessaging,
+  getToken,
+  registerDeviceForRemoteMessages,
+} from '@react-native-firebase/messaging';
 import type {
   User,
   Patient,
@@ -447,7 +452,7 @@ export class ApiService {
   private async getFCMToken(): Promise<string | null> {
     try {
       const messaging = getMessaging();
-      
+
       // On iOS, register device for remote messages before getting token
       if (Platform.OS === 'ios') {
         try {
@@ -455,15 +460,22 @@ export class ApiService {
         } catch (error: any) {
           // Ignore "already registered" errors
           if (!error.message?.includes('already registered')) {
-            console.warn('[API] Warning during device registration:', error.message);
+            console.warn(
+              '[API] Warning during device registration:',
+              error.message,
+            );
           }
         }
       }
-      
+
       return await getToken(messaging);
     } catch (error: any) {
       // If device isn't registered on iOS, return null instead of throwing
-      if (Platform.OS === 'ios' && (error.message?.includes('not registered') || error.message?.includes('unregistered'))) {
+      if (
+        Platform.OS === 'ios' &&
+        (error.message?.includes('not registered') ||
+          error.message?.includes('unregistered'))
+      ) {
         return null;
       }
       return null;
@@ -555,6 +567,27 @@ export class ApiService {
       method: 'POST',
       body: JSON.stringify({name}),
     });
+  }
+
+  async updateOrganisation(name: string): Promise<{
+    organisationId: number;
+    organisationName: string;
+  }> {
+    return this.request<{
+      organisationId: number;
+      organisationName: string;
+    }>('/api/organisations', {
+      method: 'PATCH',
+      body: JSON.stringify({name}),
+    });
+  }
+
+  async getOrganisationCaretakers(): Promise<
+    Array<{id: number; name: string; email: string}>
+  > {
+    return this.request<Array<{id: number; name: string; email: string}>>(
+      '/api/organisations/caretakers',
+    );
   }
 
   async getOrganisationPatients(): Promise<Patient[]> {

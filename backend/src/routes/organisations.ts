@@ -94,6 +94,86 @@ router.get("/", authenticate, async (req: Request, res: Response) => {
   }
 });
 
+router.patch("/", authenticate, async (req: Request, res: Response) => {
+  try {
+    const userId = getUserIdFromRequest(req);
+    if (!userId) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    const isUserCaretaker = await isCaretaker(userId);
+    if (!isUserCaretaker) {
+      return res.status(403).json({ error: "Only caretakers can update organisation" });
+    }
+
+    const organisation = await getOrganisationForCaretaker(userId);
+    if (!organisation) {
+      return res.status(404).json({
+        error: "No organisation found for this user",
+        code: "NO_ORGANISATION",
+      });
+    }
+
+    const name = req.body?.name;
+    if (typeof name !== "string" || !name.trim()) {
+      return res.status(400).json({ error: "name is required and must be a non-empty string" });
+    }
+
+    await db
+      .update(organisations)
+      .set({ name: name.trim(), updatedAt: new Date() })
+      .where(eq(organisations.id, organisation.organisationId));
+
+    const [updated] = await db
+      .select({ organisationId: organisations.id, organisationName: organisations.name })
+      .from(organisations)
+      .where(eq(organisations.id, organisation.organisationId))
+      .limit(1);
+
+    return res.json(updated);
+  } catch (error) {
+    console.error("Error updating organisation:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.get("/caretakers", authenticate, async (req: Request, res: Response) => {
+  try {
+    const userId = getUserIdFromRequest(req);
+    if (!userId) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    const isUserCaretaker = await isCaretaker(userId);
+    if (!isUserCaretaker) {
+      return res.status(403).json({ error: "Only caretakers can access this endpoint" });
+    }
+
+    const organisation = await getOrganisationForCaretaker(userId);
+    if (!organisation) {
+      return res.status(404).json({
+        error: "No organisation found for this user",
+        code: "NO_ORGANISATION",
+      });
+    }
+
+    const result = await db
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+      })
+      .from(caretakers)
+      .innerJoin(users, eq(caretakers.userId, users.id))
+      .where(eq(caretakers.organisationId, organisation.organisationId));
+
+    return res.json(result);
+  } catch (error) {
+    console.error("Error fetching organisation caretakers:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 router.get("/patients", authenticate, async (req: Request, res: Response) => {
   try {
     const userId = getUserIdFromRequest(req);

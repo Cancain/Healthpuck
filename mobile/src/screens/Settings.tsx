@@ -1,23 +1,39 @@
 import React, {useState, useEffect, useMemo} from 'react';
 import {View, Text, ScrollView, TouchableOpacity} from 'react-native';
 import {useRoute} from '@react-navigation/native';
+import {FontAwesomeIcon} from '@fortawesome/react-native-fontawesome';
+import type {IconProp} from '@fortawesome/fontawesome-svg-core';
+import {
+  faBuilding,
+  faPills,
+  faTriangleExclamation,
+  faHeartPulse,
+  faBell,
+} from '@fortawesome/free-solid-svg-icons';
 import {useAuth} from '../contexts/AuthContext';
 import {usePatient} from '../contexts/PatientContext';
-import {UsersSettings} from './settings/UsersSettings';
+import {OrganisationSettings} from './settings/OrganisationSettings';
 import {MedicationsSettings} from './settings/MedicationsSettings';
 import {AlertsSettings} from './settings/AlertsSettings';
 import {WhoopSettings} from './settings/WhoopSettings';
 import {NotificationSettings} from './settings/NotificationSettings';
 import {colors} from '../utils/theme';
 
-type Tab = 'users' | 'medications' | 'alerts' | 'whoop' | 'notifications';
+type Tab =
+  | 'organisation'
+  | 'medications'
+  | 'alerts'
+  | 'whoop'
+  | 'notifications';
 
-const ALL_TABS: Array<{id: Tab; label: string}> = [
-  {id: 'users', label: 'Användare'},
-  {id: 'medications', label: 'Mediciner'},
-  {id: 'alerts', label: 'Varningar'},
-  {id: 'whoop', label: 'Whoop'},
-  {id: 'notifications', label: 'Notifikationer'},
+const SETTINGS_TAB_ICON_SIZE = 22;
+
+const ALL_TABS: Array<{id: Tab; label: string; icon: IconProp}> = [
+  {id: 'organisation', label: 'Organisation', icon: faBuilding as IconProp},
+  {id: 'medications', label: 'Mediciner', icon: faPills as IconProp},
+  {id: 'alerts', label: 'Varningar', icon: faTriangleExclamation as IconProp},
+  {id: 'whoop', label: 'Whoop', icon: faHeartPulse as IconProp},
+  {id: 'notifications', label: 'Notifikationer', icon: faBell as IconProp},
 ];
 
 export const SettingsScreen: React.FC = () => {
@@ -35,7 +51,7 @@ export const SettingsScreen: React.FC = () => {
         if (t.id === 'whoop') {
           return isPatientRole;
         }
-        if (t.id === 'users') {
+        if (t.id === 'organisation') {
           return isCaretakerRole && !isPatientRole;
         }
         return true;
@@ -55,15 +71,15 @@ export const SettingsScreen: React.FC = () => {
     if (!isPatientRole && activeTab === 'whoop') {
       setActiveTab('alerts');
     }
-    if (!(isCaretakerRole && !isPatientRole) && activeTab === 'users') {
+    if (!(isCaretakerRole && !isPatientRole) && activeTab === 'organisation') {
       setActiveTab('alerts');
     }
   }, [isCaretakerRole, isPatientRole, activeTab]);
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'users':
-        return <UsersSettings />;
+      case 'organisation':
+        return <OrganisationSettings />;
       case 'medications':
         return <MedicationsSettings />;
       case 'alerts':
@@ -106,34 +122,37 @@ export const SettingsScreen: React.FC = () => {
       <View
         style={{
           flexDirection: 'row',
-          backgroundColor: '#fff',
-          borderBottomWidth: 1,
-          borderBottomColor: '#e0e0e0',
+          backgroundColor: colors.primary.background,
         }}>
         {tabs.map(tab => (
           <TouchableOpacity
             key={tab.id}
             style={[
               {
+                borderRadius: 3,
                 flex: 1,
                 paddingVertical: 12,
                 alignItems: 'center',
+                justifyContent: 'center',
                 borderBottomWidth: 2,
-                borderBottomColor: 'transparent',
+                borderLeftWidth: 1,
+                borderLeftColor: '#e0e0e0',
+                borderRightWidth: 1,
+                borderRightColor: '#e0e0e0',
+                borderBottomColor: '#e0e0e0',
+                backgroundColor: '#fff',
               },
-              activeTab === tab.id && {borderBottomColor: colors.primary.dark},
+              activeTab === tab.id && {
+                borderBottomColor: colors.primary.dark,
+                backgroundColor: colors.primary.background,
+              },
             ]}
             onPress={() => setActiveTab(tab.id)}>
-            <Text
-              style={[
-                {fontSize: 14, color: '#666', fontWeight: '500'},
-                activeTab === tab.id && {
-                  color: colors.primary.dark,
-                  fontWeight: '600',
-                },
-              ]}>
-              {tab.label}
-            </Text>
+            <FontAwesomeIcon
+              icon={tab.icon}
+              size={SETTINGS_TAB_ICON_SIZE}
+              color={activeTab === tab.id ? colors.primary.dark : '#666'}
+            />
           </TouchableOpacity>
         ))}
       </View>

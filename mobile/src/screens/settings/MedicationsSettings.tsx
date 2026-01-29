@@ -254,6 +254,15 @@ export const MedicationsSettings: React.FC = () => {
 
   return (
     <ScrollView style={{flex: 1, padding: 20}}>
+      <Text
+        style={{
+          fontSize: 26,
+          fontWeight: '700',
+          color: colors.primary.dark,
+          marginBottom: 8,
+        }}>
+        Mediciner
+      </Text>
       {!usePatientContext && (
         <View style={{marginBottom: 20}}>
           <Text
