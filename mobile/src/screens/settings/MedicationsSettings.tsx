@@ -9,11 +9,17 @@ import {
 } from 'react-native';
 import {apiService} from '../../services/api';
 import {usePatient} from '../../contexts/PatientContext';
-import type {Medication} from '../../types/api';
+import type {Medication, Patient} from '../../types/api';
 import HPTextInput from '../../components/HPTextInput';
+import {colors} from '../../utils/theme';
 
 export const MedicationsSettings: React.FC = () => {
   const {patient, isCaretakerRole, isPatientRole} = usePatient();
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [selectedPatientId, setSelectedPatientId] = useState<number | null>(
+    null,
+  );
+  const [loadingPatients, setLoadingPatients] = useState(false);
   const [medications, setMedications] = useState<Medication[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -24,26 +30,63 @@ export const MedicationsSettings: React.FC = () => {
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
 
+  const usePatientContext = isPatientRole || !isCaretakerRole;
+  const effectivePatient = usePatientContext
+    ? patient
+    : (patients.find(p => p.id === selectedPatientId) ?? null);
+
+  const loadPatients = useCallback(async () => {
+    if (!isCaretakerRole || isPatientRole) {
+      return;
+    }
+    try {
+      setLoadingPatients(true);
+      const list = await apiService.getOrganisationPatients();
+      setPatients(list);
+      setSelectedPatientId(prev =>
+        list.length > 0
+          ? prev && list.some(p => p.id === prev)
+            ? prev
+            : list[0].id
+          : null,
+      );
+    } catch (error: any) {
+      Alert.alert('Fel', error.message || 'Kunde inte hämta patienter');
+      setPatients([]);
+    } finally {
+      setLoadingPatients(false);
+    }
+  }, [isCaretakerRole, isPatientRole]);
+
   const loadMedications = useCallback(async () => {
-    if (!patient?.id) {
+    const patientId = effectivePatient?.id;
+    if (!patientId) {
       setMedications([]);
       setLoading(false);
       return;
     }
     try {
       setLoading(true);
-      const data = await apiService.getMedications(patient.id);
+      const data = await apiService.getMedications(patientId);
       setMedications(data);
     } catch (error: any) {
       Alert.alert('Fel', error.message || 'Kunde inte hämta mediciner');
     } finally {
       setLoading(false);
     }
-  }, [patient]);
+  }, [effectivePatient?.id]);
+
+  useEffect(() => {
+    if (usePatientContext) {
+      setSelectedPatientId(patient?.id ?? null);
+    } else {
+      loadPatients();
+    }
+  }, [usePatientContext, patient?.id, loadPatients]);
 
   useEffect(() => {
     loadMedications();
-  }, [patient, loadMedications]);
+  }, [effectivePatient?.id, loadMedications]);
 
   const startCreate = () => {
     setShowCreate(true);
@@ -73,7 +116,7 @@ export const MedicationsSettings: React.FC = () => {
   };
 
   const handleSave = async () => {
-    if (!patient?.id) {
+    if (!effectivePatient?.id) {
       return;
     }
 
@@ -95,7 +138,7 @@ export const MedicationsSettings: React.FC = () => {
         Alert.alert('Lyckades', 'Medicin uppdaterad');
       } else {
         await apiService.createMedication(
-          patient.id,
+          effectivePatient.id,
           name.trim(),
           dosage.trim(),
           frequency.trim(),
@@ -135,7 +178,21 @@ export const MedicationsSettings: React.FC = () => {
     );
   };
 
-  if (isCaretakerRole && !isPatientRole) {
+  if (!usePatientContext && loadingPatients) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: 20,
+        }}>
+        <ActivityIndicator size="large" color="#007AFF" />
+      </View>
+    );
+  }
+
+  if (!usePatientContext && patients.length === 0) {
     return (
       <View
         style={{
@@ -152,14 +209,13 @@ export const MedicationsSettings: React.FC = () => {
             textAlign: 'center',
             padding: 20,
           }}>
-          Mediciner hanteras per patient. Välj en patient från dashboarden för
-          att se deras mediciner.
+          Inga patienter i din organisation ännu.
         </Text>
       </View>
     );
   }
 
-  if (!patient) {
+  if (!effectivePatient) {
     return (
       <View
         style={{
@@ -198,6 +254,41 @@ export const MedicationsSettings: React.FC = () => {
 
   return (
     <ScrollView style={{flex: 1, padding: 20}}>
+      {!usePatientContext && (
+        <View style={{marginBottom: 20}}>
+          <Text
+            style={{
+              fontSize: 14,
+              fontWeight: '500',
+              color: colors.primary.dark,
+              marginBottom: 8,
+            }}>
+            Välj patient:
+          </Text>
+          <TouchableOpacity
+            style={{
+              backgroundColor: '#f5f5f5',
+              borderRadius: 6,
+              padding: 12,
+              borderWidth: 1,
+              borderColor: '#ddd',
+            }}
+            onPress={() => {
+              Alert.alert('Välj patient', '', [
+                {text: 'Avbryt', style: 'cancel'},
+                ...patients.map(p => ({
+                  text: p.name,
+                  onPress: () => setSelectedPatientId(p.id),
+                })),
+              ]);
+            }}>
+            <Text style={{fontSize: 14, color: '#333'}}>
+              {effectivePatient?.name || 'Välj patient'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {!showCreate && !editingId && (
         <TouchableOpacity
           style={{
