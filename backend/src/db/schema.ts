@@ -77,6 +77,16 @@ export const patients = sqliteTable("patients", {
     .$defaultFn(() => new Date()),
 });
 
+export const patientPanic = sqliteTable("patient_panic", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  patientId: integer("patient_id")
+    .notNull()
+    .references(() => patients.id, { onDelete: "cascade" }),
+  triggeredAt: integer("triggered_at", { mode: "timestamp" }).notNull(),
+  acknowledgedAt: integer("acknowledged_at", { mode: "timestamp" }),
+  acknowledgedByUserId: integer("acknowledged_by_user_id").references(() => users.id),
+});
+
 export const patientUsers = sqliteTable(
   "patient_users",
   {
@@ -272,6 +282,8 @@ export type OrganisationUser = typeof organisationUsers.$inferSelect;
 export type NewOrganisationUser = typeof organisationUsers.$inferInsert;
 export type Caretaker = typeof caretakers.$inferSelect;
 export type NewCaretaker = typeof caretakers.$inferInsert;
+export type PatientPanic = typeof patientPanic.$inferSelect;
+export type NewPatientPanic = typeof patientPanic.$inferInsert;
 export type Patient = typeof patients.$inferSelect;
 export type NewPatient = typeof patients.$inferInsert;
 export type PatientUser = typeof patientUsers.$inferSelect;

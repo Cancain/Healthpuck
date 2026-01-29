@@ -594,6 +594,34 @@ export class ApiService {
     return this.request<Patient[]>('/api/organisations/patients');
   }
 
+  async getPanicStatus(): Promise<{hasActivePanic: boolean}> {
+    return this.request<{hasActivePanic: boolean}>(
+      '/api/patients/panic-status',
+    );
+  }
+
+  async triggerPanic(): Promise<{ok: boolean; patientId: number}> {
+    return this.request<{ok: boolean; patientId: number}>(
+      '/api/patients/panic',
+      {
+        method: 'POST',
+      },
+    );
+  }
+
+  async cancelPanic(): Promise<{ok: boolean}> {
+    return this.request<{ok: boolean}>('/api/patients/panic/cancel', {
+      method: 'POST',
+    });
+  }
+
+  async acknowledgePanic(patientId: number): Promise<{ok: boolean}> {
+    return this.request<{ok: boolean}>(
+      `/api/patients/${patientId}/panic/acknowledge`,
+      {method: 'POST'},
+    );
+  }
+
   async getPatientAlerts(patientId: number): Promise<ActiveAlert[]> {
     return this.getActiveAlerts(patientId);
   }

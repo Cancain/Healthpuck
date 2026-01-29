@@ -4,7 +4,14 @@ import fs from "fs";
 import path from "path";
 
 import { db } from "../db";
-import { deviceTokens, notificationPreferences, patientUsers, alerts } from "../db/schema";
+import {
+  deviceTokens,
+  notificationPreferences,
+  patientUsers,
+  alerts,
+  caretakers,
+  patients,
+} from "../db/schema";
 
 let firebaseApp: admin.app.App | null = null;
 
@@ -60,6 +67,54 @@ export async function getNotificationRecipients(patientId: number): Promise<numb
     .where(eq(patientUsers.patientId, patientId));
 
   return associations.map((a) => a.userId);
+}
+
+export async function getCaretakerUserIdsForOrganisation(
+  organisationId: number,
+): Promise<number[]> {
+  const result = await db
+    .select({ userId: caretakers.userId })
+    .from(caretakers)
+    .where(eq(caretakers.organisationId, organisationId));
+  return result.map((r) => r.userId);
+}
+
+export async function sendPanicNotification(patientId: number, patientName: string): Promise<void> {
+  const [patient] = await db
+    .select({ organisationId: patients.organisationId })
+    .from(patients)
+    .where(eq(patients.id, patientId))
+    .limit(1);
+  if (!patient?.organisationId) {
+    console.log(
+      `[Notification Service] Patient ${patientId} has no organisation, skipping panic push`,
+    );
+    return;
+  }
+  const caretakerUserIds = await getCaretakerUserIdsForOrganisation(patient.organisationId);
+  if (caretakerUserIds.length === 0) {
+    console.log(`[Notification Service] No caretakers in org for patient ${patientId}`);
+    return;
+  }
+  const title = "Alarm";
+  const body = `${patientName} har tryckt på alarmknappen.`;
+  const data: Record<string, string> = {
+    type: "panic",
+    patientId: String(patientId),
+  };
+  let successCount = 0;
+  let failCount = 0;
+  for (const userId of caretakerUserIds) {
+    const tokens = await getDeviceTokensForUser(userId);
+    for (const token of tokens) {
+      const success = await sendFCMNotification(token, title, body, data);
+      if (success) successCount++;
+      else failCount++;
+    }
+  }
+  console.log(
+    `[Notification Service] Panic ${patientId}: sent ${successCount}, failed ${failCount}`,
+  );
 }
 
 export async function shouldSendNotification(

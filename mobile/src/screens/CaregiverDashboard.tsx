@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useCallback} from 'react';
+import React, {useState, useEffect, useCallback, useRef} from 'react';
 import {
   View,
   Text,
@@ -6,8 +6,9 @@ import {
   RefreshControl,
   ActivityIndicator,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
-import {useNavigation} from '@react-navigation/native';
+import {useNavigation, useFocusEffect} from '@react-navigation/native';
 import type {BottomTabNavigationProp} from '@react-navigation/bottom-tabs';
 import {useAuth} from '../contexts/AuthContext';
 import {usePatient} from '../contexts/PatientContext';
@@ -35,6 +36,8 @@ export const CaregiverDashboardScreen: React.FC = () => {
   );
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [flashTick, setFlashTick] = useState(0);
+  const flashIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const loadPatients = useCallback(async () => {
     try {
@@ -135,6 +138,12 @@ export const CaregiverDashboardScreen: React.FC = () => {
     setLoading(false);
   }, [loadPatients]);
 
+  useFocusEffect(
+    useCallback(() => {
+      loadPatients();
+    }, [loadPatients]),
+  );
+
   useEffect(() => {
     expandedPatientIds.forEach(id => loadPatientData(id));
   }, [expandedPatientIds, loadPatientData]);
@@ -152,12 +161,41 @@ export const CaregiverDashboardScreen: React.FC = () => {
   };
 
   const getStatusIcon = (patient: PatientData): string => {
+    if (patient.hasActivePanic) {
+      return '🚨';
+    }
     const hasActiveAlerts = patient.activeAlerts.some(a => a.isActive);
     if (hasActiveAlerts) {
       return '🔴';
     }
     return '🟢';
   };
+
+  const handleAcknowledgePanic = useCallback(
+    async (patientId: number) => {
+      try {
+        await apiService.acknowledgePanic(patientId);
+        await loadPatients();
+        for (const id of expandedPatientIds) {
+          await loadPatientData(id);
+        }
+      } catch (error: any) {
+        Alert.alert('Fel', error.message || 'Kunde inte avsluta alarm');
+      }
+    },
+    [loadPatients, loadPatientData, expandedPatientIds],
+  );
+
+  useEffect(() => {
+    flashIntervalRef.current = setInterval(() => {
+      setFlashTick(t => t + 1);
+    }, 600);
+    return () => {
+      if (flashIntervalRef.current) {
+        clearInterval(flashIntervalRef.current);
+      }
+    };
+  }, []);
 
   if (loading) {
     return (
@@ -252,7 +290,10 @@ export const CaregiverDashboardScreen: React.FC = () => {
             <View
               key={patient.id}
               style={{
-                backgroundColor: colors.semantic.white,
+                backgroundColor:
+                  patient.hasActivePanic && flashTick % 2 === 0
+                    ? '#ffcccc'
+                    : colors.semantic.white,
                 borderRadius: 8,
                 marginBottom: 12,
                 overflow: 'hidden',
@@ -376,6 +417,27 @@ export const CaregiverDashboardScreen: React.FC = () => {
                           ))
                         )}
                       </View>
+
+                      {patient.hasActivePanic && (
+                        <TouchableOpacity
+                          style={{
+                            backgroundColor: '#DC3545',
+                            borderRadius: 8,
+                            padding: 12,
+                            alignItems: 'center',
+                            marginBottom: 12,
+                          }}
+                          onPress={() => handleAcknowledgePanic(patient.id)}>
+                          <Text
+                            style={{
+                              color: colors.semantic.white,
+                              fontSize: 16,
+                              fontWeight: '600',
+                            }}>
+                            Avsluta alarm
+                          </Text>
+                        </TouchableOpacity>
+                      )}
 
                       <TouchableOpacity
                         style={{

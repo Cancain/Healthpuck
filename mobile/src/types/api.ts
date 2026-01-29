@@ -9,6 +9,7 @@ export interface Patient {
   name: string;
   email?: string | null;
   role?: string;
+  hasActivePanic?: boolean;
 }
 
 export interface Medication {
