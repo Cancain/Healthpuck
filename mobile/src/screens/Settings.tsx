@@ -1,5 +1,6 @@
 import React, {useState, useEffect, useMemo} from 'react';
-import {View, Text, ScrollView, TouchableOpacity} from 'react-native';
+import {View, Text, ScrollView, TouchableOpacity, Platform} from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useRoute} from '@react-navigation/native';
 import {FontAwesomeIcon} from '@fortawesome/react-native-fontawesome';
 import type {IconProp} from '@fortawesome/fontawesome-svg-core';
@@ -37,6 +38,7 @@ const ALL_TABS: Array<{id: Tab; label: string; icon: IconProp}> = [
 ];
 
 export const SettingsScreen: React.FC = () => {
+  const insets = useSafeAreaInsets();
   const route = useRoute();
   const {logout} = useAuth();
   const {isCaretakerRole, isPatientRole} = usePatient();
@@ -99,6 +101,7 @@ export const SettingsScreen: React.FC = () => {
         style={{
           backgroundColor: '#fff',
           padding: 20,
+          paddingTop: Platform.OS === 'ios' ? Math.max(insets.top, 20) : 20,
           flexDirection: 'row',
           justifyContent: 'space-between',
           alignItems: 'center',

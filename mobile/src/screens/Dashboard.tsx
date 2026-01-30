@@ -7,7 +7,9 @@ import {
   ActivityIndicator,
   Alert,
   TouchableOpacity,
+  Platform,
 } from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useAuth} from '../contexts/AuthContext';
 import {usePatient} from '../contexts/PatientContext';
 import {apiService} from '../services/api';
@@ -26,6 +28,7 @@ import {WhoopMetricsCard} from '../components/WhoopMetricsCard';
 import {colors} from '../utils/theme';
 
 export const DashboardScreen: React.FC = () => {
+  const insets = useSafeAreaInsets();
   const {user} = useAuth();
   const {patient, isPatientRole} = usePatient();
   const [refreshing, setRefreshing] = useState(false);
@@ -369,6 +372,9 @@ export const DashboardScreen: React.FC = () => {
   return (
     <ScrollView
       style={{flex: 1, backgroundColor: colors.primary.background}}
+      contentContainerStyle={{
+        paddingTop: Platform.OS === 'ios' ? insets.top : 0,
+      }}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }>

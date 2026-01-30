@@ -1,5 +1,6 @@
 import React, {useEffect} from 'react';
 import {getApps} from '@react-native-firebase/app';
+import {SafeAreaProvider} from 'react-native-safe-area-context';
 import {AuthProvider} from './contexts/AuthContext';
 import {PatientProvider} from './contexts/PatientContext';
 import {AppNavigator} from './navigation/AppNavigator';
@@ -13,11 +14,13 @@ const App: React.FC = () => {
   }, []);
 
   return (
-    <AuthProvider>
-      <PatientProvider>
-        <AppNavigator />
-      </PatientProvider>
-    </AuthProvider>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <PatientProvider>
+          <AppNavigator />
+        </PatientProvider>
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 };
 

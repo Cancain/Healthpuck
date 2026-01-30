@@ -8,6 +8,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {useAuth} from '../contexts/AuthContext';
@@ -19,6 +20,7 @@ import {colors} from '../utils/theme';
 type NavigationProp = NativeStackNavigationProp<AuthStackParamList>;
 
 export const LoginScreen: React.FC = () => {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp>();
   const {login} = useAuth();
   const [email, setEmail] = useState('');
@@ -48,7 +50,13 @@ export const LoginScreen: React.FC = () => {
     <KeyboardAvoidingView
       style={{flex: 1, backgroundColor: colors.primary.background}}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <View style={{flex: 1, justifyContent: 'center', padding: 20}}>
+      <View
+        style={{
+          flex: 1,
+          justifyContent: 'center',
+          padding: 20,
+          paddingTop: Platform.OS === 'ios' ? Math.max(insets.top, 20) : 20,
+        }}>
         <View style={{alignItems: 'center', marginBottom: 16}}>
           <Logo size="large" />
         </View>

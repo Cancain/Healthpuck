@@ -7,7 +7,9 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Alert,
+  Platform,
 } from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useNavigation, useFocusEffect} from '@react-navigation/native';
 import type {BottomTabNavigationProp} from '@react-navigation/bottom-tabs';
 import {useAuth} from '../contexts/AuthContext';
@@ -27,6 +29,7 @@ interface PatientData extends Patient {
 type NavigationProp = BottomTabNavigationProp<MainTabParamList, 'Settings'>;
 
 export const CaregiverDashboardScreen: React.FC = () => {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp>();
   const {user} = useAuth();
   const {organisation} = usePatient();
@@ -211,6 +214,9 @@ export const CaregiverDashboardScreen: React.FC = () => {
   return (
     <ScrollView
       style={{flex: 1, backgroundColor: colors.primary.background}}
+      contentContainerStyle={{
+        paddingTop: Platform.OS === 'ios' ? insets.top : 0,
+      }}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }>

@@ -9,6 +9,7 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {useAuth} from '../contexts/AuthContext';
@@ -20,6 +21,7 @@ import {colors} from '../utils/theme';
 type NavigationProp = NativeStackNavigationProp<AuthStackParamList>;
 
 export const RegisterScreen: React.FC = () => {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp>();
   const {register} = useAuth();
   const [name, setName] = useState('');
@@ -61,7 +63,11 @@ export const RegisterScreen: React.FC = () => {
     <KeyboardAvoidingView
       style={{flex: 1, backgroundColor: colors.primary.background}}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <ScrollView contentContainerStyle={{flexGrow: 1}}>
+      <ScrollView
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingTop: Platform.OS === 'ios' ? Math.max(insets.top, 20) : 20,
+        }}>
         <View style={{flex: 1, justifyContent: 'center', padding: 20}}>
           <View style={{alignItems: 'center', marginBottom: 16}}>
             <Logo size="large" />

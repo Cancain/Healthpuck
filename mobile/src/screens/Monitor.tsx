@@ -9,6 +9,7 @@ import {
   PermissionsAndroid,
   Platform,
 } from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {bluetoothService, BluetoothDevice} from '../services/bluetooth';
 import {apiService} from '../services/api';
 import {authService} from '../services/auth';
@@ -20,6 +21,7 @@ interface MonitorScreenProps {
 }
 
 export const MonitorScreen: React.FC<MonitorScreenProps> = ({onLogout}) => {
+  const insets = useSafeAreaInsets();
   const [heartRate, setHeartRate] = useState<number | null>(null);
   const [connectionState, setConnectionState] =
     useState<string>('disconnected');
@@ -281,7 +283,11 @@ export const MonitorScreen: React.FC<MonitorScreenProps> = ({onLogout}) => {
   };
 
   return (
-    <ScrollView style={{flex: 1, backgroundColor: colors.primary.background}}>
+    <ScrollView
+      style={{flex: 1, backgroundColor: colors.primary.background}}
+      contentContainerStyle={{
+        paddingTop: Platform.OS === 'ios' ? insets.top : 0,
+      }}>
       <View
         style={{
           flexDirection: 'row',

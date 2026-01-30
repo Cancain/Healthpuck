@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useAuth} from '../contexts/AuthContext';
 import {usePatient} from '../contexts/PatientContext';
 import {apiService} from '../services/api';
@@ -23,6 +24,7 @@ interface InviteForm {
 }
 
 export const OnboardingScreen: React.FC = () => {
+  const insets = useSafeAreaInsets();
   const {user} = useAuth();
   const {refreshPatient} = usePatient();
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
@@ -251,7 +253,12 @@ export const OnboardingScreen: React.FC = () => {
     <KeyboardAvoidingView
       style={{flex: 1, backgroundColor: colors.primary.background}}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <ScrollView contentContainerStyle={{flexGrow: 1, padding: 20}}>
+      <ScrollView
+        contentContainerStyle={{
+          flexGrow: 1,
+          padding: 20,
+          paddingTop: Platform.OS === 'ios' ? Math.max(insets.top, 20) : 20,
+        }}>
         <View style={{alignItems: 'center', marginBottom: 20}}>
           <Logo size="large" />
         </View>
