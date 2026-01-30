@@ -63,7 +63,7 @@ router.get("/connect-url", authenticate, async (req: Request, res: Response) => 
         callbackURL = baseRedirectURI;
       } else {
         const protocol = baseRedirectURI.startsWith("https") ? "https" : "http";
-        const host = "192.168.83.164:3001";
+        const host = "localhost:3001";
         const path = "/api/integrations/whoop/callback";
         callbackURL = `${protocol}://${host}${path}`;
       }

@@ -3,7 +3,7 @@ import { eq, sql } from "drizzle-orm";
 
 import { authenticate, getUserIdFromRequest } from "../middleware/auth";
 import { db } from "../db";
-import { deviceTokens, notificationPreferences } from "../db/schema";
+import { deviceTokens, notificationPreferences, users } from "../db/schema";
 import { sendFCMNotification, getDeviceTokensForUser } from "../utils/notificationService";
 
 const router = Router();
@@ -42,6 +42,11 @@ router.post("/register", authenticate, async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Platform must be 'ios' or 'android'" });
     }
 
+    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
     const existing = await db
       .select()
       .from(deviceTokens)
@@ -62,30 +67,87 @@ router.post("/register", authenticate, async (req: Request, res: Response) => {
     }
 
     try {
-      const now = Math.floor(Date.now() / 1000);
-      await db.run(
-        sql`INSERT INTO device_tokens (user_id, token, platform, created_at, updated_at) VALUES (${userId}, ${token}, ${platform}, ${now}, ${now})`,
-      );
+      await db
+        .insert(deviceTokens)
+        .values({
+          userId,
+          token,
+          platform,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .returning();
+      res.json({ success: true, message: "Token registered" });
     } catch (insertError: any) {
+      const errorMessage = insertError?.message || String(insertError);
+      const errorCode = insertError?.code;
+      
       if (
-        insertError?.code === 19 ||
-        insertError?.message?.includes("UNIQUE constraint") ||
-        insertError?.message?.includes("unique constraint")
+        errorCode === 19 ||
+        errorMessage.includes("UNIQUE constraint") ||
+        errorMessage.includes("unique constraint") ||
+        errorMessage.includes("FOREIGN KEY constraint") ||
+        errorMessage.includes("Failed query")
       ) {
-        await db
-          .update(deviceTokens)
-          .set({
-            userId,
-            platform,
-            updatedAt: new Date(),
-          })
-          .where(eq(deviceTokens.token, token));
-        return res.json({ success: true, message: "Token updated" });
+        if (errorMessage.includes("FOREIGN KEY constraint")) {
+          console.error("Foreign key constraint failed. User ID:", userId);
+          return res.status(400).json({ 
+            error: "Invalid user ID",
+            message: "The user ID does not exist in the database" 
+          });
+        }
+        if (errorMessage.includes("Failed query") && errorMessage.includes('"id"')) {
+          try {
+            const now = Math.floor(Date.now() / 1000);
+            await db.run(
+              sql`INSERT INTO device_tokens (user_id, token, platform, created_at, updated_at) VALUES (${userId}, ${token}, ${platform}, ${now}, ${now})`,
+            );
+            return res.json({ success: true, message: "Token registered" });
+          } catch (rawInsertError: any) {
+            const rawErrorMessage = rawInsertError?.message || String(rawInsertError);
+            if (rawErrorMessage.includes("FOREIGN KEY constraint")) {
+              console.error("Foreign key constraint failed in raw insert. User ID:", userId);
+              return res.status(400).json({ 
+                error: "Invalid user ID",
+                message: "The user ID does not exist in the database" 
+              });
+            }
+            if (
+              rawInsertError?.code === 19 ||
+              rawErrorMessage.includes("UNIQUE constraint") ||
+              rawErrorMessage.includes("unique constraint")
+            ) {
+              await db
+                .update(deviceTokens)
+                .set({
+                  userId,
+                  platform,
+                  updatedAt: new Date(),
+                })
+                .where(eq(deviceTokens.token, token));
+              return res.json({ success: true, message: "Token updated" });
+            }
+            throw rawInsertError;
+          }
+        } else {
+          try {
+            await db
+              .update(deviceTokens)
+              .set({
+                userId,
+                platform,
+                updatedAt: new Date(),
+              })
+              .where(eq(deviceTokens.token, token));
+            return res.json({ success: true, message: "Token updated" });
+          } catch (updateError: any) {
+            console.error("Error updating device token:", updateError);
+            throw insertError;
+          }
+        }
       }
       throw insertError;
     }
-
-    res.json({ success: true, message: "Token registered" });
   } catch (error: any) {
     console.error("Error registering device token:", error);
     console.error("Error details:", {

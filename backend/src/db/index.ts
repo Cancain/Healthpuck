@@ -12,8 +12,19 @@ const authToken = process.env.TURSO_AUTH_TOKEN as string | undefined;
 const client = createClient({ url, authToken });
 export const db = drizzle(client, { schema });
 
+async function enableForeignKeys() {
+  try {
+    await client.execute("PRAGMA foreign_keys = ON");
+    const result = await client.execute("PRAGMA foreign_keys");
+    console.log("Foreign keys enabled:", result.rows[0]?.foreign_keys === 1);
+  } catch (error) {
+    console.warn("Could not enable foreign keys (may not be supported):", error);
+  }
+}
+
 export const initializeDatabase = async () => {
   try {
+    await enableForeignKeys();
     console.log("Running database migrations...");
     const migrationsFolder = path.resolve(__dirname, "./migrations");
     console.log(`Migrations folder path: ${migrationsFolder}`);
